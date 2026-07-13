@@ -385,11 +385,564 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   <div id="notificationList"></div>
 </div>
 
+<!-- STORE -->
+
+<div id="store" class="page">
+  <div id="storeContent"></div>
+</div>
+
 <!-- ADVERTISEMENTS -->
 
 <div id="advertisements" class="page">
   <div class="sectionTitle">Advertisements</div>
   <div id="advertisementList"></div>
+</div>
+
+<!-- ===================================================== -->
+<!-- FLOATING OVERLAY -->
+<!-- ===================================================== -->
+
+<div
+  id="floatingOverlay"
+  class="floatingOverlay"
+  onclick="closeFloatingMenu()">
+</div>
+
+<!-- ===================================================== -->
+<!-- FLOATING POST BUTTON + MENU -->
+<!-- ===================================================== -->
+
+<div class="fabContainer">
+
+  <div id="floatingMenu" class="floatingMenu">
+
+    <div
+      class="fabMenuItem"
+      onclick="openPostForm('product')">
+
+      <i class="material-icons">
+        shopping_bag
+      </i>
+
+      <span>Sell Product</span>
+
+    </div>
+
+    <div
+      class="fabMenuItem"
+      onclick="openPostForm('property')">
+
+      <i class="material-icons">
+        real_estate_agent
+      </i>
+
+      <span>Sell/Rent Property</span>
+
+    </div>
+
+    <div
+      class="fabMenuItem"
+      onclick="openPostForm('business')">
+
+      <i class="material-icons">
+        store
+      </i>
+
+      <span>Create Business</span>
+
+    </div>
+
+    <div
+      class="fabMenuItem"
+      onclick="openPostForm('news')">
+
+      <i class="material-icons">
+        newspaper
+      </i>
+
+      <span>Send News</span>
+
+    </div>
+
+    <div
+      class="fabMenuItem"
+      onclick="openPostForm('advertisement')">
+
+      <i class="material-icons">
+        campaign
+      </i>
+
+      <span>Create Ad</span>
+
+    </div>
+
+    <div
+      class="fabMenuItem"
+      onclick="openPostForm('promotion')">
+
+      <i class="material-icons">
+        trending_up
+      </i>
+
+      <span>Promote</span>
+
+    </div>
+
+  </div>
+
+  <button
+    id="fabButton"
+    class="fabButton"
+    onclick="toggleFloatingMenu()">
+
+    <i class="material-icons">
+      add
+    </i>
+
+  </button>
+
+</div>
+
+<!-- ===================================================== -->
+<!-- POST PRODUCT -->
+<!-- ===================================================== -->
+
+<div id="postProduct" class="page">
+
+  <div class="sectionTitle">
+    Sell Product
+  </div>
+
+  <div class="card">
+
+    <input
+      id="prodTitle"
+      placeholder="Product Title *">
+
+    <textarea
+      id="prodDesc"
+      placeholder="Description">
+    </textarea>
+
+    <input
+      id="prodPrice"
+      placeholder="Price *"
+      type="number">
+
+    <input
+      id="prodCategory"
+      placeholder="Category">
+
+    <select id="prodCondition">
+      <option value="New">New</option>
+      <option value="Like New">Like New</option>
+      <option value="Excellent">Excellent</option>
+      <option value="Good">Good</option>
+      <option value="Fair">Fair</option>
+      <option value="Used">Used</option>
+    </select>
+
+    <input
+      id="prodBrand"
+      placeholder="Brand">
+
+    <input
+      id="prodModel"
+      placeholder="Model">
+
+    <input
+      id="prodImage"
+      placeholder="Image URL">
+
+    <input
+      id="prodCity"
+      placeholder="City">
+
+    <input
+      id="prodState"
+      placeholder="State">
+
+    <input
+      id="prodPincode"
+      placeholder="Pincode">
+
+    <input
+      id="prodPhone"
+      placeholder="Phone">
+
+    <input
+      id="prodWhatsapp"
+      placeholder="WhatsApp">
+
+    <select id="prodDelivery">
+      <option value="No">Delivery Not Available</option>
+      <option value="Yes">Delivery Available</option>
+    </select>
+
+    <select id="prodCOD">
+      <option value="No">COD Not Available</option>
+      <option value="Yes">COD Available</option>
+    </select>
+
+    <select id="prodNegotiable">
+      <option value="No">Fixed Price</option>
+      <option value="Yes">Negotiable</option>
+    </select>
+
+    <button
+      onclick="submitProduct()">
+      Post Product
+    </button>
+
+    <button
+      class="btn-gray"
+      onclick="openPage('products')">
+      Cancel
+    </button>
+
+  </div>
+
+</div>
+
+<!-- ===================================================== -->
+<!-- POST PROPERTY -->
+<!-- ===================================================== -->
+
+<div id="postProperty" class="page">
+
+  <div class="sectionTitle">
+    Sell/Rent Property
+  </div>
+
+  <div class="card">
+
+    <select id="propType">
+      <option value="Apartment">Apartment</option>
+      <option value="House">House</option>
+      <option value="Villa">Villa</option>
+      <option value="Plot">Plot</option>
+      <option value="Commercial">Commercial</option>
+      <option value="Land">Land</option>
+      <option value="Other">Other</option>
+    </select>
+
+    <select id="propPurpose">
+      <option value="Sell">For Sale</option>
+      <option value="Rent">For Rent</option>
+    </select>
+
+    <input
+      id="propTitle"
+      placeholder="Property Title *">
+
+    <textarea
+      id="propDesc"
+      placeholder="Description">
+    </textarea>
+
+    <input
+      id="propPrice"
+      placeholder="Price *"
+      type="number">
+
+    <input
+      id="propBedrooms"
+      placeholder="Bedrooms"
+      type="number">
+
+    <input
+      id="propBathrooms"
+      placeholder="Bathrooms"
+      type="number">
+
+    <input
+      id="propArea"
+      placeholder="Area (sq ft)">
+
+    <input
+      id="propImages"
+      placeholder="Image URLs (comma separated)">
+
+    <textarea
+      id="propAddress"
+      placeholder="Address">
+    </textarea>
+
+    <input
+      id="propCity"
+      placeholder="City">
+
+    <input
+      id="propDistrict"
+      placeholder="District">
+
+    <input
+      id="propState"
+      placeholder="State">
+
+    <button
+      onclick="submitProperty()">
+      Post Property
+    </button>
+
+    <button
+      class="btn-gray"
+      onclick="openPage('home')">
+      Cancel
+    </button>
+
+  </div>
+
+</div>
+
+<!-- ===================================================== -->
+<!-- POST BUSINESS -->
+<!-- ===================================================== -->
+
+<div id="postBusiness" class="page">
+
+  <div class="sectionTitle">
+    Create Business
+  </div>
+
+  <div class="card">
+
+    <input
+      id="bizName"
+      placeholder="Business Name *">
+
+    <input
+      id="bizCategory"
+      placeholder="Category">
+
+    <textarea
+      id="bizDesc"
+      placeholder="Description">
+    </textarea>
+
+    <input
+      id="bizPhone"
+      placeholder="Phone">
+
+    <input
+      id="bizWhatsapp"
+      placeholder="WhatsApp">
+
+    <input
+      id="bizEmail"
+      placeholder="Email">
+
+    <textarea
+      id="bizAddress"
+      placeholder="Address">
+    </textarea>
+
+    <input
+      id="bizCity"
+      placeholder="City">
+
+    <input
+      id="bizState"
+      placeholder="State">
+
+    <input
+      id="bizPincode"
+      placeholder="Pincode">
+
+    <input
+      id="bizOpen"
+      placeholder="Opening Time (e.g. 09:00 AM)">
+
+    <input
+      id="bizClose"
+      placeholder="Closing Time (e.g. 09:00 PM)">
+
+    <button
+      onclick="submitBusiness()">
+      Create Business
+    </button>
+
+    <button
+      class="btn-gray"
+      onclick="openPage('businesses')">
+      Cancel
+    </button>
+
+  </div>
+
+</div>
+
+<!-- ===================================================== -->
+<!-- POST NEWS -->
+<!-- ===================================================== -->
+
+<div id="postNews" class="page">
+
+  <div class="sectionTitle">
+    Send News
+  </div>
+
+  <div class="card">
+
+    <input
+      id="newsTitle"
+      placeholder="News Title *">
+
+    <textarea
+      id="newsContent"
+      placeholder="News Content *">
+    </textarea>
+
+    <input
+      id="newsCategory"
+      placeholder="Category">
+
+    <input
+      id="newsImage"
+      placeholder="Image URL">
+
+    <input
+      id="newsCity"
+      placeholder="City">
+
+    <button
+      onclick="submitNews()">
+      Submit News
+    </button>
+
+    <button
+      class="btn-gray"
+      onclick="openPage('news')">
+      Cancel
+    </button>
+
+  </div>
+
+</div>
+
+<!-- ===================================================== -->
+<!-- POST ADVERTISEMENT -->
+<!-- ===================================================== -->
+
+<div id="postAdvertisement" class="page">
+
+  <div class="sectionTitle">
+    Create Advertisement
+  </div>
+
+  <div class="card">
+
+    <input
+      id="adTitle"
+      placeholder="Ad Title *">
+
+    <textarea
+      id="adDesc"
+      placeholder="Description">
+    </textarea>
+
+    <input
+      id="adImage"
+      placeholder="Image URL">
+
+    <input
+      id="adExternal"
+      placeholder="External Link URL">
+
+    <select id="adType">
+      <option value="Banner">Banner</option>
+      <option value="Popup">Popup</option>
+      <option value="PIP">PIP</option>
+    </select>
+
+    <input
+      id="adCity"
+      placeholder="City">
+
+    <button
+      onclick="submitAdvertisement()">
+      Submit Ad
+    </button>
+
+    <button
+      class="btn-gray"
+      onclick="openPage('home')">
+      Cancel
+    </button>
+
+  </div>
+
+</div>
+
+<!-- ===================================================== -->
+<!-- POST PROMOTION -->
+<!-- ===================================================== -->
+
+<div id="postPromotion" class="page">
+
+  <div class="sectionTitle">
+    Create Promotion Campaign
+  </div>
+
+  <div class="card">
+
+    <select id="promoType">
+      <option value="Product">Product</option>
+      <option value="Business">Business</option>
+      <option value="Property">Property</option>
+      <option value="Advertisement">Advertisement</option>
+    </select>
+
+    <select id="promoTargetType">
+      <option value="Product">Product</option>
+      <option value="Business">Business</option>
+      <option value="Property">Property</option>
+    </select>
+
+    <input
+      id="promoTargetId"
+      placeholder="Target ID (Product/Business/Property ID)">
+
+    <input
+      id="promoCoins"
+      placeholder="Coins to Spend *"
+      type="number">
+
+    <select id="promoRadius">
+      <option value="1">1 KM</option>
+      <option value="5">5 KM</option>
+      <option value="10">10 KM</option>
+      <option value="25">25 KM</option>
+      <option value="51">51 KM</option>
+      <option value="100">100 KM</option>
+      <option value="All India">All India</option>
+    </select>
+
+    <input
+      id="promoCity"
+      placeholder="City">
+
+    <input
+      id="promoStart"
+      placeholder="Start Date (YYYY-MM-DD) *">
+
+    <input
+      id="promoEnd"
+      placeholder="End Date (YYYY-MM-DD) *">
+
+    <button
+      onclick="submitPromotion()">
+      Create Campaign
+    </button>
+
+    <button
+      class="btn-gray"
+      onclick="openPage('home')">
+      Cancel
+    </button>
+
+  </div>
+
 </div>
 
 </main>
@@ -465,7 +1018,8 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 <script src="Profile.js"></script>
 <script src="Notification.js"></script>
 <script src="Ads.js"></script>
+<script src="Post.js"></script>
+<script src="Store.js"></script>
 
 </body>
 </html>
-

@@ -86,6 +86,12 @@ async function loadBusinesses() {
             View Details
           </button>
 
+          <button
+            onclick='openStorePage(${JSON.stringify(business)})'
+            style="background:#0f9d58;">
+            Visit Store
+          </button>
+
         </div>
         `;
       }

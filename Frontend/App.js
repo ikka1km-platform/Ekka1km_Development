@@ -304,6 +304,20 @@ function loadAll() {
   ) {
     loadNotifications();
   }
+
+  if (
+    typeof loadAdvertisements ===
+    "function"
+  ) {
+    loadAdvertisements();
+  }
+
+  if (
+    typeof loadPipAd ===
+    "function"
+  ) {
+    loadPipAd();
+  }
 }
 
 

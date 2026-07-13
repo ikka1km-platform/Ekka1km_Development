@@ -398,6 +398,179 @@ li{
 }
 
 /* ==========================================================
+   STORE PAGE
+========================================================== */
+
+.storeHeader{
+  background:#fff;
+  border-radius:18px;
+  overflow:hidden;
+  box-shadow:var(--shadow);
+  margin-bottom:15px;
+}
+
+.storeCover{
+  height:150px;
+  overflow:hidden;
+}
+
+.storeCoverImg{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.storeCoverPlaceholder{
+  width:100%;
+  height:100%;
+  background:linear-gradient(135deg,#0f9d58,#1db954);
+}
+
+.storeInfo{
+  padding:15px;
+  text-align:center;
+  position:relative;
+}
+
+.storeLogo{
+  width:80px;
+  height:80px;
+  border-radius:50%;
+  object-fit:cover;
+  border:3px solid #fff;
+  margin-top:-50px;
+  box-shadow:0 4px 10px rgba(0,0,0,.1);
+}
+
+.storeLogoPlaceholder{
+  width:80px;
+  height:80px;
+  border-radius:50%;
+  background:var(--primary);
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:32px;
+  font-weight:700;
+  margin:-50px auto 10px;
+  border:3px solid #fff;
+  box-shadow:0 4px 10px rgba(0,0,0,.1);
+}
+
+.storeName{
+  font-size:22px;
+  margin-bottom:4px;
+}
+
+.storeCategory{
+  color:var(--gray);
+  font-size:14px;
+}
+
+.storeStats{
+  color:var(--gray);
+  font-size:13px;
+  margin-top:6px;
+}
+
+/* ==========================================================
+   FLOATING ACTION BUTTON
+========================================================== */
+
+.fabContainer{
+  position:fixed;
+  bottom:85px;
+  right:15px;
+  z-index:9999;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+}
+
+.fabButton{
+  width:60px;
+  height:60px;
+  border-radius:50%;
+  background:var(--primary);
+  color:#fff;
+  border:none;
+  box-shadow:0 4px 15px rgba(15,157,88,.4);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:.3s;
+  margin:0;
+  padding:0;
+  position:relative;
+  z-index:2;
+}
+
+.fabButton i{
+  font-size:30px;
+  transition:.3s;
+}
+
+.fabButton.open i{
+  transform:rotate(45deg);
+}
+
+.floatingMenu{
+  position:absolute;
+  bottom:70px;
+  right:0;
+  background:#fff;
+  border-radius:18px;
+  box-shadow:0 8px 30px rgba(0,0,0,.15);
+  padding:10px 0;
+  min-width:220px;
+  opacity:0;
+  visibility:hidden;
+  transform:translateY(20px) scale(.95);
+  transition:.3s cubic-bezier(.4,0,.2,1);
+  z-index:1;
+}
+
+.floatingMenu.open{
+  opacity:1;
+  visibility:visible;
+  transform:translateY(0) scale(1);
+}
+
+.fabMenuItem{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px 20px;
+  cursor:pointer;
+  transition:.2s;
+  font-size:14px;
+  font-weight:500;
+  color:#333;
+}
+
+.fabMenuItem:hover{
+  background:#f0fdf4;
+}
+
+.fabMenuItem i{
+  font-size:22px;
+  color:var(--primary);
+}
+
+.floatingOverlay{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  background:rgba(0,0,0,.3);
+  z-index:9998;
+  display:none;
+}
+
+/* ==========================================================
    SCROLLBAR
 ========================================================== */
 
