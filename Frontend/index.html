@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1.0">
+
+<title>Ekka1km Trial App</title>
+
+<link
+rel="icon"
+href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
+
+<link
+  href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+  rel="stylesheet">
+
+<link
+  href="https://fonts.googleapis.com/icon?family=Material+Icons"
+  rel="stylesheet">
+
+<link
+  rel="stylesheet"
+  href="Style.css">
+</head>
+
+<body>
+
+<header id="appHeader">
+
+  <div class="logo">
+
+    <img
+  src="https://dummyimage.com/100x100/0f9d58/ffffff.png&text=E">
+
+    <div>
+      <h2 style="color:#0f9d58">
+        Ekka1km
+      </h2>
+
+      <small>
+        Where Local Life Comes Together.
+      </small>
+    </div>
+
+  </div>
+
+  <div class="radiusBox">
+
+    <select id="radius">
+
+      <option value="1">1 KM</option>
+      <option value="5">5 KM</option>
+      <option value="10">10 KM</option>
+      <option value="25">25 KM</option>
+      <option value="51" selected>51 KM</option>
+      <option value="100">100 KM</option>
+      <option value="All India">All India</option>
+
+    </select>
+
+  </div>
+
+</header>
+
+<main>
+
+<!-- ===================================================== -->
+<!-- LOGIN -->
+<!-- ===================================================== -->
+
+<div id="login" class="page">
+
+  <div class="sectionTitle">
+    Login
+  </div>
+
+  <div class="card">
+
+    <input
+      id="loginMobile"
+      placeholder="Mobile Number">
+
+    <input
+      id="loginPassword"
+      type="password"
+      placeholder="Password">
+
+    <button
+      onclick="loginUser()">
+      Login
+    </button>
+
+    <button
+      class="btn-gray"
+      onclick="openPage('register')">
+      Create Account
+    </button>
+
+    <button
+      class="btn-gray"
+      onclick="openPage('home')">
+      Continue As Guest
+    </button>
+
+  </div>
+
+</div>
+
+<!-- ===================================================== -->
+<!-- REGISTER -->
+<!-- ===================================================== -->
+
+<div id="register" class="page">
+
+  <div class="sectionTitle">
+    Register
+  </div>
+
+  <div class="card">
+
+    <input
+      id="regName"
+      placeholder="Full Name">
+
+    <input
+      id="regMobile"
+      placeholder="Mobile Number">
+
+    <input
+      id="regEmail"
+      placeholder="Email">
+
+    <input
+      id="regPassword"
+      type="password"
+      placeholder="Password">
+
+    <button
+      onclick="registerUser()">
+      Register
+    </button>
+
+    <button
+      class="btn-gray"
+      onclick="openPage('login')">
+      Back To Login
+    </button>
+
+  </div>
+
+</div>
+
+<!-- ===================================================== -->
+<!-- HOME -->
+<!-- ===================================================== -->
+
+<div id="home" class="page">
+
+  <div class="searchBox">
+
+    <input
+      placeholder="Search nearby products, news and businesses">
+
+  </div>
+
+  <div class="banner">
+
+    <h2>
+      Welcome to Ekka1km
+    </h2>
+
+    <p>
+      Discover everything around your selected GPS radius.
+    </p>
+
+    <p
+      id="gpsText"
+      style="margin-top:10px">
+
+      GPS: Detecting...
+
+    </p>
+
+  </div>
+
+  <div class="community">
+
+    <div
+      class="card login-only">
+
+      <h3>Wallet</h3>
+
+      <h1 id="walletHome">
+        0
+      </h1>
+
+    </div>
+
+    <div
+      class="card login-only">
+
+      <h3>Coins</h3>
+
+      <h1 id="coinsHome">
+        0
+      </h1>
+
+    </div>
+
+    <div
+      class="card guest-only">
+
+      <h3>
+        Guest User
+      </h3>
+
+      <h1>
+        👤
+      </h1>
+
+    </div>
+
+  </div>
+
+  <div class="sectionTitle">
+    Explore
+  </div>
+
+  <div class="grid">
+
+    <div
+      class="menuCard"
+      onclick="openPage('products')">
+
+      <i class="material-icons">
+        shopping_bag
+      </i>
+
+      <h4>
+        Products
+      </h4>
+
+    </div>
+
+    <div
+      class="menuCard"
+      onclick="openPage('businesses')">
+
+      <i class="material-icons">
+        store
+      </i>
+
+      <h4>
+        Businesses
+      </h4>
+
+    </div>
+
+    <div
+      class="menuCard"
+      onclick="openPage('news')">
+
+      <i class="material-icons">
+        newspaper
+      </i>
+
+      <h4>
+        News
+      </h4>
+
+    </div>
+
+    <div
+      class="menuCard"
+      onclick="openPage('live')">
+
+      <i class="material-icons">
+        live_tv
+      </i>
+
+      <h4>
+        Live
+      </h4>
+
+    </div>
+
+    <div
+      class="menuCard"
+      onclick="openPage('wallet')">
+
+      <i class="material-icons">
+        account_balance_wallet
+      </i>
+
+      <h4>
+        Wallet
+      </h4>
+
+    </div>
+
+    <div
+      class="menuCard"
+      onclick="openPage('notifications')">
+
+      <i class="material-icons">
+        notifications
+      </i>
+
+      <h4>
+        Notifications
+      </h4>
+
+    </div>
+
+    <div
+      class="menuCard"
+      onclick="openPage('profile')">
+
+      <i class="material-icons">
+        person
+      </i>
+
+      <h4>
+        Profile
+      </h4>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- PRODUCTS -->
+
+<div id="products" class="page">
+  <div class="sectionTitle">Products</div>
+  <div id="productList"></div>
+</div>
+
+<!-- BUSINESSES -->
+
+<div id="businesses" class="page">
+  <div class="sectionTitle">Businesses</div>
+  <div id="businessList"></div>
+</div>
+
+<!-- NEWS -->
+
+<div id="news" class="page">
+  <div class="sectionTitle">News</div>
+  <div id="newsList"></div>
+</div>
+
+<!-- LIVE -->
+
+<div id="live" class="page">
+  <div class="sectionTitle">Live TV</div>
+  <div id="liveList">
+    <div class="card">
+      Live module ready.
+    </div>
+  </div>
+</div>
+
+<!-- WALLET -->
+
+<div id="wallet" class="page">
+  <div class="sectionTitle">Wallet</div>
+  <div id="walletCard"></div>
+</div>
+
+<!-- PROFILE -->
+
+<div id="profile" class="page">
+  <div class="sectionTitle">Profile</div>
+  <div id="profileCard"></div>
+</div>
+
+<!-- NOTIFICATIONS -->
+
+<div id="notifications" class="page">
+  <div class="sectionTitle">Notifications</div>
+  <div id="notificationList"></div>
+</div>
+
+<!-- ADVERTISEMENTS -->
+
+<div id="advertisements" class="page">
+  <div class="sectionTitle">Advertisements</div>
+  <div id="advertisementList"></div>
+</div>
+
+</main>
+
+<div
+  class="bottomNav"
+  id="bottomNav">
+
+  <div
+    onclick="openPage('home')">
+
+    <i class="material-icons">
+      home
+    </i>
+
+    <span>Home</span>
+
+  </div>
+
+  <div
+    onclick="openPage('products')">
+
+    <i class="material-icons">
+      shopping_bag
+    </i>
+
+    <span>Products</span>
+
+  </div>
+
+  <div
+    onclick="openPage('news')">
+
+    <i class="material-icons">
+      newspaper
+    </i>
+
+    <span>News</span>
+
+  </div>
+
+  <div
+    onclick="openPage('live')">
+
+    <i class="material-icons">
+      live_tv
+    </i>
+
+    <span>Live</span>
+
+  </div>
+
+  <div
+    onclick="openPage('profile')">
+
+    <i class="material-icons">
+      person
+    </i>
+
+    <span>Profile</span>
+
+  </div>
+
+</div>
+
+<script src="Config.js"></script>
+<script src="App.js"></script>
+<script src="Auth.js"></script>
+<script src="Products.js"></script>
+<script src="Businesses.js"></script>
+<script src="News.js"></script>
+<script src="Wallet.js"></script>
+<script src="Profile.js"></script>
+<script src="Notification.js"></script>
+<script src="Ads.js"></script>
+
+</body>
+</html>
+

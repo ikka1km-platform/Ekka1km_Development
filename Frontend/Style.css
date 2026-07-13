@@ -1,0 +1,458 @@
+/*
+============================================================
+EKKA1KM FRONTEND
+Style.css
+Global Styles
+V1.1 Trial
+Guest Mode + Mobile Polish
+============================================================
+*/
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:'Poppins',sans-serif;
+}
+
+body{
+  background:#f5f5f5;
+  color:#222;
+  overflow-x:hidden;
+}
+
+/* ==========================================================
+   ROOT
+========================================================== */
+
+:root{
+  --primary:#0f9d58;
+  --primary-dark:#087f46;
+  --card:#ffffff;
+  --shadow:0 4px 15px rgba(0,0,0,.08);
+  --danger:#d32f2f;
+  --gray:#666;
+  --light:#fafafa;
+}
+
+/* ==========================================================
+   HEADER
+========================================================== */
+
+header{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  height:70px;
+  background:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px;
+  box-shadow:var(--shadow);
+  z-index:999;
+}
+
+.logo{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.logo img{
+  width:45px;
+  height:45px;
+  border-radius:50%;
+}
+
+.logo h2{
+  font-size:20px;
+}
+
+.logo small{
+  color:#666;
+  font-size:11px;
+}
+
+.radiusBox{
+  background:#e8f5e9;
+  padding:8px 12px;
+  border-radius:12px;
+}
+
+.radiusBox select{
+  border:none;
+  background:transparent;
+  font-weight:600;
+  font-size:13px;
+}
+
+/* ==========================================================
+   MAIN
+========================================================== */
+
+main{
+  padding-top:90px;
+  padding-bottom:90px;
+}
+
+.page{
+  display:none;
+  padding:15px;
+}
+
+.activePage{
+  display:block;
+}
+
+/* ==========================================================
+   CARDS
+========================================================== */
+
+.card,
+.product,
+.newsCard{
+  background:#fff;
+  padding:15px;
+  border-radius:18px;
+  box-shadow:var(--shadow);
+  margin-bottom:15px;
+}
+
+.card h1{
+  color:var(--primary);
+}
+
+.card h2{
+  margin-bottom:8px;
+}
+
+.card h3{
+  margin-bottom:5px;
+}
+
+.card p{
+  margin-top:6px;
+  color:#555;
+  line-height:1.5;
+}
+
+/* ==========================================================
+   SEARCH
+========================================================== */
+
+.searchBox input{
+  width:100%;
+  padding:15px;
+  border:none;
+  border-radius:15px;
+  box-shadow:var(--shadow);
+  background:#fff;
+}
+
+/* ==========================================================
+   BANNER
+========================================================== */
+
+.banner{
+  margin-top:15px;
+  background:linear-gradient(
+    135deg,
+    #0f9d58,
+    #1db954
+  );
+  color:#fff;
+  padding:22px;
+  border-radius:20px;
+}
+
+.banner p{
+  margin-top:10px;
+}
+
+/* ==========================================================
+   COMMUNITY
+========================================================== */
+
+.community{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:15px;
+  margin-top:15px;
+}
+
+/* ==========================================================
+   GRID
+========================================================== */
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:15px;
+  margin-top:15px;
+}
+
+.menuCard{
+  background:#fff;
+  padding:22px 15px;
+  border-radius:20px;
+  text-align:center;
+  box-shadow:var(--shadow);
+  cursor:pointer;
+  transition:.2s;
+}
+
+.menuCard:active{
+  transform:scale(.98);
+}
+
+.menuCard i{
+  font-size:40px;
+  color:var(--primary);
+}
+
+.menuCard h4{
+  margin-top:10px;
+  font-size:15px;
+}
+
+/* ==========================================================
+   SECTION
+========================================================== */
+
+.sectionTitle{
+  font-size:22px;
+  font-weight:700;
+  margin-bottom:15px;
+}
+
+/* ==========================================================
+   BUTTONS
+========================================================== */
+
+button{
+  width:100%;
+  margin-top:10px;
+  padding:13px;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+  background:var(--primary);
+  color:#fff;
+  font-size:15px;
+  font-weight:500;
+  transition:.2s;
+}
+
+button:hover{
+  opacity:.92;
+}
+
+.btn-danger{
+  background:var(--danger);
+}
+
+.btn-gray{
+  background:var(--gray);
+}
+
+/* ==========================================================
+   INPUTS
+========================================================== */
+
+input,
+textarea,
+select{
+  width:100%;
+  padding:13px;
+  border:1px solid #ddd;
+  border-radius:12px;
+  margin-bottom:12px;
+  outline:none;
+  background:#fff;
+}
+
+input:focus,
+textarea:focus{
+  border-color:var(--primary);
+}
+
+textarea{
+  min-height:120px;
+  resize:vertical;
+}
+
+/* ==========================================================
+   BADGES
+========================================================== */
+
+.badge{
+  display:inline-block;
+  background:#e8f5e9;
+  color:var(--primary);
+  padding:5px 10px;
+  border-radius:20px;
+  font-size:12px;
+  margin-top:8px;
+}
+
+/* ==========================================================
+   IMAGES
+========================================================== */
+
+img{
+  max-width:100%;
+}
+
+.card img,
+.product img,
+.newsCard img{
+  border-radius:15px;
+}
+
+/* ==========================================================
+   IFRAME
+========================================================== */
+
+iframe{
+  width:100%;
+  height:250px;
+  border:none;
+  border-radius:18px;
+}
+
+/* ==========================================================
+   LISTS
+========================================================== */
+
+ul{
+  margin-top:10px;
+  margin-left:20px;
+}
+
+li{
+  margin-bottom:8px;
+}
+
+/* ==========================================================
+   GUEST / LOGIN VISIBILITY
+========================================================== */
+
+.login-only{
+  display:none;
+}
+
+.guest-only{
+  display:block;
+}
+
+/* ==========================================================
+   BOTTOM NAV
+========================================================== */
+
+.bottomNav{
+  position:fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  height:70px;
+  background:#fff;
+  display:flex;
+  justify-content:space-around;
+  align-items:center;
+  box-shadow:0 -3px 12px rgba(0,0,0,.1);
+  z-index:999;
+}
+
+.bottomNav div{
+  text-align:center;
+  cursor:pointer;
+  flex:1;
+}
+
+.bottomNav i{
+  color:var(--primary);
+}
+
+.bottomNav span{
+  display:block;
+  font-size:11px;
+  margin-top:3px;
+}
+
+/* ==========================================================
+   PIP ADS
+========================================================== */
+
+#pipAdContainer{
+  position:fixed;
+  bottom:80px;
+  right:10px;
+  width:180px;
+  background:#fff;
+  border-radius:15px;
+  box-shadow:0 4px 15px rgba(0,0,0,.2);
+  overflow:hidden;
+  z-index:99999;
+}
+
+/* ==========================================================
+   SCROLLBAR
+========================================================== */
+
+::-webkit-scrollbar{
+  width:5px;
+}
+
+::-webkit-scrollbar-thumb{
+  background:#ccc;
+  border-radius:20px;
+}
+
+/* ==========================================================
+   MOBILE
+========================================================== */
+
+@media(max-width:600px){
+
+  header{
+    height:70px;
+    padding:10px;
+  }
+
+  .logo h2{
+    font-size:18px;
+  }
+
+  .logo small{
+    display:none;
+  }
+
+  .grid{
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+  }
+
+  .community{
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+  }
+
+  .menuCard{
+    padding:18px 10px;
+  }
+
+  .menuCard i{
+    font-size:34px;
+  }
+
+  .sectionTitle{
+    font-size:20px;
+  }
+
+  .bottomNav span{
+    font-size:10px;
+  }
+}
+

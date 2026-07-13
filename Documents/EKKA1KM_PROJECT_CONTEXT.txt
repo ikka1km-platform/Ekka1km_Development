@@ -1,0 +1,51 @@
+PROJECT NAME: Ekka1km
+TAGLINE: Where Local Life Comes Together.
+
+CURRENT VERSION: V5.8.2
+
+BACKEND:
+Google Apps Script
+Google Sheets Database
+
+FRONTEND:
+index.html
+app.js
+config.js
+style.css
+
+PLATFORM:
+Browser Simulator
+AppCreator24
+
+RULES:
+1. Full replaceable files only.
+2. One file at a time.
+3. No unnecessary folders/files.
+4. Browser simulator compatible.
+5. AppCreator24 compatible.
+6. Explain simply.
+
+COMPLETED:
+Products
+Businesses
+Properties
+News
+Wallet
+Rewards
+Advertisements
+GPS Radius Engine
+Live Module
+AppCreator APIs
+
+PENDING:
+Login/Register
+Session System
+Notifications
+Search Screen
+Reward Screen
+Advertisement Screen
+PIP Ads
+Final Integration Testing
+
+CURRENT DEPLOYMENT URL:
+PASTE NEW URL HERE
