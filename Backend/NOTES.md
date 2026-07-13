@@ -8,7 +8,7 @@ App Name:
 Ekka1km
 
 Current Version:
-V5.6.1.1
+V5.8.2
 
 Tagline:
 Where Local Life Comes Together.
@@ -19,13 +19,13 @@ DEPLOYMENT
 ==================================================
 
 Deployment URL:
-https://script.google.com/macros/s/AKfycbwJlT_3U4IozomHGhg6JfYFqrgRy1SN6HttRVymFDdR7VXp1iVnGUpM5M9TzQ168y-JkQ/exec
+https://script.google.com/macros/s/AKfycbwJL8TGAbUPWalbYLlSDu49348XmuvyplQrggKe42vkWwitE6XMTL14bzXk7VQAbl8kRw/exec
 
 Spreadsheet ID:
-1PX5VZaxYXQJIzSwKVUxflDCI5YLDii5N
+1MXxrtbU5g9t1979aoBnlVsWAI5VIHbu_
 
 Script ID:
-PASTE_YOUR_ACTUAL_SCRIPT_ID_HERE
+1rz6xWK8yrRxu9aI-unpn7uMPxjshAN5arIp8VAxofIiXGc-LF89DCoBi
 
 
 ==================================================
@@ -58,13 +58,13 @@ git tag tag-name
 QUICK HEALTH CHECK
 ==================================================
 
-https://script.google.com/macros/s/AKfycbwJlT_3U4IozomHGhg6JfYFqrgRy1SN6HttRVymFDdR7VXp1iVnGUpM5M9TzQ168y-JkQ/exec?action=test
+https://script.google.com/macros/s/AKfycbwJL8TGAbUPWalbYLlSDu49348XmuvyplQrggKe42vkWwitE6XMTL14bzXk7VQAbl8kRw/exec?action=test
 
-https://script.google.com/macros/s/AKfycbwJlT_3U4IozomHGhg6JfYFqrgRy1SN6HttRVymFDdR7VXp1iVnGUpM5M9TzQ168y-JkQ/exec?action=health
+https://script.google.com/macros/s/AKfycbwJL8TGAbUPWalbYLlSDu49348XmuvyplQrggKe42vkWwitE6XMTL14bzXk7VQAbl8kRw/exec?action=health
 
-https://script.google.com/macros/s/AKfycbwJlT_3U4IozomHGhg6JfYFqrgRy1SN6HttRVymFDdR7VXp1iVnGUpM5M9TzQ168y-JkQ/exec?action=selftest
+https://script.google.com/macros/s/AKfycbwJL8TGAbUPWalbYLlSDu49348XmuvyplQrggKe42vkWwitE6XMTL14bzXk7VQAbl8kRw/exec?action=selftest
 
-https://script.google.com/macros/s/AKfycbwJlT_3U4IozomHGhg6JfYFqrgRy1SN6HttRVymFDdR7VXp1iVnGUpM5M9TzQ168y-JkQ/exec?action=adminhealth
+https://script.google.com/macros/s/AKfycbwJL8TGAbUPWalbYLlSDu49348XmuvyplQrggKe42vkWwitE6XMTL14bzXk7VQAbl8kRw/exec?action=adminhealth
 
 
 ==================================================
@@ -133,4 +133,3 @@ DEPLOYMENT CHECKLIST
 5. git commit
 6. git branch backup/...
 7. git tag ...
-

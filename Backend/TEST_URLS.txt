@@ -1,5 +1,5 @@
 BASE_URL
-https://script.google.com/macros/s/AKfycbwJlT_3U4IozomHGhg6JfYFqrgRy1SN6HttRVymFDdR7VXp1iVnGUpM5M9TzQ168y-JkQ/exec
+https://script.google.com/macros/s/AKfycbwJL8TGAbUPWalbYLlSDu49348XmuvyplQrggKe42vkWwitE6XMTL14bzXk7VQAbl8kRw/exec
 
 
 ==============================
@@ -87,4 +87,3 @@ LIVE CHAT
 ==============================
 
 ?action=getlivechat&liveId=1
-
