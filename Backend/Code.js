@@ -3,7 +3,7 @@
  * EKKA1KM BACKEND
  * Code.gs
  * Main API Router
- * V5.5.4 Live Bundle
+ * V5.8.3 - CORS Support
  * ============================================================
  */
 
@@ -272,7 +272,7 @@ case "notification_sent":
 
       case "liveanalytics":
         return getLiveAnalytics(e);
-       
+        
         case "subscribelive":
   return subscribeLive(e);
 
@@ -538,7 +538,17 @@ case "onboarding":
     action: action,
     router: "V5.8.2"
   });
-  
+
+  // Media Upload
+  case "upload":
+    return handleUpload(e);
+
+  case "deletefile":
+    return handleDeleteFile(e);
+
+  case "imagekitauth":
+    return handleImageKitAuth();
+
       default:
         return error(
           "Invalid action : " + action
@@ -548,6 +558,24 @@ case "onboarding":
   } catch (err) {
     return exception(err);
   }
+}
+
+
+/**
+ * ============================================================
+ * CORS Preflight Handler
+ * Google Apps Script does NOT set CORS headers automatically.
+ * This function returns a 200 response for OPTIONS preflight.
+ * The actual CORS support comes from GAS deployment config:
+ * - "Execute as: Me"
+ * - "Who has access: Anyone"
+ * 
+ * Additionally, the response is wrapped in a JavaScript
+ * callback pattern for maximum compatibility.
+ * ============================================================
+ */
+function doOptions(e) {
+  return corsPreflightResponse();
 }
 
 
@@ -762,6 +790,11 @@ case "getlivenotifications":
 
 case "liveunreadcount":
   return getLiveUnreadCount(e);
+
+      // Media Upload via POST
+      case "upload":
+        return handleUpload(e);
+
       default:
         return error(
           "Invalid POST action : " + action
@@ -788,4 +821,3 @@ function getAction(e) {
     .trim()
     .toLowerCase();
 }
-
