@@ -124,6 +124,8 @@ function addBusiness(e) {
       p.phone || "",
       p.email || "",
       p.website || "",
+      p.logo || "",
+      p.coverImage || "",
       "Pending",
       new Date()
     ]);
@@ -255,6 +257,20 @@ function updateBusiness(e) {
           sheet.getRange(i + 1, 14)
             .setValue(
               e.parameter.website
+            );
+        }
+
+        if (e.parameter.logo) {
+          sheet.getRange(i + 1, 15)
+            .setValue(
+              e.parameter.logo
+            );
+        }
+
+        if (e.parameter.coverImage) {
+          sheet.getRange(i + 1, 16)
+            .setValue(
+              e.parameter.coverImage
             );
         }
 

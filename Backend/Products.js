@@ -135,6 +135,8 @@ function addProduct(e) {
       p.model || "",
       p.image2 || "",
       p.image3 || "",
+      p.image4 || "",
+      p.image5 || "",
       p.videoUrl || "",
       p.delivery || "No",
       p.cod || "No",

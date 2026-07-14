@@ -55,12 +55,17 @@ function createNotification(e) {
       Utilities.getUuid()
         .substring(0, 8);
 
+    // Supported types with icons and colors
+    var type = p.type || "SYSTEM_ALERT";
+    var icon = getNotificationIcon(type);
+    var color = getNotificationColor(type);
+
     sheet.appendRow([
       id,
       p.userId || "",
       p.title || "",
       p.message || "",
-      p.type || "direct",
+      type,
       p.targetUserId || "",
       p.radiusKm || "",
       p.latitude || "",
@@ -69,12 +74,17 @@ function createNotification(e) {
       p.actionUrl || "",
       "Pending",
       new Date(),
-      ""
+      "",
+      icon,
+      color
     ]);
 
     return success(
       {
-        notificationId: id
+        notificationId: id,
+        type: type,
+        icon: icon,
+        color: color
       },
       "Notification created"
     );
@@ -82,6 +92,56 @@ function createNotification(e) {
   } catch (err) {
     return exception(err);
   }
+}
+
+
+/**
+ * ============================================================
+ * GET NOTIFICATION ICON BY TYPE
+ * ============================================================
+ */
+function getNotificationIcon(type) {
+  var icons = {
+    "PRODUCT_INTERESTED": "shopping_bag",
+    "SELLER_RESPONSE": "chat",
+    "PROMOTION_FINISHED": "trending_up",
+    "ADMIN_MESSAGE": "admin_panel_settings",
+    "VERIFICATION_STATUS": "verified",
+    "NEWS_APPROVAL": "newspaper",
+    "SERVICE_ENQUIRY": "support",
+    "STORE_FOLLOW": "star",
+    "STORE_PRODUCT": "store",
+    "NEWS_ALERT": "notifications_active",
+    "SYSTEM_ALERT": "info",
+    "direct": "notifications",
+    "broadcast": "campaign"
+  };
+  return icons[type] || "notifications";
+}
+
+
+/**
+ * ============================================================
+ * GET NOTIFICATION COLOR BY TYPE
+ * ============================================================
+ */
+function getNotificationColor(type) {
+  var colors = {
+    "PRODUCT_INTERESTED": "#0f9d58",
+    "SELLER_RESPONSE": "#1976d2",
+    "PROMOTION_FINISHED": "#e65100",
+    "ADMIN_MESSAGE": "#d32f2f",
+    "VERIFICATION_STATUS": "#0f9d58",
+    "NEWS_APPROVAL": "#0f9d58",
+    "SERVICE_ENQUIRY": "#7b1fa2",
+    "STORE_FOLLOW": "#f57c00",
+    "STORE_PRODUCT": "#0f9d58",
+    "NEWS_ALERT": "#d32f2f",
+    "SYSTEM_ALERT": "#555",
+    "direct": "#1976d2",
+    "broadcast": "#d32f2f"
+  };
+  return colors[type] || "#555";
 }
 
 

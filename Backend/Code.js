@@ -72,12 +72,15 @@ function doGet(e) {
       case "deletebusiness":
         return deleteBusiness(e);
 
-      // Users
-      case "users":
-        return getUsers();
+  // Users
+  case "users":
+    return getUsers();
 
-      case "profile":
-        return getProfile(e);
+  case "profile":
+    return getProfile(e);
+
+  case "updateprofile":
+    return updateProfile(e);
 
       // Authentication
       case "login":
@@ -548,6 +551,73 @@ case "onboarding":
 
   case "imagekitauth":
     return handleImageKitAuth();
+
+  // Media Library (V6.0)
+  case "addmedia":
+    return handleAddMedia(e);
+
+  case "mymedia":
+    return handleGetMyMedia(e);
+
+  case "searchmedia":
+    return handleSearchMedia(e);
+
+  case "deletemedia":
+    return handleDeleteMedia(e);
+
+  case "mediaanalytics":
+    return handleMediaAnalytics(e);
+
+  // Analytics Engine (V6.0)
+  case "trackevent":
+    return trackEvent(e);
+
+  case "getevents":
+    return getEvents(e);
+
+  case "engagementanalytics":
+    return getEngagementAnalytics(e);
+
+  case "growthanalytics":
+    return getGrowthAnalytics(e);
+
+  case "conversionanalytics":
+    return getConversionAnalytics(e);
+
+  case "retentionanalytics":
+    return getRetentionAnalytics(e);
+
+  // News Extensions (V6.0)
+  case "relatednews":
+    return getRelatedNews(e);
+
+  case "newsbycategory":
+    return getNewsByCategory(e);
+
+  case "featurednews":
+    return getFeaturedNews(e);
+
+  case "breakingnews":
+    return getBreakingNews(e);
+
+  case "localnews":
+    return getLocalNews(e);
+
+  case "newsshares":
+    return incrementNewsShare(e);
+
+  // Push Notifications (V6.0)
+  case "subscribetopush":
+    return subscribeToPush(e);
+
+  case "unsubscribefrompush":
+    return unsubscribeFromPush(e);
+
+  case "sendpushnotification":
+    return sendPushNotification(e);
+
+  case "getpushsubscription":
+    return getPushSubscription(e);
 
       default:
         return error(
