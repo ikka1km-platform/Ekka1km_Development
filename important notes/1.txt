@@ -1,0 +1,64 @@
+PHASE 3.2 – OTP LOGIN SYSTEM (LOCAL MODE + FUTURE MSG91)
+Goal:
+Implement OTP authentication without SMS provider initially.
+Architecture:
+CONFIG.OTP_PROVIDER = 'LOCAL'
+Later:
+CONFIG.OTP_PROVIDER = 'MSG91'
+================================================
+FEATURES
+================================================
+1. Mobile Login Screen
+- Mobile Number Input
+- Send OTP Button
+- Verify OTP Screen
+2. Local OTP Provider
+- Generate 6 digit OTP.
+- Store temporarily in localStorage during development.
+- Expire after 5 minutes.
+- Maximum 3 attempts.
+3. Developer Mode
+If CONFIG.DEV_MODE = true:
+show OTP on screen:
+Example:
+Developer OTP: 482913
+4. Session Login
+After successful verification:
+save:
+ekka1km_session
+ekka1km_user
+ekka1km_last_mobile
+Session expires only on logout.
+5. Auto Fill Mobile Number
+When login page opens:
+if localStorage.ekka1km_last_mobile exists:
+prefill mobile number field.
+Behavior should feel similar to WhatsApp login.
+6. Future Provider Switch
+Create:
+OTP.send()
+OTP.verify()
+Provider implementation:
+LOCAL
+MSG91
+Switch only by:
+CONFIG.OTP_PROVIDER
+No frontend changes required later.
+7. Guest Mode
+Browsing app should NOT require login.
+Login required only for:
+- Wallet
+- Notifications
+- Interested Button
+- Contact Seller
+- Post Product
+- Post Property
+- Post Advertisement
+- Rewards
+8. Backend APIs
+?action=sendotp
+?action=verifyotp
+LOCAL provider implementation only.
+MSG91 integration placeholder should already exist.
+Provide FULL REPLACEABLE FILES only.
+One Time = One File concept.

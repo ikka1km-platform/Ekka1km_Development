@@ -2,14 +2,105 @@
 ============================================================
 EKKA1KM FRONTEND
 Auth.js
-Login / Register / Session / Logout
-V1.1 Trial
+V2.0 - OTP Login / Session / Logout
+WhatsApp-style mobile login flow
 ============================================================
 */
 
 
+/*
+============================================================
+SESSION HELPERS
+============================================================
+*/
+
+function getSessionUser() {
+
+  const data =
+    localStorage.getItem(
+      CONFIG.STORAGE_KEYS.USER_NEW
+    );
+
+  if (!data)
+    return null;
+
+  try {
+    return JSON.parse(data);
+  }
+  catch (e) {
+    return null;
+  }
+}
+
+
+function saveSessionUser(
+  user
+) {
+  localStorage.setItem(
+    CONFIG.STORAGE_KEYS.USER_NEW,
+    JSON.stringify(user)
+  );
+}
+
+
+function clearSessionUser() {
+  localStorage.removeItem(
+    CONFIG.STORAGE_KEYS.USER_NEW
+  );
+  localStorage.removeItem(
+    CONFIG.STORAGE_KEYS.SESSION
+  );
+}
+
+
+function getSessionToken() {
+  return localStorage.getItem(
+    CONFIG.STORAGE_KEYS.SESSION
+  );
+}
+
+
+function saveSessionToken(token) {
+  localStorage.setItem(
+    CONFIG.STORAGE_KEYS.SESSION,
+    token
+  );
+}
+
+
+function getLastMobile() {
+  return localStorage.getItem(
+    CONFIG.STORAGE_KEYS.LAST_MOBILE
+  ) || "";
+}
+
+
+function saveLastMobile(mobile) {
+  localStorage.setItem(
+    CONFIG.STORAGE_KEYS.LAST_MOBILE,
+    mobile
+  );
+}
+
+
+/*
+============================================================
+BACKWARD COMPATIBLE GET USER
+Checks both old (ekka_user) and new (ekka1km_user) keys
+============================================================
+*/
+
 function getCurrentUser() {
 
+  // First try new session storage
+  const sessionUser =
+    getSessionUser();
+
+  if (sessionUser) {
+    return sessionUser;
+  }
+
+  // Fallback to old storage
   const data =
     localStorage.getItem(
       CONFIG.STORAGE_KEYS.USER
@@ -27,23 +118,6 @@ function getCurrentUser() {
 }
 
 
-function saveCurrentUser(
-  user
-) {
-  localStorage.setItem(
-    CONFIG.STORAGE_KEYS.USER,
-    JSON.stringify(user)
-  );
-}
-
-
-function clearCurrentUser() {
-  localStorage.removeItem(
-    CONFIG.STORAGE_KEYS.USER
-  );
-}
-
-
 function getUserId() {
 
   const user =
@@ -51,12 +125,24 @@ function getUserId() {
 
   if (
     !user ||
-    !user.UserID
+    (!user.UserID && !user.userId)
   ) {
     return null;
   }
 
-  return user.UserID;
+  return user.UserID ||
+    user.userId;
+}
+
+
+function isLoggedIn() {
+  return (
+    getSessionToken() !== null ||
+    getSessionUser() !== null ||
+    localStorage.getItem(
+      CONFIG.STORAGE_KEYS.USER
+    ) !== null
+  );
 }
 
 
@@ -79,166 +165,613 @@ function requireLogin() {
 }
 
 
+function getVisitorId() {
+
+  const user =
+    getCurrentUser();
+
+  if (
+    user &&
+    (user.UserID || user.userId)
+  ) {
+    return user.UserID ||
+      user.userId;
+  }
+
+  return (
+    localStorage.getItem(
+      CONFIG.STORAGE_KEYS.GUEST_ID
+    ) || "Guest"
+  );
+}
+
+
 /*
 ============================================================
-LOGIN
+OTP LOGIN - STEP 1: SEND OTP
 ============================================================
 */
 
-async function loginUser() {
+async function sendLoginOTP() {
 
   const mobile =
     document.getElementById(
       "loginMobile"
     ).value.trim();
 
-  const password =
-    document.getElementById(
-      "loginPassword"
-    ).value.trim();
-
-  if (
-    !mobile ||
-    !password
-  ) {
+  if (!mobile) {
     alert(
-      "Please enter Mobile and Password."
+      "Please enter your mobile number."
     );
     return;
   }
 
+  if (mobile.length < 10) {
+    alert(
+      "Please enter a valid 10-digit mobile number."
+    );
+    return;
+  }
+
+  // Show loading state
+  const sendBtn =
+    document.getElementById(
+      "sendOtpBtn"
+    );
+
+  const verifySection =
+    document.getElementById(
+      "otpVerifySection"
+    );
+
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.innerText =
+      "Sending OTP...";
+  }
+
   try {
 
-    const response =
-      await fetch(
-        `${getApiUrl()}?action=login&mobile=${encodeURIComponent(mobile)}&password=${encodeURIComponent(password)}`
+    const result =
+      await OTP.send(mobile);
+
+    if (result.success) {
+
+      // Save mobile for auto-fill
+      saveLastMobile(mobile);
+
+      // Show OTP verification section
+      if (verifySection) {
+        verifySection.style.display =
+          "block";
+      }
+
+      // Show developer OTP if DEV_MODE
+      if (
+        CONFIG.DEV_MODE &&
+        result.devOtp
+      ) {
+        const devDisplay =
+          document.getElementById(
+            "devOtpDisplay"
+          );
+
+        if (devDisplay) {
+          devDisplay.style.display =
+            "block";
+          devDisplay.innerHTML =
+            "Developer OTP: <strong>" +
+            result.devOtp +
+            "</strong>";
+        }
+      }
+
+      // Start resend timer
+      startResendTimer();
+
+      // Update status
+      updateOtpStatus(
+        "OTP sent to " +
+        mobile +
+        ". Check your phone."
       );
 
-    const json =
-      await response.json();
-
-    if (
-      json.success ||
-      json.status === "SUCCESS"
-    ) {
-
-      const user =
-        json.data || {};
-
-      saveCurrentUser(
-        user
-      );
-
-      refreshLoginUI();
+    } else {
 
       alert(
-        "Login Successful"
-      );
-
-      openPage(
-        "home"
-      );
-
-      loadLocation();
-    }
-    else {
-
-      alert(
-        json.message ||
-        "Login Failed"
+        result.message ||
+        "Failed to send OTP."
       );
     }
 
-  }
-  catch (err) {
+  } catch (err) {
 
     console.log(err);
 
     alert(
-      "Unable to connect to server."
+      "Unable to connect. Please try again."
     );
+  }
+
+  // Restore button
+  if (sendBtn) {
+    sendBtn.disabled = false;
+    sendBtn.innerText =
+      "Send OTP";
   }
 }
 
 
 /*
 ============================================================
-REGISTER
+OTP LOGIN - STEP 2: VERIFY OTP
 ============================================================
 */
 
-async function registerUser() {
-
-  const fullName =
-    document.getElementById(
-      "regName"
-    ).value.trim();
+async function verifyLoginOTP() {
 
   const mobile =
     document.getElementById(
-      "regMobile"
+      "loginMobile"
     ).value.trim();
 
-  const email =
+  const otp =
     document.getElementById(
-      "regEmail"
+      "otpInput"
     ).value.trim();
 
-  const password =
-    document.getElementById(
-      "regPassword"
-    ).value.trim();
-
-  if (
-    !fullName ||
-    !mobile ||
-    !password
-  ) {
+  if (!otp) {
     alert(
-      "Please fill all fields."
+      "Please enter the OTP."
     );
     return;
   }
 
+  if (
+    otp.length !== CONFIG.OTP_LENGTH
+  ) {
+    alert(
+      "OTP must be " +
+      CONFIG.OTP_LENGTH +
+      " digits."
+    );
+    return;
+  }
+
+  // Show loading
+  const verifyBtn =
+    document.getElementById(
+      "verifyOtpBtn"
+    );
+
+  if (verifyBtn) {
+    verifyBtn.disabled = true;
+    verifyBtn.innerText =
+      "Verifying...";
+  }
+
   try {
 
-    const response =
-      await fetch(
-        `${getApiUrl()}?action=register&fullName=${encodeURIComponent(fullName)}&mobile=${encodeURIComponent(mobile)}&email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
-      );
+    const result =
+      await OTP.verify(mobile, otp);
 
-    const json =
-      await response.json();
+    if (result.success) {
 
-    if (
-      json.success ||
-      json.status === "SUCCESS"
-    ) {
+      // Save session
+      if (result.session) {
+        saveSessionToken(
+          result.session
+        );
+      } else {
+        // Generate local session if backend unavailable
+        const localSession =
+          "SES_" +
+          Date.now() +
+          "_" +
+          Math.random()
+            .toString(36)
+            .substr(2, 9);
+
+        saveSessionToken(
+          localSession
+        );
+      }
+
+      // Save user data
+      if (result.user) {
+        saveSessionUser(
+          result.user
+        );
+      } else {
+        // Create minimal local user
+        saveSessionUser({
+          UserID:
+            "U_" +
+            Date.now(),
+          Mobile: mobile,
+          FullName:
+            "User " +
+            mobile.slice(-4)
+        });
+      }
+
+      // Save last mobile
+      saveLastMobile(mobile);
+
+      // Hide dev OTP display
+      const devDisplay =
+        document.getElementById(
+          "devOtpDisplay"
+        );
+
+      if (devDisplay) {
+        devDisplay.style.display =
+          "none";
+      }
+
+      // Update UI
+      refreshLoginUI();
 
       alert(
-        "Registration Successful"
+        "Login Successful!"
       );
 
-      openPage(
-        "login"
-      );
-    }
-    else {
+      openPage("home");
+
+      loadLocation();
+
+    } else {
 
       alert(
-        json.message ||
-        "Registration Failed"
+        result.message ||
+        "OTP verification failed."
       );
     }
 
-  }
-  catch (err) {
+  } catch (err) {
 
     console.log(err);
 
     alert(
-      "Unable to connect to server."
+      "Unable to verify. Please try again."
     );
+  }
+
+  // Restore button
+  if (verifyBtn) {
+    verifyBtn.disabled = false;
+    verifyBtn.innerText =
+      "Verify OTP";
+  }
+}
+
+
+/*
+============================================================
+RESEND TIMER
+60 second cooldown
+============================================================
+*/
+
+let RESEND_TIMER = null;
+
+function startResendTimer() {
+
+  const resendBtn =
+    document.getElementById(
+      "resendOtpBtn"
+    );
+
+  if (!resendBtn)
+    return;
+
+  let seconds = 60;
+
+  resendBtn.disabled = true;
+
+  resendBtn.innerText =
+    "Resend in " +
+    seconds +
+    "s";
+
+  if (RESEND_TIMER) {
+    clearInterval(
+      RESEND_TIMER
+    );
+  }
+
+  RESEND_TIMER =
+    setInterval(() => {
+
+      seconds--;
+
+      if (seconds <= 0) {
+
+        clearInterval(
+          RESEND_TIMER
+        );
+
+        RESEND_TIMER = null;
+
+        resendBtn.disabled = false;
+        resendBtn.innerText =
+          "Resend OTP";
+
+        return;
+      }
+
+      resendBtn.innerText =
+        "Resend in " +
+        seconds +
+        "s";
+
+    }, 1000);
+}
+
+
+/*
+============================================================
+RESEND OTP
+============================================================
+*/
+
+async function resendOTP() {
+
+  const mobile =
+    document.getElementById(
+      "loginMobile"
+    ).value.trim();
+
+  if (!mobile) {
+    alert(
+      "Mobile number is required."
+    );
+    return;
+  }
+
+  const resendBtn =
+    document.getElementById(
+      "resendOtpBtn"
+    );
+
+  if (resendBtn) {
+    resendBtn.disabled = true;
+    resendBtn.innerText =
+      "Resending...";
+  }
+
+  try {
+
+    const result =
+      await OTP.resend(mobile);
+
+    if (result.success) {
+
+      // Show developer OTP if DEV_MODE
+      if (
+        CONFIG.DEV_MODE &&
+        result.devOtp
+      ) {
+        const devDisplay =
+          document.getElementById(
+            "devOtpDisplay"
+          );
+
+        if (devDisplay) {
+          devDisplay.style.display =
+            "block";
+          devDisplay.innerHTML =
+            "Developer OTP: <strong>" +
+            result.devOtp +
+            "</strong>";
+        }
+      }
+
+      startResendTimer();
+
+      updateOtpStatus(
+        "New OTP sent to " +
+        mobile
+      );
+
+    } else {
+
+      alert(
+        result.message ||
+        "Failed to resend OTP."
+      );
+
+      if (resendBtn) {
+        resendBtn.disabled = false;
+        resendBtn.innerText =
+          "Resend OTP";
+      }
+    }
+
+  } catch (err) {
+
+    console.log(err);
+
+    alert(
+      "Unable to resend OTP."
+    );
+
+    if (resendBtn) {
+      resendBtn.disabled = false;
+      resendBtn.innerText =
+        "Resend OTP";
+    }
+  }
+}
+
+
+/*
+============================================================
+BACK TO MOBILE INPUT
+Allows user to change mobile number
+============================================================
+*/
+
+function backToMobileInput() {
+
+  // Hide OTP verify section
+  const verifySection =
+    document.getElementById(
+      "otpVerifySection"
+    );
+
+  if (verifySection) {
+    verifySection.style.display =
+      "none";
+  }
+
+  // Hide dev OTP display
+  const devDisplay =
+    document.getElementById(
+      "devOtpDisplay"
+    );
+
+  if (devDisplay) {
+    devDisplay.style.display =
+      "none";
+  }
+
+  // Hide status
+  const statusEl =
+    document.getElementById(
+      "otpStatus"
+    );
+
+  if (statusEl) {
+    statusEl.style.display =
+      "none";
+  }
+
+  // Clear resend timer
+  if (RESEND_TIMER) {
+    clearInterval(RESEND_TIMER);
+    RESEND_TIMER = null;
+  }
+
+  // Reset resend button
+  const resendBtn =
+    document.getElementById(
+      "resendOtpBtn"
+    );
+
+  if (resendBtn) {
+    resendBtn.disabled = true;
+    resendBtn.innerText =
+      "Resend in 60s";
+  }
+
+  // Clear OTP storage for this mobile
+  const mobile =
+    document.getElementById(
+      "loginMobile"
+    ).value.trim();
+
+  if (mobile) {
+    try {
+      const key =
+        CONFIG.STORAGE_KEYS
+          .OTP_STORAGE;
+
+      const stored =
+        localStorage.getItem(key);
+
+      if (stored) {
+        const data =
+          JSON.parse(stored);
+
+        if (data.mobile === mobile) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch (err) {
+      // Silently handle
+    }
+  }
+
+  // Focus on mobile input
+  const mobileInput =
+    document.getElementById(
+      "loginMobile"
+    );
+
+  if (mobileInput) {
+    mobileInput.focus();
+    mobileInput.select();
+  }
+}
+
+
+/*
+============================================================
+UPDATE OTP STATUS
+============================================================
+*/
+
+function updateOtpStatus(
+  message
+) {
+
+  const statusEl =
+    document.getElementById(
+      "otpStatus"
+    );
+
+  if (statusEl) {
+    statusEl.innerText = message;
+    statusEl.style.display =
+      "block";
+  }
+}
+
+
+/*
+============================================================
+AUTO-FILL MOBILE ON LOGIN PAGE OPEN
+============================================================
+*/
+
+function autoFillMobile() {
+
+  const mobileInput =
+    document.getElementById(
+      "loginMobile"
+    );
+
+  if (!mobileInput)
+    return;
+
+  const lastMobile =
+    getLastMobile();
+
+  if (lastMobile) {
+    mobileInput.value =
+      lastMobile;
+
+    // Auto-focus OTP if verify section visible
+    const verifySection =
+      document.getElementById(
+        "otpVerifySection"
+      );
+
+    if (
+      verifySection &&
+      verifySection.style.display ===
+        "block"
+    ) {
+      const otpInput =
+        document.getElementById(
+          "otpInput"
+        );
+
+      if (otpInput) {
+        otpInput.focus();
+      }
+    }
   }
 }
 
@@ -259,7 +792,20 @@ function logoutUser() {
     return;
   }
 
-  clearCurrentUser();
+  // Clear session
+  clearSessionUser();
+
+  // Keep last mobile for auto-fill
+  // Do NOT clear ekka1km_last_mobile
+
+  // Also clear old storage for backward compat
+  localStorage.removeItem(
+    CONFIG.STORAGE_KEYS.USER
+  );
+
+  localStorage.removeItem(
+    CONFIG.STORAGE_KEYS.TOKEN
+  );
 
   refreshLoginUI();
 
@@ -267,9 +813,7 @@ function logoutUser() {
     "Logged Out Successfully"
   );
 
-  openPage(
-    "home"
-  );
+  openPage("home");
 
   loadLocation();
 }
@@ -277,33 +821,21 @@ function logoutUser() {
 
 /*
 ============================================================
-HELPERS
+BACKWARD COMPATIBILITY
+Save old functions still work
 ============================================================
 */
 
-function isLoggedIn() {
-  return (
-    getCurrentUser() !== null
+function saveCurrentUser(user) {
+  localStorage.setItem(
+    CONFIG.STORAGE_KEYS.USER,
+    JSON.stringify(user)
   );
 }
 
 
-function getVisitorId() {
-
-  const user =
-    getCurrentUser();
-
-  if (
-    user &&
-    user.UserID
-  ) {
-    return user.UserID;
-  }
-
-  return (
-    localStorage.getItem(
-      CONFIG.STORAGE_KEYS.GUEST_ID
-    ) || "Guest"
+function clearCurrentUser() {
+  localStorage.removeItem(
+    CONFIG.STORAGE_KEYS.USER
   );
 }
-

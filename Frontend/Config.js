@@ -2,8 +2,7 @@
 ============================================================
 EKKA1KM FRONTEND
 Config.js
-V1.1 Trial
-Backward Compatible + Guest Analytics
+V2.0 - OTP Login + Guest Analytics
 ============================================================
 */
 
@@ -16,7 +15,7 @@ const CONFIG = {
   */
 
   APP_NAME: "Ekka1km",
-  APP_VERSION: "1.0.0",
+  APP_VERSION: "2.0.0",
 
   /*
   ============================================================
@@ -25,7 +24,23 @@ const CONFIG = {
   */
 
   API_BASE_URL:
-"https://script.google.com/macros/s/AKfycbwJL8TGAbUPWalbYLlSDu49348XmuvyplQrggKe42vkWwitE6XMTL14bzXk7VQAbl8kRw/exec",
+"https://script.google.com/macros/s/AKfycbwJL8TGAbUPWalbYLlSDu49348XmuvyplQrggKe42vkWwitE6XMTL14bzXk7VQABl8kRw/exec",
+
+  /*
+  ============================================================
+  OTP LOGIN CONFIGURATION
+  ============================================================
+  */
+
+  OTP_PROVIDER: "LOCAL",
+
+  DEV_MODE: true,
+
+  OTP_EXPIRY_MINUTES: 5,
+
+  OTP_MAX_ATTEMPTS: 3,
+
+  OTP_LENGTH: 6,
 
   /*
   ============================================================
@@ -58,6 +73,11 @@ const CONFIG = {
   STORAGE_KEYS: {
     USER: "ekka_user",
     TOKEN: "ekka_token",
+
+    SESSION: "ekka1km_session",
+    USER_NEW: "ekka1km_user",
+    LAST_MOBILE: "ekka1km_last_mobile",
+    OTP_STORAGE: "ekka1km_otp_storage",
 
     LOCATION: "ekka_location",
     RADIUS: "ekka_radius",
@@ -266,6 +286,8 @@ const Analytics = {
 
   isLoggedIn() {
     return !!localStorage.getItem(
+      CONFIG.STORAGE_KEYS.SESSION
+    ) || !!localStorage.getItem(
       CONFIG.STORAGE_KEYS.USER
     );
   },
@@ -326,7 +348,6 @@ window.EKKA = {
 };
 
 console.log(
-  "EKKA1KM Guest Session Started",
+  "EKKA1KM Session Started",
   Analytics.getAnalytics()
 );
-

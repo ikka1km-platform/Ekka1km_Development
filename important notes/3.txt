@@ -1,0 +1,15 @@
+Phase 3.8 – Professional News System
+Requirements:
+- Dainik Bhaskar style feed
+- Hero news cards
+- Image news
+- Video news
+- Image galleries
+- Video thumbnails
+- Share system
+- Category badges
+- Location and time
+- Related news
+- GPS based local news
+- Full article page
+- News analytics

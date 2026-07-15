@@ -398,6 +398,60 @@ li{
 }
 
 /* ==========================================================
+   OTP LOGIN
+========================================================== */
+
+#login .card {
+  text-align: center;
+}
+
+#loginMobile,
+#otpInput {
+  text-align: center;
+  font-size: 20px;
+  letter-spacing: 4px;
+  font-weight: 600;
+}
+
+#otpInput {
+  font-size: 24px;
+  letter-spacing: 8px;
+}
+
+#devOtpDisplay {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+#sendOtpBtn,
+#verifyOtpBtn {
+  font-size: 16px;
+  font-weight: 600;
+  padding: 14px;
+}
+
+#sendOtpBtn:disabled,
+#verifyOtpBtn:disabled,
+#resendOtpBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+#otpStatus {
+  padding: 8px 12px;
+  background: #e8f5e9;
+  border-radius: 10px;
+}
+
+/* ==========================================================
    STORE PAGE
 ========================================================== */
 

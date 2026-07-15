@@ -2,8 +2,7 @@
 ============================================================
 EKKA1KM FRONTEND
 App.js
-Global Application Functions
-V1.1 Trial
+V2.0 - Global Application Functions + Login Gates
 ============================================================
 */
 
@@ -100,6 +99,14 @@ function openPage(pageId) {
     if (bottomNav)
       bottomNav.style.display =
         "none";
+
+    // Auto-fill mobile number when login page opens
+    if (
+      typeof autoFillMobile ===
+      "function"
+    ) {
+      autoFillMobile();
+    }
   }
   else {
     if (header)
@@ -323,6 +330,29 @@ function loadAll() {
 
 /*
 ============================================================
+OPEN POST FORM WITH LOGIN CHECK
+Requires login for:
+- Post Product
+- Post Property
+- Post Advertisement
+- Post Business
+- Post News
+- Post Promotion
+============================================================
+*/
+
+function openPostFormWithLogin(type) {
+
+  if (!requireLogin()) {
+    return;
+  }
+
+  openPostForm(type);
+}
+
+
+/*
+============================================================
 APP START
 ============================================================
 */
@@ -340,6 +370,16 @@ window.addEventListener(
     openPage("home");
 
     loadLocation();
+
+    // Auto-fill mobile on page load
+    if (
+      typeof autoFillMobile ===
+      "function"
+    ) {
+      setTimeout(
+        autoFillMobile,
+        500
+      );
+    }
   }
 );
-

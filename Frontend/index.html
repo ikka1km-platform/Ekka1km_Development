@@ -142,7 +142,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 <main>
 
 <!-- ===================================================== -->
-<!-- LOGIN -->
+<!-- LOGIN (OTP Based - WhatsApp Style) -->
 <!-- ===================================================== -->
 
 <div id="login" class="page">
@@ -153,20 +153,90 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
   <div class="card">
 
-    <input
-      id="loginMobile"
-      placeholder="Mobile Number">
+    <!-- Step 1: Mobile Number Input -->
+    <div id="mobileInputSection">
 
-    <input
-      id="loginPassword"
-      type="password"
-      placeholder="Password">
+      <p style="font-size:14px;color:#666;margin-bottom:12px;">
+        Enter your mobile number to receive an OTP
+      </p>
 
-    <button
-      onclick="loginUser()">
-      Login
-    </button>
+      <input
+        id="loginMobile"
+        type="tel"
+        maxlength="10"
+        placeholder="Mobile Number"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        onkeydown="if(event.key==='Enter')sendLoginOTP()">
 
+      <button
+        id="sendOtpBtn"
+        onclick="sendLoginOTP()">
+        Send OTP
+      </button>
+
+    </div>
+
+    <!-- Step 2: OTP Verification -->
+    <div
+      id="otpVerifySection"
+      style="display:none;">
+
+      <p style="font-size:14px;color:#666;margin-bottom:12px;">
+        Enter the 6-digit OTP sent to your mobile
+      </p>
+
+      <input
+        id="otpInput"
+        type="text"
+        maxlength="6"
+        placeholder="Enter OTP"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        onkeydown="if(event.key==='Enter')verifyLoginOTP()"
+        autocomplete="one-time-code">
+
+      <button
+        id="verifyOtpBtn"
+        onclick="verifyLoginOTP()">
+        Verify OTP
+      </button>
+
+      <!-- Resend OTP -->
+      <button
+        id="resendOtpBtn"
+        class="btn-gray"
+        onclick="resendOTP()"
+        disabled
+        style="font-size:13px;">
+        Resend in 60s
+      </button>
+
+      <!-- Change Number -->
+      <button
+        class="btn-gray"
+        onclick="backToMobileInput()"
+        style="font-size:13px;">
+        &#8592; Change Mobile Number
+      </button>
+
+      <!-- OTP Status -->
+      <div
+        id="otpStatus"
+        style="display:none;margin-top:10px;font-size:13px;color:#0f9d58;text-align:center;">
+      </div>
+
+      <!-- Developer OTP Display (DEV_MODE only) -->
+      <div
+        id="devOtpDisplay"
+        style="display:none;margin-top:12px;padding:12px;background:#fff3cd;border-radius:10px;text-align:center;font-size:16px;color:#856404;">
+      </div>
+
+    </div>
+
+    <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
+
+    <!-- Guest / Register Options -->
     <button
       class="btn-gray"
       onclick="openPage('register')">
@@ -527,7 +597,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
     <div
       class="fabMenuItem"
-      onclick="openPostForm('product')">
+      onclick="openPostFormWithLogin('product')">
 
       <i class="material-icons">
         shopping_bag
@@ -539,7 +609,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
     <div
       class="fabMenuItem"
-      onclick="openPostForm('property')">
+      onclick="openPostFormWithLogin('property')">
 
       <i class="material-icons">
         real_estate_agent
@@ -551,7 +621,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
     <div
       class="fabMenuItem"
-      onclick="openPostForm('business')">
+      onclick="openPostFormWithLogin('business')">
 
       <i class="material-icons">
         store
@@ -563,7 +633,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
     <div
       class="fabMenuItem"
-      onclick="openPostForm('news')">
+      onclick="openPostFormWithLogin('news')">
 
       <i class="material-icons">
         newspaper
@@ -575,7 +645,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
     <div
       class="fabMenuItem"
-      onclick="openPostForm('advertisement')">
+      onclick="openPostFormWithLogin('advertisement')">
 
       <i class="material-icons">
         campaign
@@ -587,7 +657,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
     <div
       class="fabMenuItem"
-      onclick="openPostForm('promotion')">
+      onclick="openPostFormWithLogin('promotion')">
 
       <i class="material-icons">
         trending_up
@@ -1171,6 +1241,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
 <script src="Config.js"></script>
 <script src="SearchLocation.js"></script>
+<script src="OTP.js"></script>
 <script src="App.js"></script>
 <script src="Auth.js"></script>
 <script src="Products.js"></script>

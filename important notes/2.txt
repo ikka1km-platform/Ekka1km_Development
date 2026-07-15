@@ -1,0 +1,87 @@
+EKKA1KM – TRANSACTION ATTRIBUTION & SUCCESS FEE SYSTEM
+Status: APPROVED FOR FUTURE IMPLEMENTATION
+This system applies to:
+⦁	Products
+⦁	Businesses
+⦁	Properties
+⦁	Rentals
+Ekka1km is NOT a broker or mediator.
+Ekka1km is:
+Lead Generator Discovery Platform Transaction Attribution Platform OBJECTIVE
+When a transaction happens because of Ekka1km, the platform should be able to:
+Know that the transaction happened. Measure conversions. Generate analytics. Support optional future platform fees. IMPORTANT RULE
+Current Platform Fee:
+0 
+No charges.
+No commissions.
+No deductions.
+No brokerage.
+The system must only build the architecture.
+Actual fees will be configurable later from Admin Dashboard.
+STEP 1 – INTEREST SYSTEM
+When user clicks:
+I'm Interested 
+Create a lead record.
+Examples:
+Product Lead Business Lead Property Lead Rental Lead LEAD DATA
+Store:
+LeadID LeadType BuyerUserID SellerUserID BusinessID ProductID PropertyID CreatedDate Status Source=Ekka1km LEAD STATUS
+Possible statuses:
+Interested Contacted Negotiating Completed Cancelled Expired STEP 2 – TRANSACTION CONFIRMATION
+Seller can mark:
+Sold via Ekka1km Rented via Ekka1km Deal Completed via Ekka1km STEP 3 – BUYER CONFIRMATION
+Send notification:
+Did you complete this transaction through Ekka1km? YES NO TRANSACTION VERIFIED
+When:
+Seller = YES Buyer = YES 
+Status becomes:
+Verified Transaction STEP 4 – PLATFORM FEE ENGINE
+Build architecture only.
+Current values:
+PRODUCT_PLATFORM_FEE=0 PROPERTY_PLATFORM_FEE=0 RENTAL_PLATFORM_FEE=0 BUSINESS_PLATFORM_FEE=0 
+No deductions should happen.
+FUTURE SUPPORT
+Admin should later be able to set:
+Flat Fee Percentage Fee Coin Fee 
+Examples:
+₹20 ₹50 1% 5% 100 Coins 500 Coins 
+No code rewrite should be needed later.
+ADMIN SETTINGS (FUTURE)
+Create configuration placeholders only.
+ENABLE_PLATFORM_FEES=false PRODUCT_PLATFORM_FEE_TYPE= PRODUCT_PLATFORM_FEE_VALUE= PROPERTY_PLATFORM_FEE_TYPE= PROPERTY_PLATFORM_FEE_VALUE= RENTAL_PLATFORM_FEE_TYPE= RENTAL_PLATFORM_FEE_VALUE= BUSINESS_PLATFORM_FEE_TYPE= BUSINESS_PLATFORM_FEE_VALUE= COIN FEE SUPPORT (FUTURE)
+Architecture must support:
+Cash Fee Coin Fee Mixed Fee 
+But:
+Current Fee = 0 PROPERTY MODULE
+Ekka1km must NOT become:
+Broker Mediator Agent 
+Ekka1km only:
+Creates leads. Tracks conversions. Measures successful transactions. ANALYTICS
+Store:
+Interested Count Contact Count Conversion Count Conversion Rate Successful Transactions Revenue Generated Platform Fees Generated DASHBOARD (FUTURE)
+Admin should see:
+Leads Generated Successful Transactions Products Sold Properties Sold Properties Rented Business Deals Platform Fee Revenue SELLER DASHBOARD (FUTURE)
+Seller should see:
+Interested Users Leads Successful Transactions Conversion Rate Platform Fee History IMPORTANT RULE
+Even if seller and buyer complete transaction outside the app:
+Property/Product remains Active until seller marks it: Sold Rented Inactive 
+The system may later remind seller:
+Is this listing still available? YES NO 
+This improves transaction attribution.
+IMPLEMENTATION RULE
+Build:
+Lead System Transaction Confirmation System Analytics System Fee Configuration System 
+Do NOT:
+Charge fees Deduct coins Process commissions 
+Current value:
+Platform Fee = 0 
+Everything must be configurable later from Admin Dashboard without database redesign.
+The coin system must support charging coins for:
+- Posting premium properties
+- Featured property listings
+- Property boosts
+- Lead unlocks
+- Rental promotions
+- Future configurable platform fees
+Current fee values = 0.
+All charges must be configurable later from Admin Dashboard.

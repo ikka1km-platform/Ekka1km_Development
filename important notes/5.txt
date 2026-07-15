@@ -1,0 +1,18 @@
+Phase 5 cline - Implement Role Based Access Control.
+A user can belong to one role but may have multiple module permissions.
+Permissions should be configurable from the Super Admin dashboard.
+Modules:
+Users
+Products
+Businesses
+Properties
+News
+Advertisements
+PIPAds
+Wallet
+Promotions
+Media
+Live
+Notifications
+Analytics
+Settings
