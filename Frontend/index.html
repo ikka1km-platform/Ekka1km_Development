@@ -328,6 +328,21 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
     </div>
 
+    <div
+      class="menuCard"
+      onclick="openUploadTest()"
+      style="background:#e8f5e9;">
+
+      <i class="material-icons" style="color:#0f9d58;">
+        cloud_upload
+      </i>
+
+      <h4>
+        Upload Test
+      </h4>
+
+    </div>
+
   </div>
 
 </div>
@@ -389,6 +404,25 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
 <div id="store" class="page">
   <div id="storeContent"></div>
+</div>
+
+<!-- MEDIA LIBRARY -->
+
+<div id="mediaLibrary" class="page">
+  <div class="sectionTitle">My Uploads</div>
+  <div id="mediaLibraryContent"></div>
+  <button onclick="openPage('home')" class="btn-gray" style="margin-top:15px;">Back to Home</button>
+</div>
+
+<!-- UPLOAD TEST -->
+
+<div id="uploadTest" class="page">
+  <div class="sectionTitle">Media Upload Test</div>
+  <div class="card">
+    <p>Test the ImageKit upload system. Choose an image or video to upload.</p>
+    <div id="uploadTestWidget"></div>
+    <button onclick="openPage('home')" class="btn-gray" style="margin-top:15px;">Back to Home</button>
+  </div>
 </div>
 
 <!-- ADVERTISEMENTS -->
@@ -550,9 +584,24 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       id="prodModel"
       placeholder="Model">
 
-    <input
-      id="prodImage"
-      placeholder="Image URL">
+    <!-- Product Images Section -->
+    <div style="margin:15px 0;">
+      <label style="font-weight:600;font-size:14px;display:block;margin-bottom:8px;">Product Images (up to 5)</label>
+      <div id="prodImageUploads">
+        <div id="prodImageUpload1" style="margin-bottom:10px;"></div>
+        <div id="prodImageUpload2" style="margin-bottom:10px;"></div>
+        <div id="prodImageUpload3" style="margin-bottom:10px;"></div>
+        <div id="prodImageUpload4" style="margin-bottom:10px;"></div>
+        <div id="prodImageUpload5" style="margin-bottom:10px;"></div>
+      </div>
+      <div id="prodImageUrls" style="display:none;">
+        <input id="prodImage" placeholder="Image URL">
+        <input id="prodImage2" placeholder="Image 2 URL">
+        <input id="prodImage3" placeholder="Image 3 URL">
+        <input id="prodImage4" placeholder="Image 4 URL">
+        <input id="prodImage5" placeholder="Image 5 URL">
+      </div>
+    </div>
 
     <input
       id="prodCity"
@@ -720,6 +769,27 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       placeholder="Description">
     </textarea>
 
+    <!-- Business Media Uploads -->
+    <div style="margin:15px 0;">
+      <label style="font-weight:600;font-size:14px;display:block;margin-bottom:8px;">Business Logo</label>
+      <div id="bizLogoUpload" style="margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px dashed #ccc;border-radius:8px;">
+          <input type="file" id="fileInput_bizLogoUpload" accept="image/*" style="flex:1;font-size:12px;" onchange="handleBusinessMediaUpload(event, 'bizLogoUpload', 'bizLogo')">
+          <span id="status_bizLogoUpload" style="font-size:11px;color:#888;">No logo</span>
+        </div>
+      </div>
+      <input id="bizLogo" style="display:none;">
+
+      <label style="font-weight:600;font-size:14px;display:block;margin-bottom:8px;">Cover Image</label>
+      <div id="bizCoverUpload" style="margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px dashed #ccc;border-radius:8px;">
+          <input type="file" id="fileInput_bizCoverUpload" accept="image/*" style="flex:1;font-size:12px;" onchange="handleBusinessMediaUpload(event, 'bizCoverUpload', 'bizCoverImage')">
+          <span id="status_bizCoverUpload" style="font-size:11px;color:#888;">No cover</span>
+        </div>
+      </div>
+      <input id="bizCoverImage" style="display:none;">
+    </div>
+
     <input
       id="bizPhone"
       placeholder="Phone">
@@ -797,9 +867,25 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       id="newsCategory"
       placeholder="Category">
 
-    <input
-      id="newsImage"
-      placeholder="Image URL">
+    <div style="margin:15px 0;">
+      <label style="font-weight:600;font-size:14px;display:block;margin-bottom:8px;">News Image</label>
+      <div id="newsImageUpload" style="margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px dashed #ccc;border-radius:8px;">
+          <input type="file" id="fileInput_newsImageUpload" accept="image/*" style="flex:1;font-size:12px;" onchange="handleNewsMediaUpload(event, 'newsImageUpload', 'newsImage')">
+          <span id="status_newsImageUpload" style="font-size:11px;color:#888;">No image</span>
+        </div>
+      </div>
+      <input id="newsImage" style="display:none;">
+
+      <label style="font-weight:600;font-size:14px;display:block;margin-bottom:8px;">News Video (optional MP4)</label>
+      <div id="newsVideoUpload" style="margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px dashed #ccc;border-radius:8px;">
+          <input type="file" id="fileInput_newsVideoUpload" accept="video/*" style="flex:1;font-size:12px;" onchange="handleNewsMediaUpload(event, 'newsVideoUpload', 'newsVideoURL')">
+          <span id="status_newsVideoUpload" style="font-size:11px;color:#888;">No video</span>
+        </div>
+      </div>
+      <input id="newsVideoURL" style="display:none;">
+    </div>
 
     <input
       id="newsCity"
@@ -1021,6 +1107,8 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 <script src="Post.js"></script>
 <script src="Store.js"></script>
 <script src="ProductImages.js"></script>
+<script src="MediaUpload.js"></script>
+<script src="MediaLibrary.js"></script>
 
 </body>
 </html>

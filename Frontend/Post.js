@@ -3,7 +3,7 @@
 EKKA1KM FRONTEND
 Post.js
 Floating Post Button + Post Forms
-V1.0
+V1.3 - Full Media Upload Support
 ============================================================
 */
 
@@ -63,6 +63,7 @@ function openPostForm(formType) {
   switch (formType) {
     case "product":
       openPage("postProduct");
+      setTimeout(initProductImageUploads, 100);
       break;
     case "property":
       openPage("postProperty");
@@ -87,6 +88,191 @@ function openPostForm(formType) {
 
 /*
 ============================================================
+UPLOAD MEDIA HELPER - Reusable upload engine
+============================================================
+*/
+
+async function uploadMediaFile(file, folder) {
+  const base64 = await fileToBase64(file);
+  const base64Data = base64.split(",")[1] || base64;
+
+  const ext = file.name.split(".").pop() || "jpg";
+  const fileName = Date.now() + "_" + Math.random().toString(36).substring(2, 8) + "." + ext;
+
+  const formData = new URLSearchParams();
+  formData.append("base64", base64Data);
+  formData.append("fileName", fileName);
+  formData.append("folder", folder);
+
+  const url = `${getApiUrl()}?action=upload`;
+  const response = await fetch(url, {
+    method: "POST",
+    body: formData.toString()
+  });
+
+  const json = await response.json();
+
+  if (json.success || json.status === "SUCCESS") {
+    return json.data || {};
+  }
+
+  throw new Error(json.message || "Upload failed");
+}
+
+
+/*
+============================================================
+INIT PRODUCT IMAGE UPLOAD WIDGETS
+============================================================
+*/
+
+function initProductImageUploads() {
+  const imageSlots = ["prodImageUpload1","prodImageUpload2","prodImageUpload3","prodImageUpload4","prodImageUpload5"];
+  const imageInputs = ["prodImage","prodImage2","prodImage3","prodImage4","prodImage5"];
+
+  imageSlots.forEach((slotId, idx) => {
+    const container = document.getElementById(slotId);
+    if (!container) return;
+
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px dashed #ccc;border-radius:8px;">
+        <input type="file" id="fileInput_${slotId}" accept="image/*" style="flex:1;font-size:12px;" onchange="handleProductImageUpload(event, '${slotId}', '${imageInputs[idx]}')">
+        <span id="status_${slotId}" style="font-size:11px;color:#888;">No image</span>
+      </div>
+    `;
+  });
+}
+
+
+/*
+============================================================
+HANDLE PRODUCT IMAGE UPLOAD
+============================================================
+*/
+
+async function handleProductImageUpload(event, slotId, inputId) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById("status_" + slotId);
+  if (!statusEl) return;
+
+  statusEl.innerHTML = "Uploading...";
+  statusEl.style.color = "#0f9d58";
+
+  try {
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      statusEl.innerHTML = "❌ " + validation.error;
+      statusEl.style.color = "#d32f2f";
+      return;
+    }
+
+    const data = await uploadMediaFile(file, "products");
+    const imageUrl = data.url;
+
+    const input = document.getElementById(inputId);
+    if (input) {
+      input.value = imageUrl;
+    }
+
+    statusEl.innerHTML = "✅ Uploaded";
+    statusEl.style.color = "#0f9d58";
+  } catch (err) {
+    console.log(err);
+    statusEl.innerHTML = "❌ " + (err.message || "Error uploading");
+    statusEl.style.color = "#d32f2f";
+  }
+}
+
+
+/*
+============================================================
+HANDLE BUSINESS MEDIA UPLOAD
+============================================================
+*/
+
+async function handleBusinessMediaUpload(event, slotId, inputId) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById("status_" + slotId);
+  if (!statusEl) return;
+
+  statusEl.innerHTML = "Uploading...";
+  statusEl.style.color = "#0f9d58";
+
+  try {
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      statusEl.innerHTML = "❌ " + validation.error;
+      statusEl.style.color = "#d32f2f";
+      return;
+    }
+
+    const data = await uploadMediaFile(file, "businesses");
+    const imageUrl = data.url;
+
+    const input = document.getElementById(inputId);
+    if (input) {
+      input.value = imageUrl;
+    }
+
+    statusEl.innerHTML = "✅ Uploaded";
+    statusEl.style.color = "#0f9d58";
+  } catch (err) {
+    console.log(err);
+    statusEl.innerHTML = "❌ " + (err.message || "Error uploading");
+    statusEl.style.color = "#d32f2f";
+  }
+}
+
+
+/*
+============================================================
+HANDLE NEWS MEDIA UPLOAD
+============================================================
+*/
+
+async function handleNewsMediaUpload(event, slotId, inputId) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById("status_" + slotId);
+  if (!statusEl) return;
+
+  statusEl.innerHTML = "Uploading...";
+  statusEl.style.color = "#0f9d58";
+
+  try {
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      statusEl.innerHTML = "❌ " + validation.error;
+      statusEl.style.color = "#d32f2f";
+      return;
+    }
+
+    const folder = file.type.startsWith("video/") ? "news-videos" : "news";
+    const data = await uploadMediaFile(file, folder);
+    const mediaUrl = data.url;
+
+    const input = document.getElementById(inputId);
+    if (input) {
+      input.value = mediaUrl;
+    }
+
+    statusEl.innerHTML = "✅ Uploaded";
+    statusEl.style.color = "#0f9d58";
+  } catch (err) {
+    console.log(err);
+    statusEl.innerHTML = "❌ " + (err.message || "Error uploading");
+    statusEl.style.color = "#d32f2f";
+  }
+}
+
+
+/*
+============================================================
 POST PRODUCT
 ============================================================
 */
@@ -103,6 +289,10 @@ async function submitProduct() {
   const brand = document.getElementById("prodBrand").value.trim();
   const model = document.getElementById("prodModel").value.trim();
   const imageUrl = document.getElementById("prodImage").value.trim();
+  const image2 = document.getElementById("prodImage2").value.trim();
+  const image3 = document.getElementById("prodImage3").value.trim();
+  const image4 = document.getElementById("prodImage4").value.trim();
+  const image5 = document.getElementById("prodImage5").value.trim();
   const city = document.getElementById("prodCity").value.trim();
   const state = document.getElementById("prodState").value.trim();
   const pincode = document.getElementById("prodPincode").value.trim();
@@ -128,6 +318,10 @@ async function submitProduct() {
       + `&brand=${encodeURIComponent(brand)}`
       + `&model=${encodeURIComponent(model)}`
       + `&imageURL=${encodeURIComponent(imageUrl)}`
+      + `&image2=${encodeURIComponent(image2)}`
+      + `&image3=${encodeURIComponent(image3)}`
+      + `&image4=${encodeURIComponent(image4)}`
+      + `&image5=${encodeURIComponent(image5)}`
       + `&city=${encodeURIComponent(city)}`
       + `&state=${encodeURIComponent(state)}`
       + `&pincode=${encodeURIComponent(pincode)}`
@@ -242,6 +436,8 @@ async function submitBusiness() {
   const pincode = document.getElementById("bizPincode").value.trim();
   const openingTime = document.getElementById("bizOpen").value.trim();
   const closingTime = document.getElementById("bizClose").value.trim();
+  const logo = document.getElementById("bizLogo").value.trim();
+  const coverImage = document.getElementById("bizCoverImage").value.trim();
 
   if (!businessName) {
     alert("Business Name is required.");
@@ -250,8 +446,8 @@ async function submitBusiness() {
 
   try {
     const url = `${getApiUrl()}?action=addbusiness`
-      + `&ownerUserID=${encodeURIComponent(userId)}`
-      + `&businessName=${encodeURIComponent(businessName)}`
+      + `&userId=${encodeURIComponent(userId)}`
+      + `&title=${encodeURIComponent(businessName)}`
       + `&category=${encodeURIComponent(category)}`
       + `&description=${encodeURIComponent(description)}`
       + `&phone=${encodeURIComponent(phone)}`
@@ -263,6 +459,8 @@ async function submitBusiness() {
       + `&pincode=${encodeURIComponent(pincode)}`
       + `&openingTime=${encodeURIComponent(openingTime)}`
       + `&closingTime=${encodeURIComponent(closingTime)}`
+      + `&logo=${encodeURIComponent(logo)}`
+      + `&coverImage=${encodeURIComponent(coverImage)}`
       + `&lat=${CURRENT_LAT}&lng=${CURRENT_LNG}`;
 
     const response = await fetch(url);
@@ -297,6 +495,7 @@ async function submitNews() {
   const content = document.getElementById("newsContent").value.trim();
   const category = document.getElementById("newsCategory").value.trim();
   const imageUrl = document.getElementById("newsImage").value.trim();
+  const videoUrl = document.getElementById("newsVideoURL").value.trim();
   const city = document.getElementById("newsCity").value.trim();
 
   if (!title || !content) {
@@ -311,6 +510,7 @@ async function submitNews() {
       + `&content=${encodeURIComponent(content)}`
       + `&category=${encodeURIComponent(category)}`
       + `&imageURL=${encodeURIComponent(imageUrl)}`
+      + `&videoURL=${encodeURIComponent(videoUrl)}`
       + `&city=${encodeURIComponent(city)}`
       + `&lat=${CURRENT_LAT}&lng=${CURRENT_LNG}`;
 
@@ -446,8 +646,9 @@ function clearPostForm(formType) {
   const formMap = {
     product: [
       "prodTitle","prodDesc","prodPrice","prodCategory",
-      "prodBrand","prodModel","prodImage","prodCity",
-      "prodState","prodPincode","prodPhone","prodWhatsapp"
+      "prodBrand","prodModel","prodImage","prodImage2",
+      "prodImage3","prodImage4","prodImage5",
+      "prodCity","prodState","prodPincode","prodPhone","prodWhatsapp"
     ],
     property: [
       "propTitle","propDesc","propPrice","propBedrooms",
@@ -457,10 +658,12 @@ function clearPostForm(formType) {
     business: [
       "bizName","bizCategory","bizDesc","bizPhone",
       "bizWhatsapp","bizEmail","bizAddress","bizCity",
-      "bizState","bizPincode","bizOpen","bizClose"
+      "bizState","bizPincode","bizOpen","bizClose",
+      "bizLogo","bizCoverImage"
     ],
     news: [
-      "newsTitle","newsContent","newsCategory","newsImage","newsCity"
+      "newsTitle","newsContent","newsCategory","newsImage",
+      "newsVideoURL","newsCity"
     ],
     advertisement: [
       "adTitle","adDesc","adImage","adExternal","adCity"
@@ -474,5 +677,24 @@ function clearPostForm(formType) {
   fields.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = "";
+  });
+
+  // Reset upload statuses
+  const slotsToReset = formType === "product"
+    ? ["prodImageUpload1","prodImageUpload2","prodImageUpload3","prodImageUpload4","prodImageUpload5"]
+    : formType === "business"
+    ? ["bizLogoUpload","bizCoverUpload"]
+    : formType === "news"
+    ? ["newsImageUpload","newsVideoUpload"]
+    : [];
+
+  slotsToReset.forEach(slotId => {
+    const statusEl = document.getElementById("status_" + slotId);
+    if (statusEl) {
+      statusEl.innerHTML = "No image";
+      statusEl.style.color = "#888";
+    }
+    const fileInput = document.getElementById("fileInput_" + slotId);
+    if (fileInput) fileInput.value = "";
   });
 }

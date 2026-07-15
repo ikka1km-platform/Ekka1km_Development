@@ -36,6 +36,16 @@ function getProductImages(product) {
     urls.push(product.Image3.trim());
   }
 
+  // Image4
+  if (product.Image4 && product.Image4.trim()) {
+    urls.push(product.Image4.trim());
+  }
+
+  // Image5
+  if (product.Image5 && product.Image5.trim()) {
+    urls.push(product.Image5.trim());
+  }
+
   return urls;
 }
 
