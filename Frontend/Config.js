@@ -62,6 +62,7 @@ const CONFIG = {
     LOCATION: "ekka_location",
     RADIUS: "ekka_radius",
 
+    SEARCH_CENTER: "ekka1km_search_center",
     GUEST_ID: "ekka_guest_id",
     INSTALL_DATE: "ekka_install_date",
     LAST_VISIT_DATE: "ekka_last_visit_date",

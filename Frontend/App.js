@@ -333,6 +333,8 @@ window.addEventListener(
 
     initRadius();
 
+    initSearchLocationUI();
+
     refreshLoginUI();
 
     openPage("home");

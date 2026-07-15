@@ -46,6 +46,18 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
   </div>
 
+  <div class="locationBox">
+
+    <select id="searchLocation">
+
+      <option value="gps">📍 Current Location</option>
+      <option value="search">🔍 Search Another Place</option>
+      <option value="clear">✕ Clear Manual Location</option>
+
+    </select>
+
+  </div>
+
   <div class="radiusBox">
 
     <select id="radius">
@@ -63,6 +75,69 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   </div>
 
 </header>
+
+<!-- ===================================================== -->
+<!-- SEARCH LOCATION MODAL -->
+<!-- ===================================================== -->
+
+<div id="searchLocationModal" class="modal" style="display:none;">
+
+  <div class="modalContent">
+
+    <div class="modalHeader">
+
+      <h2>Search Location</h2>
+
+      <span
+        class="modalClose"
+        onclick="closeSearchModal()"
+        title="Close">
+        &times;
+      </span>
+
+    </div>
+
+    <p style="font-size:13px;color:#888;margin-bottom:12px;">
+      Enter city, area, village or landmark in India.
+    </p>
+
+    <div class="modalInputGroup">
+
+      <input
+        id="searchLocationInput"
+        type="text"
+        placeholder="e.g. Indore, Vijay Nagar, Delhi, Kota..."
+        onkeydown="searchLocationOnEnter(event)">
+
+      <button
+        onclick="searchLocation()"
+        class="btnSearch">
+        Search
+      </button>
+
+    </div>
+
+    <div
+      id="searchLocationError"
+      class="modalError"
+      style="display:none;">
+    </div>
+
+    <div
+      id="searchLocationResults"
+      class="modalResults">
+    </div>
+
+    <button
+      onclick="closeSearchModal()"
+      class="btn-gray"
+      style="margin-top:10px;width:100%;">
+      Cancel
+    </button>
+
+  </div>
+
+</div>
 
 <main>
 
@@ -1095,6 +1170,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 </div>
 
 <script src="Config.js"></script>
+<script src="SearchLocation.js"></script>
 <script src="App.js"></script>
 <script src="Auth.js"></script>
 <script src="Products.js"></script>

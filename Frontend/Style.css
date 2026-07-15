@@ -861,6 +861,187 @@ li{
 }
 
 /* ==========================================================
+   SEARCH LOCATION BOX
+========================================================== */
+
+.locationBox{
+  background:#e8f5e9;
+  padding:8px 12px;
+  border-radius:12px;
+  max-width:180px;
+  overflow:hidden;
+}
+
+.locationBox select{
+  border:none;
+  background:transparent;
+  font-weight:600;
+  font-size:13px;
+  width:100%;
+  cursor:pointer;
+  margin-bottom:0;
+  padding:0;
+}
+
+/* ==========================================================
+   MODAL
+========================================================== */
+
+.modal{
+  display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  background:rgba(0,0,0,.5);
+  z-index:99999;
+  align-items:flex-start;
+  justify-content:center;
+  padding-top:60px;
+  overflow-y:auto;
+}
+
+.modalContent{
+  background:#fff;
+  border-radius:20px;
+  width:92%;
+  max-width:500px;
+  padding:20px;
+  box-shadow:0 10px 40px rgba(0,0,0,.2);
+  animation:modalSlideIn .3s ease;
+}
+
+@keyframes modalSlideIn{
+  from{
+    transform:translateY(-30px);
+    opacity:0;
+  }
+  to{
+    transform:translateY(0);
+    opacity:1;
+  }
+}
+
+.modalHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:10px;
+}
+
+.modalHeader h2{
+  font-size:20px;
+  margin:0;
+}
+
+.modalClose{
+  font-size:28px;
+  cursor:pointer;
+  color:#888;
+  line-height:1;
+  padding:4px;
+}
+
+.modalClose:hover{
+  color:#333;
+}
+
+.modalInputGroup{
+  display:flex;
+  gap:8px;
+  margin-bottom:12px;
+}
+
+.modalInputGroup input{
+  flex:1;
+  margin-bottom:0;
+  padding:12px 14px;
+  font-size:14px;
+  border:1px solid #ddd;
+  border-radius:12px;
+  outline:none;
+}
+
+.modalInputGroup input:focus{
+  border-color:var(--primary);
+}
+
+.btnSearch{
+  width:auto;
+  margin-top:0;
+  padding:12px 20px;
+  white-space:nowrap;
+  background:var(--primary);
+  color:#fff;
+  border:none;
+  border-radius:12px;
+  font-weight:600;
+  font-size:14px;
+  cursor:pointer;
+}
+
+.modalError{
+  background:#ffebee;
+  color:#d32f2f;
+  padding:10px 14px;
+  border-radius:10px;
+  font-size:13px;
+  margin-bottom:12px;
+}
+
+.modalResults{
+  max-height:350px;
+  overflow-y:auto;
+  border:1px solid #eee;
+  border-radius:12px;
+}
+
+.searchResultItem{
+  padding:12px 16px;
+  border-bottom:1px solid #eee;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  transition:background .2s;
+}
+
+.searchResultItem:last-child{
+  border-bottom:none;
+}
+
+.searchResultItem:hover{
+  background:#f5f5f5;
+}
+
+/* ==========================================================
+   LOCATION TOAST ANIMATIONS
+========================================================== */
+
+@keyframes fadeInUp{
+  from{
+    opacity:0;
+    transform:translateX(-50%) translateY(20px);
+  }
+  to{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes fadeOutDown{
+  from{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
+  }
+  to{
+    opacity:0;
+    transform:translateX(-50%) translateY(20px);
+  }
+}
+
+/* ==========================================================
    MOBILE
 ========================================================== */
 
