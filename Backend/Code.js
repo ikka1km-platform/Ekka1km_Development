@@ -542,6 +542,13 @@ case "onboarding":
     router: "V5.8.2"
   });
 
+      // OTP Login
+      case "sendotp":
+        return sendOtp(e);
+
+      case "verifyotp":
+        return verifyOtp(e);
+
   // Media Upload
   case "upload":
     return handleUpload(e);
@@ -860,6 +867,13 @@ case "getlivenotifications":
 
 case "liveunreadcount":
   return getLiveUnreadCount(e);
+
+      // OTP Login via POST
+      case "sendotp":
+        return sendOtp(e);
+
+      case "verifyotp":
+        return verifyOtp(e);
 
       // Media Upload via POST
       case "upload":

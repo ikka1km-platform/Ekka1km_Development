@@ -3,7 +3,7 @@
  * EKKA1KM BACKEND
  * Config.js
  * Global Configuration
- * V5.8.2
+ * V5.9.0 - OTP Login Support
  * ============================================================
  */
 
@@ -15,11 +15,23 @@ const CONFIG = {
 
   APP_NAME: "Ekka1km",
 
-  VERSION: "5.8.2",
+  VERSION: "5.9.0",
 
   SPREADSHEET_ID: "1MXxrtbU5g9t1979aoBnlVsWAI5VIHbu_",
   
   TIMEZONE: Session.getScriptTimeZone(),
+
+  //============================================================
+  // OTP SETTINGS
+  //============================================================
+
+  OTP_PROVIDER: "LOCAL",
+
+  OTP_EXPIRY_MINUTES: 5,
+
+  OTP_MAX_ATTEMPTS: 3,
+
+  OTP_LENGTH: 6,
 
   //============================================================
   // SHEETS
@@ -266,4 +278,3 @@ function getAppSettings() {
     currency: CONFIG.DEFAULT_CURRENCY
   };
 }
-
