@@ -549,6 +549,9 @@ case "onboarding":
       case "verifyotp":
         return verifyOtp(e);
 
+      case "loginbymobile":
+        return loginByMobile(e);
+
   // Media Upload
   case "upload":
     return handleUpload(e);

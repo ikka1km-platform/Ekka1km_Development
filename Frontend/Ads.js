@@ -93,7 +93,7 @@ function renderAdvertisements() {
       <div class="card">
 
         ${
-          ad.ImageURL
+          ad.ImageURL && isValidImageUrl(ad.ImageURL)
             ? `
             <img
               src="${ad.ImageURL}"
@@ -282,7 +282,7 @@ function showPipAd() {
       </div>
 
       ${
-        CURRENT_PIP_AD.ImageURL
+        CURRENT_PIP_AD.ImageURL && isValidImageUrl(CURRENT_PIP_AD.ImageURL)
           ? `
           <img
             src="${CURRENT_PIP_AD.ImageURL}"

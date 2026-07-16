@@ -3,7 +3,8 @@
 EKKA1KM FRONTEND
 ProductImages.js
 Product Image System - Thumbnail, Slider, Full Screen Viewer
-V1.0
+V1.1
+- Added isValidImageUrl() to filter invalid URLs (image2.jpg, image3.jpg)
 ============================================================
 */
 
@@ -13,8 +14,16 @@ let PRODUCT_IMAGE_SLIDE = 0;
 /*
 ============================================================
 GET ALL PRODUCT IMAGES
+- Validates URL starts with http:// or https://
+- Filters out invalid image URLs like "image2.jpg" / "image3.jpg"
 ============================================================
 */
+
+function isValidImageUrl(str) {
+  if (!str || !str.trim()) return false;
+  const s = str.trim();
+  return s.startsWith("http://") || s.startsWith("https://");
+}
 
 function getProductImages(product) {
   if (!product) return [];
@@ -22,27 +31,27 @@ function getProductImages(product) {
   const urls = [];
 
   // ImageURL (primary)
-  if (product.ImageURL && product.ImageURL.trim()) {
+  if (isValidImageUrl(product.ImageURL)) {
     urls.push(product.ImageURL.trim());
   }
 
   // Image2
-  if (product.Image2 && product.Image2.trim()) {
+  if (isValidImageUrl(product.Image2)) {
     urls.push(product.Image2.trim());
   }
 
   // Image3
-  if (product.Image3 && product.Image3.trim()) {
+  if (isValidImageUrl(product.Image3)) {
     urls.push(product.Image3.trim());
   }
 
   // Image4
-  if (product.Image4 && product.Image4.trim()) {
+  if (isValidImageUrl(product.Image4)) {
     urls.push(product.Image4.trim());
   }
 
   // Image5
-  if (product.Image5 && product.Image5.trim()) {
+  if (isValidImageUrl(product.Image5)) {
     urls.push(product.Image5.trim());
   }
 

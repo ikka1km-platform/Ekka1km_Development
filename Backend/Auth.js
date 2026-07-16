@@ -234,6 +234,40 @@ function registerUser(e) {
 
 
 
+function loginByMobile(e) {
+  try {
+    const mobile = (e.parameter.mobile || "").trim();
+
+    if (!mobile) {
+      return error("Mobile number is required");
+    }
+
+    const result = findOrCreateUserByMobile(mobile);
+
+    if (!result.success) {
+      return error(result.message);
+    }
+
+    // Generate session
+    const sessionToken = generateSessionToken();
+
+    const userData = result.user;
+
+    return success(
+      {
+        session: sessionToken,
+        user: userData,
+        mobile: mobile,
+        isNewUser: result.isNewUser || false
+      },
+      "Login Successful"
+    );
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
 function logoutUser(e) {
   return success(
     {},

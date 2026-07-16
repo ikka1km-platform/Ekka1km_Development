@@ -228,10 +228,7 @@ function renderStorePage() {
     STORE_PRODUCTS.forEach(product => {
       prodHtml += `
         <div class="product" style="cursor:pointer;" onclick='showProductDetails(${JSON.stringify(product)})'>
-          ${product.ImageURL
-            ? `<img src="${product.ImageURL}" style="width:100%;height:150px;object-fit:cover;border-radius:12px;margin-bottom:10px;">`
-            : ""
-          }
+          ${productThumbnailHTML(product, { height: "150px" })}
           <h3>${product.Title || "-"}</h3>
           <p>₹ ${product.Price || 0}</p>
           ${product.DistanceKm

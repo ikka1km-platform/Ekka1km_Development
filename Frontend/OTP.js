@@ -307,48 +307,49 @@ const OTP = {
         CONFIG.STORAGE_KEYS.OTP_STORAGE
       );
 
-      // Verify with backend as well
-      let backendResult = null;
+      // LOCAL mode: verify against localStorage only
+      // After verification, call backend loginbymobile
+      // to get real user or create new backend user
+      let loginResult = null;
 
       try {
         const response =
           await fetch(
             getApiUrl() +
-            "?action=verifyotp" +
+            "?action=loginbymobile" +
             "&mobile=" +
-            encodeURIComponent(mobile) +
-            "&otp=" +
-            encodeURIComponent(otp)
+            encodeURIComponent(mobile)
           );
-        backendResult =
+        loginResult =
           await response.json();
       } catch (err) {
         console.log(
-          "Backend OTP verify: " +
+          "Backend loginbymobile: " +
           (err.message || "network issue")
         );
       }
 
-      // Return success with session info
-      // Use backend data if available
-      const sessionData =
-        backendResult &&
-        backendResult.success
-          ? backendResult.data
-          : null;
+      // If backend returns user, use it
+      if (
+        loginResult &&
+        loginResult.success &&
+        loginResult.data &&
+        loginResult.data.user
+      ) {
+        return {
+          success: true,
+          message: "OTP Verified Successfully",
+          session: loginResult.data.session || null,
+          user: loginResult.data.user,
+          mobile: mobile
+        };
+      }
 
+      // Backend unavailable - report error
+      // LOCAL mode MUST NOT create temporary users
       return {
-        success: true,
-        message: "OTP Verified Successfully",
-        session:
-          sessionData
-            ? sessionData.session
-            : null,
-        user:
-          sessionData
-            ? sessionData.user
-            : null,
-        mobile: mobile
+        success: false,
+        message: "Unable to connect to server. Please try again."
       };
 
     } catch (err) {

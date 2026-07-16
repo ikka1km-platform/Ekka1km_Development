@@ -362,37 +362,13 @@ async function verifyLoginOTP() {
         saveSessionToken(
           result.session
         );
-      } else {
-        // Generate local session if backend unavailable
-        const localSession =
-          "SES_" +
-          Date.now() +
-          "_" +
-          Math.random()
-            .toString(36)
-            .substr(2, 9);
-
-        saveSessionToken(
-          localSession
-        );
       }
 
-      // Save user data
+      // Save user data (only from backend)
       if (result.user) {
         saveSessionUser(
           result.user
         );
-      } else {
-        // Create minimal local user
-        saveSessionUser({
-          UserID:
-            "U_" +
-            Date.now(),
-          Mobile: mobile,
-          FullName:
-            "User " +
-            mobile.slice(-4)
-        });
       }
 
       // Save last mobile
