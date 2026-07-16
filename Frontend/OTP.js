@@ -2,7 +2,7 @@
 ============================================================
 EKKA1KM FRONTEND
 OTP.js
-V2.1 - OTP Provider Abstraction (LOCAL + MSG91)
+V2.2 - OTP Provider Abstraction (LOCAL + MSG91)
 Switch by CONFIG.OTP_PROVIDER only
 ============================================================
 */
@@ -201,8 +201,9 @@ const OTP = {
   ============================================================
   LOCAL PROVIDER - VERIFY
   Verify against localStorage only.
-  Then try to get user from backend via loginbymobile.
-  If backend unavailable, generate local session+user.
+  Then get user from backend via loginbymobile.
+  If backend unavailable, return error.
+  NO LOCAL TEMPORARY USER CREATION.
   ============================================================
   */
 
@@ -315,9 +316,8 @@ const OTP = {
         CONFIG.STORAGE_KEYS.OTP_STORAGE
       );
 
-      // Try to get user from backend via loginbymobile
-      let loginResult = null;
-
+      // Get user from backend via loginbymobile
+      // This is the ONLY source of truth for user data
       try {
         const response =
           await fetch(
@@ -326,56 +326,40 @@ const OTP = {
             "&mobile=" +
             encodeURIComponent(mobile)
           );
-        loginResult =
+        const loginResult =
           await response.json();
-      } catch (err) {
-        console.log(
-          "Backend loginbymobile: " +
-          (err.message || "network issue")
-        );
-      }
 
-      // If backend returns user, use it
-      if (
-        loginResult &&
-        loginResult.success &&
-        loginResult.data &&
-        loginResult.data.user
-      ) {
+        if (
+          loginResult &&
+          loginResult.success &&
+          loginResult.data &&
+          loginResult.data.user
+        ) {
+          console.log("OTP verify: backend login success for", mobile);
+          return {
+            success: true,
+            message: "OTP Verified Successfully",
+            session: loginResult.data.session || null,
+            user: loginResult.data.user,
+            mobile: mobile
+          };
+        }
+
+        // Backend returned an error response
+        console.log("OTP verify: backend login failed:", loginResult.message);
         return {
-          success: true,
-          message: "OTP Verified Successfully",
-          session: loginResult.data.session || null,
-          user: loginResult.data.user,
-          mobile: mobile
+          success: false,
+          message: loginResult.message || "Backend login failed. Please try again."
+        };
+
+      } catch (err) {
+        // Backend unavailable - cannot create user
+        console.log("OTP verify: backend unavailable -", err.message);
+        return {
+          success: false,
+          message: "Unable to connect to server. Please check your internet connection and try again."
         };
       }
-
-      // Backend unavailable - create local session + user
-      // This is required so login still works during development
-      const localSession =
-        "SES_" +
-        Date.now() +
-        "_" +
-        Math.random()
-          .toString(36)
-          .substr(2, 9);
-
-      const localUser = {
-        UserID: "U_" + Date.now(),
-        Mobile: mobile,
-        FullName: "User " + mobile.slice(-4),
-        WalletID: "W_" + Date.now(),
-        TotalCoins: 0
-      };
-
-      return {
-        success: true,
-        message: "OTP Verified Successfully (Offline)",
-        session: localSession,
-        user: localUser,
-        mobile: mobile
-      };
 
     } catch (err) {
 

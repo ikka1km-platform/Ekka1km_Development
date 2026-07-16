@@ -2,8 +2,8 @@
 ============================================================
 EKKA1KM FRONTEND
 Auth.js
-V2.0 - OTP Login / Session / Logout
-WhatsApp-style mobile login flow
+V2.1 - OTP Login / Session / Logout
+SINGLE SOURCE OF TRUTH: ekka1km_user + ekka1km_session
 ============================================================
 */
 
@@ -11,8 +11,12 @@ WhatsApp-style mobile login flow
 /*
 ============================================================
 SESSION HELPERS
+Single source of truth:
+- ekka1km_user (CONFIG.STORAGE_KEYS.USER_NEW)
+- ekka1km_session (CONFIG.STORAGE_KEYS.SESSION)
 ============================================================
 */
+
 
 function getSessionUser() {
 
@@ -91,14 +95,14 @@ function saveLastMobile(mobile) {
 
 /*
 ============================================================
-BACKWARD COMPATIBLE GET USER
-Checks both old (ekka_user) and new (ekka1km_user) keys
+GET CURRENT USER
+Single source of truth: ekka1km_user only
+No fallback to old keys.
 ============================================================
 */
 
 function getCurrentUser() {
 
-  // First try new session storage
   const sessionUser =
     getSessionUser();
 
@@ -106,21 +110,7 @@ function getCurrentUser() {
     return sessionUser;
   }
 
-  // Fallback to old storage
-  const data =
-    localStorage.getItem(
-      CONFIG.STORAGE_KEYS.USER
-    );
-
-  if (!data)
-    return null;
-
-  try {
-    return JSON.parse(data);
-  }
-  catch (e) {
-    return null;
-  }
+  return null;
 }
 
 
@@ -141,14 +131,23 @@ function getUserId() {
 }
 
 
+/*
+============================================================
+IS LOGGED IN
+Must have BOTH session token AND user data.
+Partial state is NOT logged in.
+============================================================
+*/
+
 function isLoggedIn() {
-  return (
-    getSessionToken() !== null ||
-    getSessionUser() !== null ||
-    localStorage.getItem(
-      CONFIG.STORAGE_KEYS.USER
-    ) !== null
-  );
+
+  const hasSession =
+    getSessionToken() !== null;
+
+  const hasUser =
+    getSessionUser() !== null;
+
+  return hasSession && hasUser;
 }
 
 
@@ -311,6 +310,7 @@ async function sendLoginOTP() {
 /*
 ============================================================
 OTP LOGIN - STEP 2: VERIFY OTP
+Atomic login: save session + user together.
 ============================================================
 */
 
@@ -363,18 +363,24 @@ async function verifyLoginOTP() {
 
     if (result.success) {
 
-      // Save session
-      if (result.session) {
-        saveSessionToken(
-          result.session
-        );
-      }
+      // Atomic login: save session AND user together
+      // Both must succeed for login to be valid
+      if (result.session && result.user) {
+        saveSessionToken(result.session);
+        saveSessionUser(result.user);
 
-      // Save user data (only from backend)
-      if (result.user) {
-        saveSessionUser(
-          result.user
-        );
+        console.log("LOGIN SUCCESS - Session saved:", result.session);
+        console.log("LOGIN SUCCESS - User saved:", result.user);
+        console.log("LOGIN SUCCESS - isLoggedIn:", isLoggedIn());
+        console.log("LOGIN SUCCESS - getCurrentUser:", getCurrentUser());
+      } else {
+        console.log("LOGIN FAILURE - Missing session or user data from backend");
+        alert("Login failed: incomplete data from server.");
+        if (verifyBtn) {
+          verifyBtn.disabled = false;
+          verifyBtn.innerText = "Verify OTP";
+        }
+        return;
       }
 
       // Save last mobile
@@ -390,12 +396,6 @@ async function verifyLoginOTP() {
         devDisplay.style.display =
           "none";
       }
-
-      // Debug: verify session was saved
-      console.log("Login success - session:", localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION));
-      console.log("Login success - user:", localStorage.getItem(CONFIG.STORAGE_KEYS.USER_NEW));
-      console.log("Login success - isLoggedIn:", isLoggedIn());
-      console.log("Login success - getCurrentUser:", getCurrentUser());
 
       // Update UI
       refreshLoginUI();
@@ -414,6 +414,8 @@ async function verifyLoginOTP() {
       loadLocation();
 
     } else {
+
+      console.log("LOGIN FAILURE -", result.message);
 
       alert(
         result.message ||
@@ -777,6 +779,12 @@ function autoFillMobile() {
 /*
 ============================================================
 LOGOUT
+Clears ALL auth keys:
+- ekka1km_user (USER_NEW)
+- ekka1km_session (SESSION)
+- ekka_user (USER - legacy)
+- ekka_token (TOKEN - legacy)
+- ekka_session (legacy)
 ============================================================
 */
 
@@ -790,13 +798,12 @@ function logoutUser() {
     return;
   }
 
-  // Clear ALL user-related storage keys
-  console.log("Logout: clearing all session keys");
+  console.log("LOGOUT: clearing all session keys");
 
-  // New session keys
+  // New session keys (primary)
   clearSessionUser();
 
-  // Old keys for backward compat
+  // Legacy keys (backward compat cleanup)
   localStorage.removeItem(
     CONFIG.STORAGE_KEYS.USER
   );
@@ -805,7 +812,7 @@ function logoutUser() {
     CONFIG.STORAGE_KEYS.TOKEN
   );
 
-  // Also clear ekka_user (old name) if it exists
+  // Legacy ekka_* keys
   localStorage.removeItem("ekka_user");
   localStorage.removeItem("ekka_token");
   localStorage.removeItem("ekka_session");
@@ -814,10 +821,13 @@ function logoutUser() {
   // Do NOT clear ekka1km_last_mobile
 
   console.log(
-    "Session after logout:",
+    "LOGOUT: session after clear -",
+    "ekka1km_session:",
     localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION),
-    "User after logout:",
-    localStorage.getItem(CONFIG.STORAGE_KEYS.USER_NEW)
+    "ekka1km_user:",
+    localStorage.getItem(CONFIG.STORAGE_KEYS.USER_NEW),
+    "ekka_user:",
+    localStorage.getItem(CONFIG.STORAGE_KEYS.USER)
   );
 
   refreshLoginUI();
@@ -835,13 +845,14 @@ function logoutUser() {
 /*
 ============================================================
 BACKWARD COMPATIBILITY
-Save old functions still work
+saveCurrentUser now writes to ekka1km_user (primary key)
+instead of ekka_user (legacy key).
 ============================================================
 */
 
 function saveCurrentUser(user) {
   localStorage.setItem(
-    CONFIG.STORAGE_KEYS.USER,
+    CONFIG.STORAGE_KEYS.USER_NEW,
     JSON.stringify(user)
   );
 }
@@ -849,6 +860,6 @@ function saveCurrentUser(user) {
 
 function clearCurrentUser() {
   localStorage.removeItem(
-    CONFIG.STORAGE_KEYS.USER
+    CONFIG.STORAGE_KEYS.USER_NEW
   );
 }

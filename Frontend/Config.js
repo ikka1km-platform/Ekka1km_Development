@@ -287,8 +287,8 @@ const Analytics = {
   isLoggedIn() {
     return !!localStorage.getItem(
       CONFIG.STORAGE_KEYS.SESSION
-    ) || !!localStorage.getItem(
-      CONFIG.STORAGE_KEYS.USER
+    ) && !!localStorage.getItem(
+      CONFIG.STORAGE_KEYS.USER_NEW
     );
   },
 
