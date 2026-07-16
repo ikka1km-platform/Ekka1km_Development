@@ -108,15 +108,38 @@ async function loadProfile() {
     const json =
       await response.json();
 
-    CURRENT_PROFILE =
-      json.data || {};
+    if (json.success || json.status === "SUCCESS") {
+      CURRENT_PROFILE =
+        json.data || {};
+      renderProfile();
+      return;
+    }
 
-    renderProfile();
+    // Backend unavailable - use cached user data from localStorage
+    console.log("Backend profile unavailable, using cached user data");
+    const cached = getCurrentUser();
+    if (cached) {
+      CURRENT_PROFILE = cached;
+      renderProfile();
+      return;
+    }
+
+    container.innerHTML =
+      "<div class='card'>Unable to load profile.</div>";
 
   }
   catch (err) {
 
     console.log(err);
+
+    // Backend error - use cached user data from localStorage
+    const cached = getCurrentUser();
+    if (cached) {
+      console.log("Backend error, using cached user data");
+      CURRENT_PROFILE = cached;
+      renderProfile();
+      return;
+    }
 
     container.innerHTML =
       "<div class='card'>Unable to load profile.</div>";

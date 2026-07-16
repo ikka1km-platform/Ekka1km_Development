@@ -44,6 +44,12 @@ function saveSessionUser(
 
 
 function clearSessionUser() {
+  console.log(
+    "clearSessionUser: removing",
+    CONFIG.STORAGE_KEYS.USER_NEW,
+    "and",
+    CONFIG.STORAGE_KEYS.SESSION
+  );
   localStorage.removeItem(
     CONFIG.STORAGE_KEYS.USER_NEW
   );
@@ -385,6 +391,12 @@ async function verifyLoginOTP() {
           "none";
       }
 
+      // Debug: verify session was saved
+      console.log("Login success - session:", localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION));
+      console.log("Login success - user:", localStorage.getItem(CONFIG.STORAGE_KEYS.USER_NEW));
+      console.log("Login success - isLoggedIn:", isLoggedIn());
+      console.log("Login success - getCurrentUser:", getCurrentUser());
+
       // Update UI
       refreshLoginUI();
 
@@ -393,6 +405,11 @@ async function verifyLoginOTP() {
       );
 
       openPage("home");
+
+      // Force profile reload immediately
+      if (typeof loadProfile === "function") {
+        setTimeout(loadProfile, 100);
+      }
 
       loadLocation();
 
@@ -425,7 +442,8 @@ async function verifyLoginOTP() {
 /*
 ============================================================
 RESEND TIMER
-60 second cooldown
+DEV mode: 5 seconds
+Production: 60 seconds
 ============================================================
 */
 
@@ -441,7 +459,10 @@ function startResendTimer() {
   if (!resendBtn)
     return;
 
-  let seconds = 60;
+  // DEV mode: 5 second countdown for faster testing
+  // Production: 60 second countdown
+  let seconds =
+    CONFIG.DEV_MODE ? 5 : 60;
 
   resendBtn.disabled = true;
 
@@ -637,8 +658,9 @@ function backToMobileInput() {
 
   if (resendBtn) {
     resendBtn.disabled = true;
-    resendBtn.innerText =
-      "Resend in 60s";
+    const countdownText =
+      CONFIG.DEV_MODE ? "Resend in 5s" : "Resend in 60s";
+    resendBtn.innerText = countdownText;
   }
 
   // Clear OTP storage for this mobile
@@ -768,19 +790,34 @@ function logoutUser() {
     return;
   }
 
-  // Clear session
+  // Clear ALL user-related storage keys
+  console.log("Logout: clearing all session keys");
+
+  // New session keys
   clearSessionUser();
 
-  // Keep last mobile for auto-fill
-  // Do NOT clear ekka1km_last_mobile
-
-  // Also clear old storage for backward compat
+  // Old keys for backward compat
   localStorage.removeItem(
     CONFIG.STORAGE_KEYS.USER
   );
 
   localStorage.removeItem(
     CONFIG.STORAGE_KEYS.TOKEN
+  );
+
+  // Also clear ekka_user (old name) if it exists
+  localStorage.removeItem("ekka_user");
+  localStorage.removeItem("ekka_token");
+  localStorage.removeItem("ekka_session");
+
+  // Keep last mobile for auto-fill
+  // Do NOT clear ekka1km_last_mobile
+
+  console.log(
+    "Session after logout:",
+    localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION),
+    "User after logout:",
+    localStorage.getItem(CONFIG.STORAGE_KEYS.USER_NEW)
   );
 
   refreshLoginUI();
