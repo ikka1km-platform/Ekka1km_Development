@@ -4,9 +4,9 @@ Production-ready Google Apps Script backend for Ekka1km, a hyperlocal JSON REST 
 
 ## Project IDs
 
-- Google Spreadsheet ID: `1MXxrtbU5g9t1979aoBnlVsWAI5VIHbu_`
+- Google Spreadsheet ID: `1PX5VZaxYXQJIzSwKVUxflDCI5YLDii5N`
 - Apps Script Script ID: `1rz6xWK8yrRxu9aI-unpn7uMPxjshAN5arIp8VAxofIiXGc-LF89DCoBi`
-- Current Web App URL: `https://script.google.com/macros/s/AKfycbwJL8TGAbUPWalbYLlSDu49348XmuvyplQrggKe42vkWwitE6XMTL14bzXk7VQAbl8kRw/exec`
+- Current Web App URL: `https://script.google.com/macros/s/AKfycbxYdxeTloiDx986zDV529oi1WfpoUGZ4m58s9Bl6cY92fLYe3qgqHM-mj-bim2tXxvOnw/exec`
 
 ## Setup
 
