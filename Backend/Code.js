@@ -370,7 +370,97 @@ case "liveunreadcount":
       case "searchanalytics":
         return getSearchAnalytics(e);
 
+      // Store System (Phase 3.5)
+      case "getstore":
+        return getStore(e);
+
+      case "getstoreproducts":
+        return getStoreProducts(e);
+
+      case "getstoreanalytics":
+        return getStoreAnalytics(e);
+
+      case "followstore":
+        return followStore(e);
+
+      case "unfollowstore":
+        return unfollowStore(e);
+
+      case "getstorefollowers":
+        return getStoreFollowers(e);
+
+      case "searchstores":
+        return searchStores(e);
+
+      case "sharestore":
+        return shareStore(e);
+
+      // Interest System (Phase 3.6)
+      case "markinterested":
+        return markInterested(e);
+
+      case "removeinterest":
+        return removeInterest(e);
+
+      case "getmyinterests":
+        return getMyInterests(e);
+
+      case "getinterestcount":
+        return getInterestCount(e);
+
+      case "getinterestedusers":
+        return getInterestedUsers(e);
+
+      case "hasuserinterested":
+        return hasUserInterested(e);
+
+      // Promotion System (Phase 3.7)
+      case "createpromotion":
+        return createPromotion(e);
+
+      case "getpromotion":
+        return getPromotion(e);
+
+      case "getuserpromotions":
+        return getUserPromotions(e);
+
+      case "stoppromotion":
+        return stopPromotion(e);
+
+      case "pausepromotion":
+        return pausePromotion(e);
+
+      case "resumepromotion":
+        return resumePromotion(e);
+
+      case "expirepromotion":
+        return expirePromotion(e);
+
+      case "cancelpromotion":
+        return cancelPromotion(e);
+
+      case "getpromotionanalytics":
+        return getPromotionAnalytics(e);
+
+      case "calculatepromotionprice":
+        return calculatePromotionPrice(e);
+
+      case "processpromotions":
+        return processPromotions(e);
+
+      case "migratebusinessfollowers":
+        return migrateBusinessFollowers();
+
+      case "migrateuserinterests":
+        return migrateUserInterests();
+
+      case "migratepromotions":
+        return migratePromotions();
+
       // Dashboard
+      case "dashboard":
+        return getUserDashboard(e);
+
       case "revenueanalytics":
         return getRevenueAnalytics(e);
 

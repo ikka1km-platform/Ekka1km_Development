@@ -137,7 +137,17 @@ const CONFIG = {
 
     POPUP_MESSAGES: "PopupMessages",
 
-    ONBOARDING: "Onboarding"
+    ONBOARDING: "Onboarding",
+
+    //==========================================================
+    // V5.9.5 PHASE 3 - USER DASHBOARD + STORE + INTEREST + PROMOTION
+    //==========================================================
+
+    BUSINESS_FOLLOWERS: "BusinessFollowers",
+
+    USER_INTERESTS: "UserInterests",
+
+    PROMOTION_TYPES: "PromotionTypes"
   },
 
   //============================================================
