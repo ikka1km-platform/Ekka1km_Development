@@ -50,11 +50,17 @@ function doGet(e) {
       case "addproduct":
         return addProduct(e);
 
+      case "createproduct":
+        return createProduct(e);
+
       case "updateproduct":
         return updateProduct(e);
 
       case "deleteproduct":
         return deleteProduct(e);
+
+      case "restoreproduct":
+        return restoreProduct(e);
 
       // Businesses
       case "businesses":
@@ -66,11 +72,17 @@ function doGet(e) {
       case "addbusiness":
         return addBusiness(e);
 
+      case "createbusiness":
+        return createBusiness(e);
+
       case "updatebusiness":
         return updateBusiness(e);
 
       case "deletebusiness":
         return deleteBusiness(e);
+
+      case "restorebusiness":
+        return restoreBusiness(e);
 
   // Users
   case "users":
@@ -118,11 +130,17 @@ function doGet(e) {
       case "addnews":
         return addNews(e);
 
+      case "createnews":
+        return createNews(e);
+
       case "updatenews":
         return updateNews(e);
 
       case "deletenews":
         return deleteNews(e);
+
+      case "restorenews":
+        return restoreNews(e);
 
       // Properties
       case "properties":
@@ -134,11 +152,17 @@ function doGet(e) {
       case "addproperty":
         return addProperty(e);
 
+      case "createproperty":
+        return createProperty(e);
+
       case "updateproperty":
         return updateProperty(e);
 
       case "deleteproperty":
         return deleteProperty(e);
+
+      case "restoreproperty":
+        return restoreProperty(e);
 
       // Advertisements
       case "advertisements":
@@ -456,6 +480,29 @@ case "liveunreadcount":
 
       case "migratepromotions":
         return migratePromotions();
+
+      // Drafts (Phase 4.6)
+      case "savedraft":
+        return saveDraft(e);
+
+      case "loaddraft":
+        return loadDraft(e);
+
+      case "deletedraft":
+        return deleteDraft(e);
+
+      case "autosave":
+        return autoSaveDraft(e);
+
+      // Moderation (Phase 4.7)
+      case "submitmoderation":
+        return submitModeration(e);
+
+      case "getmoderationqueue":
+        return getModerationQueue(e);
+
+      case "updatemoderation":
+        return updateModeration(e);
 
       // Dashboard
       case "dashboard":

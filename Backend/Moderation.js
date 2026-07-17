@@ -1,151 +1,116 @@
 /**
  * ============================================================
- * Reporting & Moderation V4.7
+ * EKKA1KM BACKEND
+ * Moderation.js
+ * Phase 4.7 - Moderation Queue
+ * Foundation for content moderation
  * ============================================================
  */
 
-function getReports(e) {
-  try {
-    return success(
-      getSheetData(
-        "Reports"
-      )
-    );
-  } catch (err) {
-    return exception(err);
+/**
+ * ============================================================
+ * ENSURE MODERATION QUEUE SHEET EXISTS
+ * ============================================================
+ */
+function ensureModerationQueueSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName("ModerationQueue");
+  if (!sheet) {
+    sheet = ss.insertSheet("ModerationQueue");
+    sheet.appendRow(["QueueID", "ContentType", "ContentID", "UserID", "Reason", "Status", "CreatedDate"]);
+    Logger.log("Sheet created: ModerationQueue with headers: QueueID, ContentType, ContentID, UserID, Reason, Status, CreatedDate");
   }
+  return sheet;
 }
 
-
-function getReport(e) {
+/**
+ * ============================================================
+ * SUBMIT MODERATION
+ * ?action=submitmoderation&contentType=Product&contentId=P001&userId=U001&reason=Spam
+ * ============================================================
+ */
+function submitModeration(e) {
   try {
-    const id =
-      e.parameter.reportId || "";
+    var p = e && e.parameter ? e.parameter : {};
+    var contentType = p.contentType || "";
+    var contentId = p.contentId || "";
+    var userId = p.userId || "";
+    var reason = p.reason || "";
 
-    const row =
-      getRowById(
-        "Reports",
-        "ReportID",
-        id
-      );
-
-    if (!row) {
-      return error(
-        "Report not found"
-      );
+    if (!contentType || !contentId || !userId) {
+      return error("contentType, contentId, and userId required");
     }
 
-    return success(row);
+    ensureModerationQueueSheet();
+
+    var sheet = getSheet("ModerationQueue");
+    var queueId = "MQ" + Utilities.getUuid().substring(0, 8);
+
+    sheet.appendRow([queueId, contentType, contentId, userId, reason, "Pending", new Date()]);
+
+    return success({ queueId: queueId }, "Moderation submitted successfully");
 
   } catch (err) {
     return exception(err);
   }
 }
 
-
-function addReport(e) {
+/**
+ * ============================================================
+ * GET MODERATION QUEUE
+ * ?action=getmoderationqueue&status=Pending
+ * ============================================================
+ */
+function getModerationQueue(e) {
   try {
-    const p =
-      e.parameter;
+    var status = e && e.parameter ? e.parameter.status || "" : "";
 
-    const id =
-      "RP" +
-      Utilities.getUuid()
-        .substring(0, 8);
+    var queue = getSheetData("ModerationQueue") || [];
+    var result = [];
 
-    getSheet(
-      "Reports"
-    ).appendRow([
-      id,
-      p.reporterUserId || "",
-      p.targetType || "",
-      p.targetId || "",
-      p.reason || "",
-      "Open",
-      new Date(),
-      ""
-    ]);
-
-    return success({
-      reportId: id
+    queue.forEach(function(item) {
+      if (status && String(item.Status) !== status) return;
+      result.push(item);
     });
 
+    result.sort(function(a, b) { return new Date(b.CreatedDate) - new Date(a.CreatedDate); });
+
+    return success({ count: result.length, data: result }, "Moderation queue loaded");
+
   } catch (err) {
     return exception(err);
   }
 }
 
-
-function resolveReport(e) {
+/**
+ * ============================================================
+ * UPDATE MODERATION STATUS
+ * ?action=updatemoderation&queueId=MQ001&status=Approved
+ * ============================================================
+ */
+function updateModeration(e) {
   try {
-    updateRow(
-      "Reports",
-      "ReportID",
-      e.parameter.reportId,
-      {
-        Status:
-          "Resolved",
-        ResolvedAt:
-          new Date()
-      }
-    );
+    var p = e && e.parameter ? e.parameter : {};
+    var queueId = p.queueId || "";
+    var status = p.status || "";
 
-    return success(
-      {},
-      "Report resolved"
-    );
+    if (!queueId || !status) {
+      return error("queueId and status required");
+    }
 
-  } catch (err) {
-    return exception(err);
-  }
-}
+    if (["Pending", "Approved", "Rejected", "Flagged"].indexOf(status) === -1) {
+      return error("Invalid status. Must be Pending, Approved, Rejected, or Flagged");
+    }
 
+    var updated = updateRow("ModerationQueue", "QueueID", queueId, {
+      Status: status
+    });
 
-function blockUser(e) {
-  try {
-    const p =
-      e.parameter;
+    if (!updated) return error("Moderation item not found");
 
-    getSheet(
-      "BlockedUsers"
-    ).appendRow([
-      p.userId || "",
-      p.reason || "",
-      new Date(),
-      p.blockedBy || "Admin",
-      "Blocked"
-    ]);
-
-    return success(
-      {},
-      "User blocked"
-    );
+    return success({ queueId: queueId, status: status }, "Moderation updated successfully");
 
   } catch (err) {
     return exception(err);
   }
 }
-
-
-function unblockUser(e) {
-  try {
-    updateRow(
-      "BlockedUsers",
-      "UserID",
-      e.parameter.userId,
-      {
-        Status:
-          "Active"
-      }
-    );
-
-    return success(
-      {},
-      "User unblocked"
-    );
-
-  } catch (err) {
-    return exception(err);
-  }
-}
-

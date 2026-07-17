@@ -147,7 +147,15 @@ const CONFIG = {
 
     USER_INTERESTS: "UserInterests",
 
-    PROMOTION_TYPES: "PromotionTypes"
+    PROMOTION_TYPES: "PromotionTypes",
+
+    //==========================================================
+    // V6.0 PHASE 4 - CONTENT POSTING SYSTEM
+    //==========================================================
+
+    DRAFTS: "Drafts",
+
+    MODERATION_QUEUE: "ModerationQueue"
   },
 
   //============================================================
