@@ -24,7 +24,7 @@ const CONFIG = {
   */
 
   API_BASE_URL:
-"https://script.google.com/macros/s/AKfycbzDf4sQDyXq3YpnaKo3FplNfivfBH2zy0Ho7KbAMSQtXr6BdFHIQfwlS_AP9119StfugQ/exec",
+    "https://script.google.com/macros/s/AKfycbzNdcrrP-BdS_1_XWbo7Ftq0QXzjhDXuRvxqwoR4F7NST9uaTPRyJ1chabZvqZgRC5YsQ/exec",
 
   /*
   ============================================================
@@ -110,11 +110,7 @@ LOCATION HELPERS
 ============================================================
 */
 
-function saveLocation(
-  lat,
-  lng
-) {
-
+function saveLocation(lat, lng) {
   localStorage.setItem(
     CONFIG.STORAGE_KEYS.LOCATION,
     JSON.stringify({
@@ -134,27 +130,18 @@ function getSavedLocation() {
 
   if (!data) {
     return {
-      lat:
-        CONFIG.DEFAULT_LATITUDE,
-      lng:
-        CONFIG.DEFAULT_LONGITUDE
+      lat: CONFIG.DEFAULT_LATITUDE,
+      lng: CONFIG.DEFAULT_LONGITUDE
     };
   }
 
   try {
-
-    return JSON.parse(
-      data
-    );
-
+    return JSON.parse(data);
   }
   catch (e) {
-
     return {
-      lat:
-        CONFIG.DEFAULT_LATITUDE,
-      lng:
-        CONFIG.DEFAULT_LONGITUDE
+      lat: CONFIG.DEFAULT_LATITUDE,
+      lng: CONFIG.DEFAULT_LONGITUDE
     };
   }
 }
@@ -166,10 +153,7 @@ RADIUS HELPERS
 ============================================================
 */
 
-function saveRadius(
-  radius
-) {
-
+function saveRadius(radius) {
   localStorage.setItem(
     CONFIG.STORAGE_KEYS.RADIUS,
     radius
@@ -178,7 +162,6 @@ function saveRadius(
 
 
 function getCurrentRadius() {
-
   return (
     localStorage.getItem(
       CONFIG.STORAGE_KEYS.RADIUS
@@ -210,8 +193,7 @@ GUEST USER SYSTEM
       "Guest_" +
       Math.floor(
         100000 +
-        Math.random() *
-        900000
+        Math.random() * 900000
       );
 
     localStorage.setItem(
@@ -243,9 +225,7 @@ GUEST USER SYSTEM
       keys.LAST_VISIT_DATE
     );
 
-  if (
-    lastVisit !== today
-  ) {
+  if (lastVisit !== today) {
 
     localStorage.setItem(
       keys.LAST_VISIT_DATE,
@@ -287,7 +267,8 @@ const Analytics = {
   isLoggedIn() {
     return !!localStorage.getItem(
       CONFIG.STORAGE_KEYS.SESSION
-    ) && !!localStorage.getItem(
+    ) &&
+    !!localStorage.getItem(
       CONFIG.STORAGE_KEYS.USER_NEW
     );
   },
@@ -321,14 +302,10 @@ const Analytics = {
 
   getAnalytics() {
     return {
-      guestId:
-        this.getGuestId(),
-      loggedIn:
-        this.isLoggedIn(),
-      totalVisits:
-        this.getTotalVisits(),
-      productViews:
-        this.getProductViews()
+      guestId: this.getGuestId(),
+      loggedIn: this.isLoggedIn(),
+      totalVisits: this.getTotalVisits(),
+      productViews: this.getProductViews()
     };
   }
 };
@@ -351,3 +328,4 @@ console.log(
   "EKKA1KM Session Started",
   Analytics.getAnalytics()
 );
+
