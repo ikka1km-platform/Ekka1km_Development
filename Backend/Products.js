@@ -2,8 +2,10 @@
  * ============================================================
  * EKKA1KM BACKEND
  * Products.js
- * V4.1.9
+ * V4.2.1
  * GPS Radius Filtering Enabled
+ * ImageKit Upload Fix
+ * Sheet Header Alignment Fix
  * ============================================================
  */
 
@@ -16,26 +18,15 @@
  */
 function getProducts(e) {
 
-  let data =
-    getSheetData("Products");
+  let data = getSheetData("Products");
 
-  const location =
-  getLocationContext(e);
+  const location = getLocationContext(e);
 
-const lat =
-  location.lat;
+  const lat = location.lat;
+  const lng = location.lng;
+  const radius = location.radius;
 
-const lng =
-  location.lng;
-
-const radius =
-  location.radius;
-
-  if (
-    lat &&
-    lng &&
-    radius
-  ) {
+  if (lat && lng && radius) {
     data = filterByRadius(
       data,
       lat,
@@ -44,12 +35,14 @@ const radius =
     );
   }
 
-  return success({
-    sheet: "Products",
-    count: data.length,
-    data: data
-  }, "Products Loaded");
-
+  return success(
+    {
+      sheet: "Products",
+      count: data.length,
+      data: data
+    },
+    "Products Loaded"
+  );
 }
 
 
@@ -71,12 +64,11 @@ function getProduct(e) {
     return error("Product ID required");
   }
 
-  const product =
-    getRowById(
-      "Products",
-      "ProductID",
-      id
-    );
+  const product = getRowById(
+    "Products",
+    "ProductID",
+    id
+  );
 
   if (!product) {
     return error("Product not found");
@@ -86,7 +78,6 @@ function getProduct(e) {
     product,
     "Product Loaded"
   );
-
 }
 
 
@@ -97,11 +88,8 @@ function addProduct(e) {
 
   try {
 
-    const sheet =
-      getSheet("Products");
-
-    const p =
-      e.parameter;
+    const sheet = getSheet("Products");
+    const p = e.parameter;
 
     const productId =
       "P" +
@@ -109,39 +97,38 @@ function addProduct(e) {
         .substring(0, 8);
 
     sheet.appendRow([
-      productId,
-      p.userId || "",
-      p.title || "",
-      p.description || "",
-      p.price || "",
-      p.category || "",
-      p.imageUrl || "",
-      p.latitude || "",
-      p.longitude || "",
-      "Pending",
-      new Date(),
-      0,
-      0,
-      "No",
-      p.sellerName || "",
-      p.phone || "",
-      p.whatsapp || "",
-      p.address || "",
-      p.city || "",
-      p.state || "",
-      p.pincode || "",
-      p.condition || "",
-      p.brand || "",
-      p.model || "",
-      p.image2 || "",
-      p.image3 || "",
-      p.image4 || "",
-      p.image5 || "",
-      p.videoUrl || "",
-      p.delivery || "No",
-      p.cod || "No",
-      p.negotiable || "No",
-      ""
+      productId,               // ProductID
+      p.userId || "",          // UserID
+      "",                      // BusinessID
+      p.title || "",           // Title
+      p.description || "",     // Description
+      p.price || "",           // Price
+      p.category || "",        // Category
+      p.imageURL || "",        // ImageURL
+      p.lat || "",             // Latitude
+      p.lng || "",             // Longitude
+      "Pending",               // Status
+      new Date(),              // CreatedDate
+      0,                       // Views
+      0,                       // Reports
+      "No",                    // Featured
+      p.sellerName || "",      // SellerName
+      p.phone || "",           // Phone
+      p.whatsapp || "",        // WhatsApp
+      p.address || "",         // Address
+      p.city || "",            // City
+      p.state || "",           // State
+      p.pincode || "",         // Pincode
+      p.condition || "",       // Condition
+      p.brand || "",           // Brand
+      p.model || "",           // Model
+      p.image2 || "",          // Image2
+      p.image3 || "",          // Image3
+      p.videoUrl || "",        // VideoURL
+      p.delivery || "No",      // Delivery
+      p.cod || "No",           // COD
+      p.negotiable || "No",    // Negotiable
+      ""                       // FeaturedTill
     ]);
 
     return success(
@@ -156,7 +143,6 @@ function addProduct(e) {
     return exception(err);
 
   }
-
 }
 
 
@@ -167,8 +153,7 @@ function updateProduct(e) {
 
   try {
 
-    const id =
-      e.parameter.id;
+    const id = e.parameter.id;
 
     if (!id) {
       return error(
@@ -176,8 +161,7 @@ function updateProduct(e) {
       );
     }
 
-    const sheet =
-      getSheet("Products");
+    const sheet = getSheet("Products");
 
     const data =
       sheet.getDataRange()
@@ -191,28 +175,28 @@ function updateProduct(e) {
       ) {
 
         if (e.parameter.title) {
-          sheet.getRange(i + 1, 3)
+          sheet.getRange(i + 1, 4)
             .setValue(
               e.parameter.title
             );
         }
 
         if (e.parameter.description) {
-          sheet.getRange(i + 1, 4)
+          sheet.getRange(i + 1, 5)
             .setValue(
               e.parameter.description
             );
         }
 
         if (e.parameter.price) {
-          sheet.getRange(i + 1, 5)
+          sheet.getRange(i + 1, 6)
             .setValue(
               e.parameter.price
             );
         }
 
         if (e.parameter.category) {
-          sheet.getRange(i + 1, 6)
+          sheet.getRange(i + 1, 7)
             .setValue(
               e.parameter.category
             );
@@ -234,7 +218,6 @@ function updateProduct(e) {
     return exception(err);
 
   }
-
 }
 
 
@@ -245,8 +228,7 @@ function deleteProduct(e) {
 
   try {
 
-    const id =
-      e.parameter.id;
+    const id = e.parameter.id;
 
     if (!id) {
       return error(
@@ -254,8 +236,7 @@ function deleteProduct(e) {
       );
     }
 
-    const sheet =
-      getSheet("Products");
+    const sheet = getSheet("Products");
 
     const data =
       sheet.getDataRange()
@@ -288,6 +269,5 @@ function deleteProduct(e) {
     return exception(err);
 
   }
-
 }
 

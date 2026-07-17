@@ -629,6 +629,73 @@ case "onboarding":
   case "getpushsubscription":
     return getPushSubscription(e);
 
+  // Phase 4 - PIP Advertisement + Reward Ad Center + Promotion Engine
+  case "getpipqueue":
+    return getPipQueue(e);
+
+  case "getadcenter":
+    return getAdvertisementCenter(e);
+
+  case "startadwatch":
+    return startAdWatch(e);
+
+  case "updateadprogress":
+    return updateAdProgress(e);
+
+  case "completeadwatch":
+    return completeAdWatch(e);
+
+  case "skipadwatch":
+    return skipAdWatch(e);
+
+  case "claimadreward":
+    return claimAdReward(e);
+
+  case "getadwatchprogress":
+    return getAdWatchProgress(e);
+
+  case "getadwatchhistory":
+    return getAdWatchHistory(e);
+
+  case "getavailablerewardcoins":
+    return getAvailableRewardCoins(e);
+
+  case "getcampaignanalytics":
+    return getCampaignAnalytics(e);
+
+  case "createpromotioncampaign":
+    return createPromotionCampaign(e);
+
+  case "pausecampaign":
+    return pauseCampaign(e);
+
+  case "resumecampaign":
+    return resumeCampaign(e);
+
+  case "promoteproduct":
+    return promoteProduct(e);
+
+  case "promotebusiness":
+    return promoteBusiness(e);
+
+  case "promotestore":
+    return promoteStore(e);
+
+  case "promoteproperty":
+    return promoteProperty(e);
+
+  case "promotelive":
+    return promoteLive(e);
+
+  case "promotenews":
+    return promoteNews(e);
+
+  case "promoteexternalurl":
+    return promoteExternalUrl(e);
+
+  case "promotewebsite":
+    return promoteWebsite(e);
+
       default:
         return error(
           "Invalid action : " + action

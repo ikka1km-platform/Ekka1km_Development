@@ -57,6 +57,16 @@ function createNotification(e) {
 
     // Supported types with icons and colors
     var type = p.type || "SYSTEM_ALERT";
+
+    // Seller Self-Interaction Protection
+    if (type === "PRODUCT_INTERESTED" || type === "BUSINESS_ENQUIRY") {
+      var targetUserId = p.targetUserId || "";
+      var userId = p.userId || "";
+      if (userId && targetUserId && String(userId) === String(targetUserId)) {
+        return error("You cannot interact with your own product.");
+      }
+    }
+
     var icon = getNotificationIcon(type);
     var color = getNotificationColor(type);
 

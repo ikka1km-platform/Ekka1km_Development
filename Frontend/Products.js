@@ -21,6 +21,19 @@ function trackProductView() {
   const key = CONFIG.STORAGE_KEYS.PRODUCT_VIEWS;
   const count = (parseInt(localStorage.getItem(key) || "0") || 0) + 1;
   localStorage.setItem(key, count.toString());
+
+  // Analytics trackevent call
+  if (CURRENT_PRODUCT) {
+    const userId = getUserId();
+    const product = CURRENT_PRODUCT;
+    
+    // Client-side skip for owner (optional but clean)
+    const isOwner = userId && (String(product.UserID) === String(userId) || String(product.OwnerUserID) === String(userId));
+    if (isOwner) return;
+
+    fetch(`${getApiUrl()}?action=trackevent&eventType=ProductView&entityType=Product&entityId=${product.ProductID}&userId=${userId || ""}&lat=${CURRENT_LAT}&lng=${CURRENT_LNG}`)
+      .catch(err => console.log("trackProductView error:", err));
+  }
 }
 
 
@@ -127,7 +140,14 @@ function showProductDetails(product) {
   if (!container) return;
 
   const isLogin = !!getCurrentUser();
+  const userId = getUserId();
+  const isOwner = userId && (String(product.UserID) === String(userId) || String(product.OwnerUserID) === String(userId));
   const images = getProductImages(product);
+  
+  // Frontend validation: Log self-view for debugging
+  if (isOwner) {
+    console.log("Seller self-view skipped for product:", product.ProductID);
+  }
 
   let html = `
   <div class="card">
@@ -201,33 +221,60 @@ function showProductDetails(product) {
   */
 
   if (isLogin) {
-    html += `
-      <button onclick="sendInterest()" style="margin-top:15px;">
-        <i class="material-icons" style="font-size:18px;vertical-align:middle;">favorite</i> I'm Interested
-      </button>
+    if (isOwner) {
+      html += `
+        <!-- Owner view: Hide Interested & Contact Seller, show "This is your product" -->
+        <div style="margin-top:15px;padding:15px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:10px;color:#2e7d32;text-align:center;font-weight:600;font-size:16px;">
+          <i class="material-icons" style="font-size:20px;vertical-align:middle;">check_circle</i> This is your product
+        </div>
 
-      <button onclick="contactSeller()">
-        <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> Contact Seller
-      </button>
+        ${product.Phone
+          ? `<button onclick="callSeller('${product.Phone}')" style="margin-top:15px;background:#25D366;">
+              <i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Seller
+            </button>`
+          : ""
+        }
 
-      ${product.Phone
-        ? `<button onclick="callSeller('${product.Phone}')" style="background:#25D366;">
-            <i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Seller
-          </button>`
-        : ""
-      }
+        ${product.WhatsApp
+          ? `<button onclick="whatsappSeller('${product.WhatsApp}')" style="background:#25D366;">
+              <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> WhatsApp
+            </button>`
+          : ""
+        }
 
-      ${product.WhatsApp
-        ? `<button onclick="whatsappSeller('${product.WhatsApp}')" style="background:#25D366;">
-            <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> WhatsApp
-          </button>`
-        : ""
-      }
+        <button onclick="getProductDirections()">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">directions</i> Get Directions
+        </button>
+      `;
+    } else {
+      html += `
+        <button onclick="sendInterest()" style="margin-top:15px;">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">favorite</i> I'm Interested
+        </button>
 
-      <button onclick="getProductDirections()">
-        <i class="material-icons" style="font-size:18px;vertical-align:middle;">directions</i> Get Directions
-      </button>
-    `;
+        <button onclick="contactSeller()">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> Contact Seller
+        </button>
+
+        ${product.Phone
+          ? `<button onclick="callSeller('${product.Phone}')" style="background:#25D366;">
+              <i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Seller
+            </button>`
+          : ""
+        }
+
+        ${product.WhatsApp
+          ? `<button onclick="whatsappSeller('${product.WhatsApp}')" style="background:#25D366;">
+              <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> WhatsApp
+            </button>`
+          : ""
+        }
+
+        <button onclick="getProductDirections()">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">directions</i> Get Directions
+        </button>
+      `;
+    }
   }
 
   /*
@@ -276,6 +323,14 @@ SELLER ACTIONS
 function contactSeller() {
   if (!requireLogin()) return;
   if (!CURRENT_PRODUCT) return;
+
+  // Frontend validation: Prevent seller from contacting themselves
+  const userId = getUserId();
+  const sellerId = CURRENT_PRODUCT.OwnerUserID || CURRENT_PRODUCT.UserID || "";
+  if (userId && sellerId && String(userId) === String(sellerId)) {
+    alert("You cannot interact with your own product.");
+    return;
+  }
 
   if (typeof notifyProductInterest === "function") {
     notifyProductInterest(CURRENT_PRODUCT);
@@ -333,6 +388,14 @@ INTEREST (backward compatible)
 async function sendInterest() {
   if (!requireLogin()) return;
   if (!CURRENT_PRODUCT) return;
+
+  // Frontend validation: Prevent seller from expressing interest in their own product
+  const userId = getUserId();
+  const sellerId = CURRENT_PRODUCT.OwnerUserID || CURRENT_PRODUCT.UserID || "";
+  if (userId && sellerId && String(userId) === String(sellerId)) {
+    alert("You cannot interact with your own product.");
+    return;
+  }
 
   if (typeof notifyProductInterest === "function") {
     notifyProductInterest(CURRENT_PRODUCT);

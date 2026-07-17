@@ -2,8 +2,7 @@
  * ============================================================
  * EKKA1KM BACKEND
  * Analytics.js
- * V6.0 - Analytics Event Engine
- * ============================================================
+ * V6.1 - Seller Self-Interaction Protection
  * Tracks: ProductView, BusinessView, NewsView, VideoPlay,
  * GalleryOpen, ProductInterested, StoreFollow, Share,
  * NotificationOpen, LeadCreated, PromotionClick
@@ -41,6 +40,61 @@ function trackEvent(e) {
       return error("eventType is required");
     }
 
+    // ============================================================
+    // SELLER SELF-INTERACTION PROTECTION
+    // Block sellers from interacting with their own products/businesses
+    // ============================================================
+    if (userId) {
+      var ownerUserId = "";
+      var isSelfInteraction = false;
+
+      // Determine the owner of the entity being interacted with
+      if (entityType === "Product" && entityId) {
+        var product = getRowById("Products", "ProductID", entityId);
+        if (product) {
+          ownerUserId = product.UserID || product.OwnerUserID || "";
+        }
+      } else if (entityType === "Business" && entityId) {
+        var business = getRowById("Businesses", "BusinessID", entityId);
+        if (business) {
+          ownerUserId = business.UserID || business.OwnerUserID || "";
+        }
+      }
+
+      // Check if the acting user is the owner
+      if (ownerUserId && String(userId) === String(ownerUserId)) {
+        isSelfInteraction = true;
+
+        // For interactive events (Interest, Enquiry, Lead) - BLOCK with error
+        if (
+          eventType === "ProductInterested" ||
+          eventType === "BusinessEnquiry" ||
+          eventType === "LeadCreated"
+        ) {
+          return error("You cannot interact with your own product.");
+        }
+
+        // For view/tracking events (ProductView, BusinessView) - SILENTLY SKIP
+        // This prevents the seller's own views from affecting analytics
+        if (
+          eventType === "ProductView" ||
+          eventType === "BusinessView"
+        ) {
+          return success({ skipped: true }, "Self-view skipped");
+        }
+
+        // For PromotionClick - SILENTLY SKIP to prevent self-promotion manipulation
+        if (eventType === "PromotionClick") {
+          return success({ skipped: true }, "Self-promotion click skipped");
+        }
+      }
+    }
+
+    // Parse eventData as string
+    if (eventData && typeof eventData === "object") {
+      eventData = JSON.stringify(eventData);
+    }
+
     var sheet = getSheet("AnalyticsEvents");
 
     if (!sheet) {
@@ -61,11 +115,6 @@ function trackEvent(e) {
     }
 
     var eventId = "EV" + Utilities.getUuid().substring(0, 8);
-
-    // Parse eventData as string
-    if (eventData && typeof eventData === "object") {
-      eventData = JSON.stringify(eventData);
-    }
 
     sheet.appendRow([
       eventId,

@@ -245,6 +245,12 @@ function notifyProductInterest(
   if (!sellerId)
     return;
 
+  const userId = getUserId();
+  if (userId && String(userId) === String(sellerId)) {
+    alert("You cannot interact with your own product.");
+    return;
+  }
+
   const user =
     getCurrentUser();
 
@@ -294,6 +300,12 @@ function notifyBusinessContact(
 
   if (!sellerId)
     return;
+
+  const userId = getUserId();
+  if (userId && String(userId) === String(sellerId)) {
+    alert("You cannot interact with your own business.");
+    return;
+  }
 
   const user =
     getCurrentUser();

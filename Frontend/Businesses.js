@@ -132,6 +132,9 @@ function showBusinessDetails(
   const isLogin =
     !!getCurrentUser();
 
+  const userId = getUserId();
+  const isOwner = userId && (String(business.UserID) === String(userId) || String(business.OwnerUserID) === String(userId));
+
   let html = `
   <div class="card">
 
@@ -168,15 +171,22 @@ function showBusinessDetails(
   */
 
   if (isLogin) {
+    if (isOwner) {
+      html += `
+        <div style="margin-top:15px;padding:12px;background:#fff3e0;border:1px solid #ffe0b2;border-radius:10px;color:#e65100;">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">info</i> You are the owner of this business.
+        </div>
+      `;
+    }
 
     html += `
       <button
-        onclick="callBusiness()">
+        onclick="callBusiness()" ${isOwner ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
         Call Business
       </button>
 
       <button
-        onclick="contactBusinessOwner()">
+        onclick="contactBusinessOwner()" ${isOwner ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
         Contact Owner
       </button>
     `;
@@ -234,6 +244,27 @@ function showBusinessDetails(
   openPage(
     "businesses"
   );
+
+  trackBusinessView();
+}
+
+
+/*
+BUSINESS VIEW ANALYTICS
+*/
+
+function trackBusinessView() {
+  if (CURRENT_BUSINESS) {
+    const userId = getUserId();
+    const business = CURRENT_BUSINESS;
+
+    // Client-side skip for owner
+    const isOwner = userId && (String(business.UserID) === String(userId) || String(business.OwnerUserID) === String(userId));
+    if (isOwner) return;
+
+    fetch(`${getApiUrl()}?action=trackevent&eventType=BusinessView&entityType=Business&entityId=${business.BusinessID}&userId=${userId || ""}&lat=${CURRENT_LAT}&lng=${CURRENT_LNG}`)
+      .catch(err => console.log("trackBusinessView error:", err));
+  }
 }
 
 
