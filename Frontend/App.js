@@ -3,6 +3,7 @@
 EKKA1KM FRONTEND
 App.js
 V2.0 - Global Application Functions + Login Gates
+V2.1 - Phase 4 PIP Integration
 ============================================================
 */
 
@@ -116,6 +117,13 @@ function openPage(pageId) {
     if (bottomNav)
       bottomNav.style.display =
         "flex";
+  }
+
+  // Phase 4: Initialize Ad Center when adcenter page opens
+  if (pageId === "adcenter") {
+    if (typeof openAdCenterPage === "function") {
+      setTimeout(openAdCenterPage, 100);
+    }
   }
 
   window.scrollTo(0, 0);
@@ -319,11 +327,29 @@ function loadAll() {
     loadAdvertisements();
   }
 
+  /*
+  ============================================================
+  Phase 4: PIP Advertisement Initialization
+  Replaced old loadPipAd() with loadPipQueue()
+  Old code kept for backward compatibility (see below)
+  ============================================================
+  */
+
+  // DEPRECATED: Old PIP system using ?action=pipads
+  // Keep for backward compatibility
   if (
     typeof loadPipAd ===
     "function"
   ) {
-    loadPipAd();
+    // loadPipAd(); // Disabled - replaced by Phase 4 PIP Queue
+  }
+
+  // Phase 4: Load PIP Queue after a short delay to let other content render
+  if (typeof loadPipQueue === "function") {
+    setTimeout(function() {
+      console.log("Phase4: PIP initialization started");
+      loadPipQueue();
+    }, 2000);
   }
 }
 

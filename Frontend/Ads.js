@@ -26,6 +26,7 @@ let AD_WATCH_TIMER = null;
 let AD_WATCH_SECONDS = 0;
 let CURRENT_WATCHING_CAMPAIGN = null;
 let AD_CENTER_TAB = "All";
+let PIP_QUEUE_LOADED = false;
 
 
 /*
@@ -103,30 +104,100 @@ LOAD PIP QUEUE (Phase 4 - Enhanced)
 */
 
 async function loadPipQueue() {
+  console.log("Phase4: PIP initialization started");
+  
+  // Prevent double-loading
+  if (PIP_QUEUE_LOADED) {
+    console.log("Phase4: PIP already loaded, skipping");
+    return;
+  }
+  
   try {
+    // Log the API URL for debugging
+    const apiUrl = getApiUrl();
+    console.log("Phase4: getApiUrl() =", apiUrl);
+    
     const userId = getUserId();
-    let url = `${getApiUrl()}?action=getpipqueue`;
+    let url = `${apiUrl}?action=getpipqueue`;
     if (userId) url += `&userId=${userId}`;
     
+    console.log("Phase4: Request URL:", url);
+    
     const response = await fetch(url);
-    const json = await response.json();
-
-    if (!json.success || !json.data) {
-      console.log("No PIP queue available");
+    console.log("Phase4: Response status:", response.status, response.statusText);
+    console.log("Phase4: Response URL:", response.url);
+    
+    // Check if we got HTML instead of JSON (GAS redirect issue)
+    const contentType = response.headers.get("content-type") || "";
+    console.log("Phase4: Content-Type:", contentType);
+    
+    // Read the response as text first to debug
+    const responseText = await response.text();
+    console.log("Phase4: Response text (first 200 chars):", responseText.substring(0, 200));
+    
+    // Check if response is HTML (redirect, login page, etc.)
+    if (responseText.trim().startsWith("<")) {
+      console.error("Phase4: Got HTML instead of JSON! Possible GAS redirect.");
+      console.error("Phase4: Full response (first 500 chars):", responseText.substring(0, 500));
+      
+      // Retry after a delay - sometimes GAS needs a warmup request
+      console.log("Phase4: Will retry in 3 seconds...");
+      PIP_QUEUE_LOADED = false;
+      setTimeout(loadPipQueue, 3000);
+      return;
+    }
+    
+    // Parse JSON
+    let json;
+    try {
+      json = JSON.parse(responseText);
+    } catch (parseErr) {
+      console.error("Phase4: JSON parse error:", parseErr.toString());
+      console.error("Phase4: Raw response:", responseText.substring(0, 500));
+      
+      // Retry once
+      if (!PIP_QUEUE_LOADED) {
+        console.log("Phase4: Will retry in 3 seconds...");
+        setTimeout(loadPipQueue, 3000);
+      }
+      return;
+    }
+    
+    console.log("Phase4: Parsed JSON:", JSON.stringify(json).substring(0, 300));
+    
+    if (!json || !json.success) {
+      console.log("Phase4: API returned success=false or invalid response");
+      console.log("Phase4: json.success =", json?.success);
+      console.log("Phase4: json.data =", json?.data);
+      return;
+    }
+    
+    const queue = json.data?.queue || [];
+    console.log("Phase4: Queue fetched - raw queue length:", queue.length);
+    console.log("Phase4: Queue items:", JSON.stringify(queue));
+    
+    if (queue.length === 0) {
+      console.log("Phase4: No ads available - queue is empty");
       return;
     }
 
-    const queue = json.data.queue || [];
-    if (queue.length === 0) return;
-
     PIP_QUEUE = queue;
     PIP_QUEUE_INDEX = 0;
+    PIP_QUEUE_LOADED = true;
 
     // Show first PIP ad
+    console.log("Phase4: Rendering PIP - showing ad 1 of", queue.length);
     showPipAdFromQueue();
 
   } catch (err) {
-    console.log("loadPipQueue error:", err);
+    console.error("Phase4: loadPipQueue error:", err.toString());
+    console.error("Phase4: Error stack:", err.stack);
+    
+    // Retry once on failure
+    if (!PIP_QUEUE_LOADED) {
+      console.log("Phase4: Will retry in 3 seconds...");
+      setTimeout(loadPipQueue, 3000);
+    }
   }
 }
 
@@ -138,14 +209,22 @@ SHOW PIP AD FROM QUEUE
 */
 
 function showPipAdFromQueue() {
+  console.log("Phase4: showPipAdFromQueue - index:", PIP_QUEUE_INDEX, "of", PIP_QUEUE.length);
+  
   if (PIP_QUEUE_INDEX >= PIP_QUEUE.length) {
     // All ads shown - show "More Ads" popup
+    console.log("Phase4: All ads shown, showing More Ads popup");
     showMoreAdsPopup();
     return;
   }
 
   const campaign = PIP_QUEUE[PIP_QUEUE_INDEX];
-  if (!campaign) return;
+  if (!campaign) {
+    console.log("Phase4: Campaign at index", PIP_QUEUE_INDEX, "is null/undefined");
+    return;
+  }
+  
+  console.log("Phase4: Showing campaign:", campaign.CampaignID);
 
   CURRENT_PIP_AD = campaign;
   CURRENT_WATCHING_CAMPAIGN = campaign;
@@ -165,6 +244,7 @@ function showPipAdFromQueue() {
     pip.style.zIndex = "99999";
     pip.style.overflow = "hidden";
     document.body.appendChild(pip);
+    console.log("Phase4: Created PIP container element");
   }
 
   const rewardCoins = Number(campaign.RewardCoins || campaign.rewardCoins || 0);
@@ -208,6 +288,7 @@ function showPipAdFromQueue() {
   `;
 
   pip.style.display = "block";
+  console.log("Phase4: PIP rendered successfully");
 }
 
 
@@ -844,26 +925,10 @@ OPEN PAGE WRAPPER (for adcenter page)
 */
 
 function openAdCenterPage() {
+  console.log("Phase4: Ad Center opened");
   renderAdCenterTabs();
   loadAdCenter();
 }
-
-
-/*
-============================================================
-INIT ON APP LOAD
-============================================================
-*/
-
-(function initPipOnLoad() {
-  // PIP queue will be loaded when app opens
-  // Call loadPipQueue() from your app's onReady or pageLoad
-  if (typeof addOnAppReady === "function") {
-    addOnAppReady(function() {
-      setTimeout(loadPipQueue, 2000); // Wait 2 seconds after app loads
-    });
-  }
-})();
 
 
 /*
