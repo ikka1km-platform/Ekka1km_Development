@@ -24,7 +24,7 @@ const CONFIG = {
   */
 
   API_BASE_URL:
-    "https://script.google.com/macros/s/AKfycbzNdcrrP-BdS_1_XWbo7Ftq0QXzjhDXuRvxqwoR4F7NST9uaTPRyJ1chabZvqZgRC5YsQ/exec",
+"https://script.google.com/macros/s/AKfycbxYdxeTloiDx986zDV529oi1WfpoUGZ4m58s9Bl6cY92fLYe3qgqHM-mj-bim2tXxvOnw/exec",
 
   /*
   ============================================================
