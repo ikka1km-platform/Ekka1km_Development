@@ -28,6 +28,8 @@
  *   promoteLive()
  *   promoteNews()
  *   promoteExternalUrl()
+ *   createDemoAdCampaigns()
+ *   debugPip()
  * ============================================================
  */
 
@@ -60,10 +62,139 @@ function ensurePromotionSheets() {
       } else if (name === "AdAnalytics") {
         s.appendRow(["AnalyticsID", "CampaignID", "Impressions", "Views", "UniqueViewers", "Skips", "Completions", "CompletionRate", "RewardsPaid", "TotalRewardPaid", "RemainingRewardPool", "RewardedUsersCount", "CTR", "UpdatedAt"]);
       } else if (name === "PromotionCampaigns") {
-        s.appendRow(["CampaignID", "UserID", "Title", "Description", "CampaignType", "AdType", "PromotedEntityID", "PromotedEntityType", "ExternalURL", "ImageURL", "VideoURL", "Duration", "RewardCoins", "RewardPerSecond", "RepeatRewardType", "PIPEnabled", "Featured", "Priority", "MaxViewsPerUser", "TargetRadius", "TargetCategory", "TargetCity", "TargetState", "TargetCountry", "Status", "Cost", "Views", "Clicks", "Impressions", "StartDate", "EndDate", "CreatedAt", "CampaignBudget", "RewardPerUser", "MaxViews", "MaxRewardedUsers", "CostPerView", "TotalRewardPool", "RemainingRewardPool", "TotalRewardPaid", "RewardedUsersCount"]);
+        s.appendRow(["CampaignID", "CampaignType", "OwnerUserID", "TargetType", "TargetID", "CoinsSpent", "RewardPool", "PlatformReserve", "RemainingRewardCoins", "Radius", "City", "District", "State", "Country", "Latitude", "Longitude", "Views", "Clicks", "Interested", "Shares", "StartDate", "EndDate", "Status", "CreatedDate"]);
       }
     }
   });
+}
+
+
+/**
+ * ============================================================
+ * COMPATIBILITY MAPPING
+ * Maps old PromotionCampaigns schema to new expected fields
+ * ============================================================
+ */
+function normalizeCampaign(c) {
+  if (!c) return c;
+  
+  // Map old field names to new field names
+  // Old schema: CampaignID, CampaignType, OwnerUserID, TargetType, TargetID, CoinsSpent, RewardPool, PlatformReserve, RemainingRewardCoins, Radius, City, District, State, Country, Latitude, Longitude, Views, Clicks, Interested, Shares, StartDate, EndDate, Status, CreatedDate
+  
+  // UserID
+  if (!c.UserID && c.OwnerUserID) c.UserID = c.OwnerUserID;
+  
+  // Title - use CampaignType as fallback title
+  if (!c.Title) c.Title = c.CampaignType || "Promotion";
+  
+  // Description
+  if (!c.Description) c.Description = "";
+  
+  // AdType - derive from CampaignType
+  if (!c.AdType) {
+    if (c.CampaignType === "PROMOTE_PRODUCT") c.AdType = "PRODUCT";
+    else if (c.CampaignType === "PROMOTE_BUSINESS") c.AdType = "BUSINESS";
+    else if (c.CampaignType === "PROMOTE_PROPERTY") c.AdType = "PROPERTY";
+    else if (c.CampaignType === "PROMOTE_EXTERNAL_URL") c.AdType = "URL";
+    else c.AdType = "IMAGE";
+  }
+  
+  // PromotedEntityID
+  if (!c.PromotedEntityID && c.TargetID) c.PromotedEntityID = c.TargetID;
+  
+  // PromotedEntityType
+  if (!c.PromotedEntityType && c.TargetType) c.PromotedEntityType = c.TargetType;
+  
+  // ExternalURL
+  if (!c.ExternalURL) c.ExternalURL = "";
+  
+  // ImageURL
+  if (!c.ImageURL) c.ImageURL = "";
+  
+  // VideoURL
+  if (!c.VideoURL) c.VideoURL = "";
+  
+  // Duration - default 5 seconds for demo
+  if (!c.Duration) c.Duration = 5;
+  
+  // RewardCoins - use RemainingRewardCoins or RewardPool
+  if (!c.RewardCoins) c.RewardCoins = Number(c.RemainingRewardCoins || c.RewardPool || 5);
+  
+  // RewardPerSecond
+  if (!c.RewardPerSecond) c.RewardPerSecond = Math.max(1, Math.round(Number(c.RewardCoins) / Math.max(Number(c.Duration), 1)));
+  
+  // RepeatRewardType
+  if (!c.RepeatRewardType) c.RepeatRewardType = "ONCE";
+  
+  // PIPEnabled - ALL campaigns are PIP-enabled by default for backward compatibility
+  if (!c.PIPEnabled) c.PIPEnabled = "Yes";
+  
+  // Featured
+  if (!c.Featured) c.Featured = "No";
+  
+  // Priority
+  if (!c.Priority) c.Priority = 0;
+  
+  // MaxViewsPerUser
+  if (!c.MaxViewsPerUser) c.MaxViewsPerUser = 0;
+  
+  // TargetRadius
+  if (!c.TargetRadius && c.Radius) c.TargetRadius = c.Radius;
+  if (!c.TargetRadius) c.TargetRadius = "All India";
+  
+  // TargetCategory
+  if (!c.TargetCategory) c.TargetCategory = "";
+  
+  // TargetCity
+  if (!c.TargetCity && c.City) c.TargetCity = c.City;
+  if (!c.TargetCity) c.TargetCity = "";
+  
+  // TargetState
+  if (!c.TargetState && c.State) c.TargetState = c.State;
+  if (!c.TargetState) c.TargetState = "";
+  
+  // TargetCountry
+  if (!c.TargetCountry && c.Country) c.TargetCountry = c.Country;
+  if (!c.TargetCountry) c.TargetCountry = "";
+  
+  // RemainingRewardPool - use RemainingRewardCoins
+  if (!c.RemainingRewardPool) c.RemainingRewardPool = Number(c.RemainingRewardCoins || c.RewardPool || 0);
+  
+  // CampaignBudget
+  if (!c.CampaignBudget) c.CampaignBudget = Number(c.RewardPool || c.CoinsSpent || 0);
+  
+  // RewardPerUser
+  if (!c.RewardPerUser) c.RewardPerUser = Number(c.RewardCoins || 5);
+  
+  // MaxViews
+  if (!c.MaxViews) c.MaxViews = 1000;
+  
+  // MaxRewardedUsers
+  if (!c.MaxRewardedUsers) c.MaxRewardedUsers = 0;
+  
+  // CostPerView
+  if (!c.CostPerView) c.CostPerView = 0;
+  
+  // TotalRewardPool
+  if (!c.TotalRewardPool) c.TotalRewardPool = Number(c.RemainingRewardPool || c.RewardPool || 0);
+  
+  // TotalRewardPaid
+  if (!c.TotalRewardPaid) c.TotalRewardPaid = 0;
+  
+  // RewardedUsersCount
+  if (!c.RewardedUsersCount) c.RewardedUsersCount = 0;
+  
+  // Cost
+  if (!c.Cost) c.Cost = Number(c.CoinsSpent || 0);
+  
+  // Impressions
+  if (!c.Impressions) c.Impressions = 0;
+  
+  // CreatedAt
+  if (!c.CreatedAt && c.CreatedDate) c.CreatedAt = c.CreatedDate;
+  if (!c.CreatedAt) c.CreatedAt = new Date();
+  
+  return c;
 }
 
 
@@ -82,53 +213,72 @@ function getPipQueue(e) {
     var campaigns = getSheetData("PromotionCampaigns");
     var now = new Date();
     var result = [];
+    
+    console.log("Phase4: Campaign Count:", campaigns.length);
 
     campaigns.forEach(function(c) {
-      var status = String(c.Status || "").toLowerCase();
-      var pip = String(c.PIPEnabled || "").toLowerCase();
-      var start = c.StartDate ? new Date(c.StartDate) : null;
-      var end = c.EndDate ? new Date(c.EndDate) : null;
-      var remainingPool = Number(c.RemainingRewardPool || 0);
-      var maxViews = Number(c.MaxViews || 0);
-      var currentViews = Number(c.Views || 0);
+      try {
+        // Normalize old schema to new schema
+        c = normalizeCampaign(c);
+        
+        var status = String(c.Status || "").toLowerCase();
+        var pip = String(c.PIPEnabled || "").toLowerCase();
+        var start = c.StartDate ? new Date(c.StartDate) : null;
+        var end = c.EndDate ? new Date(c.EndDate) : null;
+        var remainingPool = Number(c.RemainingRewardPool || 0);
+        var maxViews = Number(c.MaxViews || 0);
+        var currentViews = Number(c.Views || 0);
 
-      if (status !== "active") return;
-      if (pip !== "yes" && pip !== "true") return;
-      if (start && start > now) return;
-      if (end && end < now) return;
-      if (remainingPool <= 0) return;
-      if (maxViews > 0 && currentViews >= maxViews) return;
+        if (status !== "active") return;
+        if (pip !== "yes" && pip !== "true") return;
+        if (start && start > now) return;
+        if (end && end < now) return;
+        if (remainingPool <= 0) return;
+        if (maxViews > 0 && currentViews >= maxViews) return;
 
-      result.push(c);
+        result.push(c);
+      } catch (campErr) {
+        console.log("Phase4: Error processing campaign:", campErr.toString());
+      }
     });
 
     // Priority: partially watched > featured > priority > new
     if (userId) {
-      var progressData = getSheetData("AdWatchProgress");
-      result.sort(function(a, b) {
-        var aWatched = false, bWatched = false;
-        progressData.forEach(function(p) {
-          if (String(p.UserID) === String(userId) && String(p.CampaignID) === String(a.CampaignID) && String(p.Status) === "in_progress") aWatched = true;
-          if (String(p.UserID) === String(userId) && String(p.CampaignID) === String(b.CampaignID) && String(p.Status) === "in_progress") bWatched = true;
+      try {
+        var progressData = getSheetData("AdWatchProgress");
+        result.sort(function(a, b) {
+          var aWatched = false, bWatched = false;
+          progressData.forEach(function(p) {
+            if (String(p.UserID) === String(userId) && String(p.CampaignID) === String(a.CampaignID) && String(p.Status) === "in_progress") aWatched = true;
+            if (String(p.UserID) === String(userId) && String(p.CampaignID) === String(b.CampaignID) && String(p.Status) === "in_progress") bWatched = true;
+          });
+          if (aWatched && !bWatched) return -1;
+          if (!aWatched && bWatched) return 1;
+          var aF = String(a.Featured || "").toLowerCase() === "yes" ? 1 : 0;
+          var bF = String(b.Featured || "").toLowerCase() === "yes" ? 1 : 0;
+          if (aF !== bF) return bF - aF;
+          var aP = Number(a.Priority || 0);
+          var bP = Number(b.Priority || 0);
+          if (aP !== bP) return bP - aP;
+          return 0;
         });
-        if (aWatched && !bWatched) return -1;
-        if (!aWatched && bWatched) return 1;
-        var aF = String(a.Featured || "").toLowerCase() === "yes" ? 1 : 0;
-        var bF = String(b.Featured || "").toLowerCase() === "yes" ? 1 : 0;
-        if (aF !== bF) return bF - aF;
-        var aP = Number(a.Priority || 0);
-        var bP = Number(b.Priority || 0);
-        if (aP !== bP) return bP - aP;
-        return 0;
-      });
+      } catch (sortErr) {
+        console.log("Phase4: Sort error:", sortErr.toString());
+      }
     }
 
     var limit = Math.min(result.length, 3);
     var queue = result.slice(0, limit);
 
     queue.forEach(function(ad) {
-      trackAdAnalytics(ad.CampaignID, "impression");
+      try {
+        trackAdAnalytics(ad.CampaignID, "impression");
+      } catch (trackErr) {
+        console.log("Phase4: Track error:", trackErr.toString());
+      }
     });
+
+    console.log("Phase4: Queue result - total:", result.length, "queue:", queue.length);
 
     return success({
       queue: queue,
@@ -137,7 +287,13 @@ function getPipQueue(e) {
     }, "PIP Queue Loaded");
 
   } catch (err) {
-    return exception(err);
+    console.log("Phase4: getPipQueue error:", err.toString());
+    // NEVER crash - always return empty queue
+    return success({
+      queue: [],
+      total: 0,
+      remaining: 0
+    }, "PIP Queue Loaded (empty)");
   }
 }
 
@@ -163,97 +319,193 @@ function getAdvertisementCenter(e) {
     var result = [];
 
     campaigns.forEach(function(c) {
-      var status = String(c.Status || "").toLowerCase();
-      var start = c.StartDate ? new Date(c.StartDate) : null;
-      var end = c.EndDate ? new Date(c.EndDate) : null;
-      var remainingPool = Number(c.RemainingRewardPool || 0);
-      var maxViews = Number(c.MaxViews || 0);
-      var currentViews = Number(c.Views || 0);
-      var maxUsers = Number(c.MaxRewardedUsers || 0);
-      var rewardedCount = Number(c.RewardedUsersCount || 0);
+      try {
+        // Normalize old schema to new schema
+        c = normalizeCampaign(c);
+        
+        var status = String(c.Status || "").toLowerCase();
+        var start = c.StartDate ? new Date(c.StartDate) : null;
+        var end = c.EndDate ? new Date(c.EndDate) : null;
+        var remainingPool = Number(c.RemainingRewardPool || 0);
+        var maxViews = Number(c.MaxViews || 0);
+        var currentViews = Number(c.Views || 0);
+        var maxUsers = Number(c.MaxRewardedUsers || 0);
+        var rewardedCount = Number(c.RewardedUsersCount || 0);
 
-      if (status !== "active") return;
-      if (start && start > now) return;
-      if (end && end < now) return;
-      if (remainingPool <= 0) return;
-      if (maxViews > 0 && currentViews >= maxViews) return;
-      if (maxUsers > 0 && rewardedCount >= maxUsers) return;
+        if (status !== "active") return;
+        if (start && start > now) return;
+        if (end && end < now) return;
+        if (remainingPool <= 0) return;
+        if (maxViews > 0 && currentViews >= maxViews) return;
+        if (maxUsers > 0 && rewardedCount >= maxUsers) return;
 
-      if (category && String(c.TargetCategory || "") !== "" && String(c.TargetCategory) !== category) return;
+        if (category && String(c.TargetCategory || "") !== "" && String(c.TargetCategory) !== category) return;
 
-      result.push(c);
+        result.push(c);
+      } catch (campErr) {
+        console.log("Phase4: AdCenter campaign error:", campErr.toString());
+      }
     });
 
     var progressMap = {};
     if (userId) {
-      var progressList = getSheetData("AdWatchProgress");
-      progressList.forEach(function(pr) {
-        if (String(pr.UserID) === String(userId)) {
-          progressMap[pr.CampaignID] = pr;
-        }
-      });
+      try {
+        var progressList = getSheetData("AdWatchProgress");
+        progressList.forEach(function(pr) {
+          if (String(pr.UserID) === String(userId)) {
+            progressMap[pr.CampaignID] = pr;
+          }
+        });
+      } catch (progErr) {
+        console.log("Phase4: Progress map error:", progErr.toString());
+      }
     }
 
     var responseData = result.map(function(c) {
-      var progress = progressMap[c.CampaignID] || null;
-      var watched = progress ? Number(progress.WatchedSeconds || 0) : 0;
-      var paid = progress ? Number(progress.RewardPaid || 0) : 0;
-      var totalDuration = Number(c.Duration || 10);
-      var totalReward = Number(c.RewardCoins || 0);
-      var remainingReward = Math.max(0, totalReward - paid);
-      var remainingSeconds = Math.max(0, totalDuration - watched);
-      var remainingPool = Number(c.RemainingRewardPool || 0);
-      var rewardPerUser = Number(c.RewardPerUser || 0);
+      try {
+        var progress = progressMap[c.CampaignID] || null;
+        var watched = progress ? Number(progress.WatchedSeconds || 0) : 0;
+        var paid = progress ? Number(progress.RewardPaid || 0) : 0;
+        var totalDuration = Number(c.Duration || 5);
+        var totalReward = Number(c.RewardCoins || 0);
+        var remainingReward = Math.max(0, totalReward - paid);
+        var remainingSeconds = Math.max(0, totalDuration - watched);
+        var remainingPool = Number(c.RemainingRewardPool || 0);
+        var rewardPerUser = Number(c.RewardPerUser || 0);
 
-      // Actual reward per user is min(RewardCoins, RewardPerUser, RemainingPool)
-      var actualReward = totalReward;
-      if (rewardPerUser > 0) actualReward = Math.min(actualReward, rewardPerUser);
-      if (remainingPool > 0) actualReward = Math.min(actualReward, remainingPool);
+        var actualReward = totalReward;
+        if (rewardPerUser > 0) actualReward = Math.min(actualReward, rewardPerUser);
+        if (remainingPool > 0) actualReward = Math.min(actualReward, remainingPool);
 
-      return {
-        CampaignID: c.CampaignID,
-        Title: c.Title,
-        Description: c.Description,
-        CampaignType: c.CampaignType,
-        AdType: c.AdType,
-        PromotedEntityID: c.PromotedEntityID,
-        PromotedEntityType: c.PromotedEntityType,
-        ExternalURL: c.ExternalURL,
-        ImageURL: c.ImageURL,
-        VideoURL: c.VideoURL,
-        Duration: totalDuration,
-        RewardCoins: actualReward,
-        RewardPerSecond: Number(c.RewardPerSecond || 1),
-        RepeatRewardType: c.RepeatRewardType || "ONCE",
-        PIPEnabled: c.PIPEnabled,
-        Featured: c.Featured,
-        Priority: Number(c.Priority || 0),
-        TargetCategory: c.TargetCategory,
-        TargetCity: c.TargetCity,
-        TargetState: c.TargetState,
-        DistanceKm: c.DistanceKm || "",
-        CampaignBudget: Number(c.CampaignBudget || 0),
-        RewardPerUser: rewardPerUser,
-        MaxViews: Number(c.MaxViews || 0),
-        MaxRewardedUsers: Number(c.MaxRewardedUsers || 0),
-        TotalRewardPool: Number(c.TotalRewardPool || 0),
-        RemainingRewardPool: remainingPool,
-        Views: Number(c.Views || 0),
-        RewardedUsersCount: Number(c.RewardedUsersCount || 0),
-        WatchedSeconds: watched,
-        RewardPaid: paid,
-        RemainingSeconds: remainingSeconds,
-        RemainingReward: Math.min(remainingReward, remainingPool),
-        ProgressPercent: totalDuration > 0 ? Math.min(100, Math.round((watched / totalDuration) * 100)) : 0,
-        CanWatch: remainingSeconds > 0 && remainingPool > 0,
-        Status: progress ? progress.Status : "new"
-      };
-    });
+        return {
+          CampaignID: c.CampaignID,
+          Title: c.Title || c.CampaignType || "Promotion",
+          Description: c.Description || "",
+          CampaignType: c.CampaignType || "",
+          AdType: c.AdType || "IMAGE",
+          PromotedEntityID: c.PromotedEntityID || c.TargetID || "",
+          PromotedEntityType: c.PromotedEntityType || c.TargetType || "",
+          ExternalURL: c.ExternalURL || "",
+          ImageURL: c.ImageURL || "",
+          VideoURL: c.VideoURL || "",
+          Duration: totalDuration,
+          RewardCoins: actualReward,
+          RewardPerSecond: Number(c.RewardPerSecond || 1),
+          RepeatRewardType: c.RepeatRewardType || "ONCE",
+          PIPEnabled: c.PIPEnabled || "Yes",
+          Featured: c.Featured || "No",
+          Priority: Number(c.Priority || 0),
+          TargetCategory: c.TargetCategory || "",
+          TargetCity: c.TargetCity || c.City || "",
+          TargetState: c.TargetState || c.State || "",
+          DistanceKm: c.DistanceKm || "",
+          CampaignBudget: Number(c.CampaignBudget || 0),
+          RewardPerUser: rewardPerUser,
+          MaxViews: Number(c.MaxViews || 0),
+          MaxRewardedUsers: Number(c.MaxRewardedUsers || 0),
+          TotalRewardPool: Number(c.TotalRewardPool || 0),
+          RemainingRewardPool: remainingPool,
+          Views: Number(c.Views || 0),
+          RewardedUsersCount: Number(c.RewardedUsersCount || 0),
+          WatchedSeconds: watched,
+          RewardPaid: paid,
+          RemainingSeconds: remainingSeconds,
+          RemainingReward: Math.min(remainingReward, remainingPool),
+          ProgressPercent: totalDuration > 0 ? Math.min(100, Math.round((watched / totalDuration) * 100)) : 0,
+          CanWatch: remainingSeconds > 0 && remainingPool > 0,
+          Status: progress ? progress.Status : "new"
+        };
+      } catch (mapErr) {
+        console.log("Phase4: Map error:", mapErr.toString());
+        return null;
+      }
+    }).filter(function(item) { return item !== null; });
 
     return success({
       count: responseData.length,
       data: responseData
     }, "Advertisement Center Loaded");
+
+  } catch (err) {
+    console.log("Phase4: getAdvertisementCenter error:", err.toString());
+    return success({
+      count: 0,
+      data: []
+    }, "Advertisement Center Loaded (empty)");
+  }
+}
+
+
+/**
+ * ============================================================
+ * DEBUG PIP
+ * ?action=debugpip
+ * Returns detailed diagnostics about PIP queue processing
+ * ============================================================
+ */
+function debugPip(e) {
+  try {
+    ensurePromotionSheets();
+    var campaigns = getSheetData("PromotionCampaigns");
+    var now = new Date();
+    var reasons = {
+      total: campaigns.length,
+      notActive: 0,
+      pipDisabled: 0,
+      notStarted: 0,
+      expired: 0,
+      noPool: 0,
+      maxViewsReached: 0,
+      passed: 0,
+      details: []
+    };
+
+    campaigns.forEach(function(c) {
+      try {
+        var original = JSON.parse(JSON.stringify(c));
+        c = normalizeCampaign(c);
+        
+        var status = String(c.Status || "").toLowerCase();
+        var pip = String(c.PIPEnabled || "").toLowerCase();
+        var start = c.StartDate ? new Date(c.StartDate) : null;
+        var end = c.EndDate ? new Date(c.EndDate) : null;
+        var remainingPool = Number(c.RemainingRewardPool || 0);
+        var maxViews = Number(c.MaxViews || 0);
+        var currentViews = Number(c.Views || 0);
+        
+        var rejected = false;
+        var reason = "";
+        
+        if (status !== "active") { reasons.notActive++; reason = "Status not active: " + status; rejected = true; }
+        else if (pip !== "yes" && pip !== "true") { reasons.pipDisabled++; reason = "PIPEnabled not yes: " + pip; rejected = true; }
+        else if (start && start > now) { reasons.notStarted++; reason = "StartDate in future: " + start; rejected = true; }
+        else if (end && end < now) { reasons.expired++; reason = "EndDate in past: " + end; rejected = true; }
+        else if (remainingPool <= 0) { reasons.noPool++; reason = "RemainingRewardPool: " + remainingPool; rejected = true; }
+        else if (maxViews > 0 && currentViews >= maxViews) { reasons.maxViewsReached++; reason = "MaxViews reached: " + currentViews + "/" + maxViews; rejected = true; }
+        else { reasons.passed++; reason = "PASSED"; }
+        
+        reasons.details.push({
+          CampaignID: c.CampaignID,
+          Status: c.Status,
+          PIPEnabled: c.PIPEnabled,
+          RemainingRewardPool: c.RemainingRewardPool,
+          StartDate: c.StartDate ? String(c.StartDate) : "",
+          EndDate: c.EndDate ? String(c.EndDate) : "",
+          Views: c.Views,
+          MaxViews: c.MaxViews,
+          passed: !rejected,
+          reason: reason,
+          normalized: c
+        });
+      } catch (detErr) {
+        reasons.details.push({
+          CampaignID: c.CampaignID || "unknown",
+          error: detErr.toString()
+        });
+      }
+    });
+
+    return success(reasons, "Debug PIP Info");
 
   } catch (err) {
     return exception(err);
@@ -282,6 +534,9 @@ function startAdWatch(e) {
     if (!campaign) {
       return error("Campaign not found");
     }
+    
+    // Normalize
+    campaign = normalizeCampaign(campaign);
 
     var status = String(campaign.Status || "").toLowerCase();
     if (status !== "active") {
@@ -405,7 +660,7 @@ function startAdWatch(e) {
     return success({
       watchId: watchId,
       campaignId: campaignId,
-      totalDuration: Number(campaign.Duration || 10),
+      totalDuration: Number(campaign.Duration || 5),
       totalReward: Number(campaign.RewardCoins || 0),
       rewardPerSecond: Number(campaign.RewardPerSecond || 1),
       rewardPerUser: rewardPerUser,
@@ -413,14 +668,14 @@ function startAdWatch(e) {
       rewardCap: rewardCap,
       watchedSeconds: existingProgress ? existingProgress.WatchedSeconds : 0,
       rewardPaid: existingProgress ? existingProgress.RewardPaid : 0,
-      remainingSeconds: Math.max(0, Number(campaign.Duration || 10) - (existingProgress ? existingProgress.WatchedSeconds : 0)),
+      remainingSeconds: Math.max(0, Number(campaign.Duration || 5) - (existingProgress ? existingProgress.WatchedSeconds : 0)),
       remainingReward: Math.max(0, rewardCap - (existingProgress ? existingProgress.RewardPaid : 0)),
       isResume: existingProgress !== null,
       adType: campaign.AdType || "IMAGE",
       imageURL: campaign.ImageURL || "",
       videoURL: campaign.VideoURL || "",
       externalURL: campaign.ExternalURL || "",
-      title: campaign.Title || "",
+      title: campaign.Title || campaign.CampaignType || "Promotion",
       description: campaign.Description || ""
     }, "Ad watch started");
 
@@ -456,8 +711,10 @@ function updateAdProgress(e) {
     if (!campaign) {
       return error("Campaign not found");
     }
+    
+    campaign = normalizeCampaign(campaign);
 
-    var totalDuration = Number(campaign.Duration || 10);
+    var totalDuration = Number(campaign.Duration || 5);
     var rewardPerSecond = Number(campaign.RewardPerSecond || 1);
     var remainingPool = Number(campaign.RemainingRewardPool || 0);
     var rewardPerUser = Number(campaign.RewardPerUser || campaign.RewardCoins || 0);
@@ -549,10 +806,7 @@ function completeAdWatch(e) {
       return error("userId and campaignId required");
     }
 
-    // ============================================================
-    // IDEMPOTENCY CHECK: Has this reward already been processed?
-    // Check AdRewards for existing paid entry
-    // ============================================================
+    // Idempotency check
     var existingRewards = getSheetData("AdRewards");
     for (var r = 0; r < existingRewards.length; r++) {
       if (
@@ -569,7 +823,6 @@ function completeAdWatch(e) {
       }
     }
 
-    // Also check AdWatchHistory for completed status
     var existingHistory = getSheetData("AdWatchHistory");
     for (var h = 0; h < existingHistory.length; h++) {
       if (
@@ -589,8 +842,10 @@ function completeAdWatch(e) {
     if (!campaign) {
       return error("Campaign not found");
     }
+    
+    campaign = normalizeCampaign(campaign);
 
-    var totalDuration = Number(campaign.Duration || 10);
+    var totalDuration = Number(campaign.Duration || 5);
     var rewardPerSecond = Number(campaign.RewardPerSecond || 1);
     var totalReward = Number(campaign.RewardCoins || 0);
     var remainingPool = Number(campaign.RemainingRewardPool || 0);
@@ -604,7 +859,6 @@ function completeAdWatch(e) {
       return error("Campaign reward pool exhausted.");
     }
 
-    // Calculate final reward capped by pool and per-user limit
     var finalReward = Math.min(totalReward, rewardPerUser, remainingPool);
     var finalWatched = totalDuration;
 
@@ -638,7 +892,7 @@ function completeAdWatch(e) {
       }
     }
 
-    // Credit reward to wallet (from campaign pool)
+    // Credit reward to wallet
     if (finalReward > 0) {
       creditWallet(userId, finalReward, campaignId, "Ad Reward - " + (campaign.Title || ""));
     }
@@ -649,7 +903,6 @@ function completeAdWatch(e) {
     var newRewardedCount = rewardedCount + 1;
     var newViews = currentViews + 1;
 
-    // Check if campaign should auto-complete
     var completedStatus = "Active";
     if (newRemainingPool <= 0) {
       completedStatus = "Completed";
@@ -680,7 +933,6 @@ function completeAdWatch(e) {
       new Date()
     ]);
 
-    // Track analytics
     trackAdAnalytics(campaignId, "completion");
     trackAdAnalytics(campaignId, "reward");
 
@@ -705,8 +957,6 @@ function completeAdWatch(e) {
  * ============================================================
  * SKIP AD WATCH
  * ?action=skipadwatch&userId=U001&campaignId=C001&watchedSeconds=3
- * Saves progress and pays partial reward from campaign pool
- * Concurrency protected with LockService + idempotency check
  * ============================================================
  */
 function skipAdWatch(e) {
@@ -728,8 +978,10 @@ function skipAdWatch(e) {
     if (!campaign) {
       return error("Campaign not found");
     }
+    
+    campaign = normalizeCampaign(campaign);
 
-    var totalDuration = Number(campaign.Duration || 10);
+    var totalDuration = Number(campaign.Duration || 5);
     var rewardPerSecond = Number(campaign.RewardPerSecond || 1);
     var remainingPool = Number(campaign.RemainingRewardPool || 0);
     var rewardPerUser = Number(campaign.RewardPerUser || campaign.RewardCoins || 0);
@@ -795,15 +1047,11 @@ function skipAdWatch(e) {
       }
     }
 
-    // ============================================================
-    // IDEMPOTENCY CHECK: Has this partial reward already been paid?
-    // ============================================================
     var partialReward = Math.min(Math.floor(watchedSeconds * rewardPerSecond), rewardPerUser, remainingPool);
     var totalR2 = Number(campaign.RewardCoins || 0);
     partialReward = Math.min(partialReward, totalR2);
 
     if (partialReward > 0) {
-      // Check if already paid for this watch session
       var existingRewards = getSheetData("AdRewards");
       var alreadyPaid = false;
       for (var rx = 0; rx < existingRewards.length; rx++) {
@@ -821,7 +1069,6 @@ function skipAdWatch(e) {
       if (!alreadyPaid) {
         creditWallet(userId, partialReward, campaignId, "Partial Ad Reward - " + (campaign.Title || ""));
 
-        // Update campaign pool
         var newPool = Math.max(0, remainingPool - partialReward);
         var newPaid = Number(campaign.TotalRewardPaid || 0) + partialReward;
         updateRow("PromotionCampaigns", "CampaignID", campaignId, {
@@ -841,7 +1088,6 @@ function skipAdWatch(e) {
           new Date()
         ]);
       } else {
-        // Duplicate detected, return existing result
         return success({
           campaignId: campaignId,
           watchedSeconds: watchedSeconds,
@@ -873,8 +1119,6 @@ function skipAdWatch(e) {
 /**
  * ============================================================
  * CLAIM AD REWARD
- * ?action=claimadreward&userId=U001&campaignId=C001
- * Concurrency protected with LockService + idempotency check
  * ============================================================
  */
 function claimAdReward(e) {
@@ -890,9 +1134,6 @@ function claimAdReward(e) {
       return error("userId and campaignId required");
     }
 
-    // ============================================================
-    // IDEMPOTENCY CHECK: Has this reward already been claimed?
-    // ============================================================
     var existingRewards = getSheetData("AdRewards");
     for (var r = 0; r < existingRewards.length; r++) {
       if (
@@ -919,7 +1160,6 @@ function claimAdReward(e) {
           return error("No reward available to claim.");
         }
 
-        // Check campaign pool
         var campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
         var remainingPool = campaign ? Number(campaign.RemainingRewardPool || 0) : 0;
         var actualReward = Math.min(rewardPaid, remainingPool);
@@ -928,10 +1168,8 @@ function claimAdReward(e) {
           return error("Campaign reward pool exhausted.");
         }
 
-        // Credit wallet
         creditWallet(userId, actualReward, campaignId, "Ad Reward Claim - " + campaignId);
 
-        // Update campaign pool
         if (campaign) {
           var newPool = Math.max(0, remainingPool - actualReward);
           updateRow("PromotionCampaigns", "CampaignID", campaignId, {
@@ -940,7 +1178,6 @@ function claimAdReward(e) {
           });
         }
 
-        // Create reward record
         var rewardSheet = getSheet("AdRewards");
         var rewardId = "AR" + Utilities.getUuid().substring(0, 8);
         rewardSheet.appendRow([
@@ -975,7 +1212,6 @@ function claimAdReward(e) {
 /**
  * ============================================================
  * GET AD WATCH PROGRESS
- * ?action=getadwatchprogress&userId=U001
  * ============================================================
  */
 function getAdWatchProgress(e) {
@@ -1005,7 +1241,6 @@ function getAdWatchProgress(e) {
 /**
  * ============================================================
  * GET AD WATCH HISTORY
- * ?action=getadwatchhistory&userId=U001
  * ============================================================
  */
 function getAdWatchHistory(e) {
@@ -1035,7 +1270,6 @@ function getAdWatchHistory(e) {
 /**
  * ============================================================
  * GET AVAILABLE REWARD COINS
- * ?action=getavailablerewardcoins&userId=U001
  * ============================================================
  */
 function getAvailableRewardCoins(e) {
@@ -1071,7 +1305,6 @@ function getAvailableRewardCoins(e) {
 /**
  * ============================================================
  * GET CAMPAIGN ANALYTICS
- * ?action=getcampaignanalytics&campaignId=C001
  * ============================================================
  */
 function getCampaignAnalytics(e) {
@@ -1128,10 +1361,6 @@ function getCampaignAnalytics(e) {
 /**
  * ============================================================
  * CREATE PROMOTION CAMPAIGN
- * ?action=createpromotioncampaign
- * POST with all campaign fields
- * Deducts CampaignBudget from advertiser wallet atomically
- * Creates reward pool from budget
  * ============================================================
  */
 function createPromotionCampaign(e) {
@@ -1149,23 +1378,17 @@ function createPromotionCampaign(e) {
       return error("campaignType required");
     }
 
-    // Temporary: cost = CampaignBudget or rewardCoins
-    // Phase 5: Admin Dashboard will control dynamic pricing
     var campaignBudget = Number(p.campaignBudget || p.rewardCoins || 0);
     if (campaignBudget <= 0) {
       return error("CampaignBudget or rewardCoins required");
     }
 
-    var cost = campaignBudget; // Temp: cost = budget
-    // TODO Phase 5: calculateCampaignCost(p) from Admin Dashboard settings
-
-    // Phase 5 Prep: Store all economic fields
+    var cost = campaignBudget;
     var rewardPerUser = Number(p.rewardPerUser || p.rewardCoins || 0);
     var maxViews = Number(p.maxViews || 0);
     var maxRewardedUsers = Number(p.maxRewardedUsers || 0);
     var costPerView = Number(p.costPerView || 0);
 
-    // Atomic wallet operation: Lock, check, deduct
     var lock = LockService.getScriptLock();
     lock.waitLock(30000);
 
@@ -1180,7 +1403,6 @@ function createPromotionCampaign(e) {
         return error("Insufficient EkkaCoins. Required: " + cost + ", Available: " + balance);
       }
 
-      // Deduct budget from wallet
       var afterDeduction = balance - cost;
       updateRow("Wallet", "WalletID", wallet.WalletID, {
         Balance: afterDeduction,
@@ -1188,7 +1410,6 @@ function createPromotionCampaign(e) {
         LastUpdated: new Date()
       });
 
-      // Create wallet transaction for deduction
       createWalletTransaction(
         wallet.WalletID,
         userId,
@@ -1199,77 +1420,39 @@ function createPromotionCampaign(e) {
         "Promotion Campaign - " + campaignType
       );
 
-      // Create campaign
       var sheet = getSheet("PromotionCampaigns");
       var campaignId = "C" + Utilities.getUuid().substring(0, 8);
       var now = new Date();
 
-      // Reward pool = CampaignBudget (temp). Phase 5: pool = budget - platform fee
       var totalRewardPool = campaignBudget;
       var remainingRewardPool = campaignBudget;
 
+      // Use OLD schema for backward compatibility
       sheet.appendRow([
         campaignId,                    // CampaignID
-        userId,                        // UserID
-        p.title || "",                 // Title
-        p.description || "",           // Description
         campaignType,                  // CampaignType
-        p.adType || "IMAGE",           // AdType
-        p.promotedEntityID || "",      // PromotedEntityID
-        p.promotedEntityType || "",    // PromotedEntityType
-        p.externalURL || "",           // ExternalURL
-        p.imageURL || "",              // ImageURL
-        p.videoURL || "",              // VideoURL
-        Number(p.duration || 10),      // Duration
-        Number(p.rewardCoins || 0),    // RewardCoins
-        p.rewardPerSecond || Math.round(Number(p.rewardCoins || 0) / Math.max(Number(p.duration || 10), 1)), // RewardPerSecond
-        p.repeatRewardType || "ONCE",  // RepeatRewardType
-        p.pipEnabled || "Yes",         // PIPEnabled
-        p.featured || "No",            // Featured
-        p.priority || 0,               // Priority
-        p.maxViewsPerUser || 0,        // MaxViewsPerUser
-        p.targetRadius || "",          // TargetRadius
-        p.targetCategory || "",        // TargetCategory
-        p.targetCity || "",            // TargetCity
-        p.targetState || "",           // TargetState
-        p.targetCountry || "",         // TargetCountry
-        "Active",                      // Status
-        cost,                          // Cost
+        userId,                        // OwnerUserID
+        p.promotedEntityType || "",    // TargetType
+        p.promotedEntityID || "",      // TargetID
+        cost,                          // CoinsSpent
+        totalRewardPool,               // RewardPool
+        0,                             // PlatformReserve
+        remainingRewardPool,           // RemainingRewardCoins
+        p.targetRadius || "All India", // Radius
+        p.targetCity || "",            // City
+        p.targetState || "",           // State
+        p.targetState || "",           // District
+        p.targetCountry || "",         // Country
+        "",                            // Latitude
+        "",                            // Longitude
         0,                             // Views
         0,                             // Clicks
-        0,                             // Impressions
+        0,                             // Interested
+        0,                             // Shares
         now,                           // StartDate
         p.endDate ? new Date(p.endDate) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // EndDate
-        now,                           // CreatedAt
-        campaignBudget,                // CampaignBudget
-        rewardPerUser,                 // RewardPerUser
-        maxViews,                      // MaxViews
-        maxRewardedUsers,              // MaxRewardedUsers
-        costPerView,                   // CostPerView
-        totalRewardPool,               // TotalRewardPool
-        remainingRewardPool,           // RemainingRewardPool
-        0,                             // TotalRewardPaid
-        0                              // RewardedUsersCount
-      ]);
-
-      // Create analytics entry
-      var analyticsSheet = getSheet("AdAnalytics");
-      var analyticsId = "AA" + Utilities.getUuid().substring(0, 8);
-      analyticsSheet.appendRow([
-        analyticsId,
-        campaignId,
-        0,  // Impressions
-        0,  // Views
-        0,  // UniqueViewers
-        0,  // Skips
-        0,  // Completions
-        0,  // CompletionRate
-        0,  // RewardsPaid
-        0,  // TotalRewardPaid
-        remainingRewardPool,  // RemainingRewardPool
-        0,  // RewardedUsersCount
-        0,  // CTR
-        new Date()
+        "Active",                      // Status
+        now                            // CreatedDate
       ]);
 
       return success({
@@ -1296,7 +1479,6 @@ function createPromotionCampaign(e) {
 /**
  * ============================================================
  * PAUSE CAMPAIGN
- * ?action=pausecampaign&campaignId=C001
  * ============================================================
  */
 function pauseCampaign(e) {
@@ -1325,7 +1507,6 @@ function pauseCampaign(e) {
 /**
  * ============================================================
  * RESUME CAMPAIGN
- * ?action=resumecampaign&campaignId=C001
  * ============================================================
  */
 function resumeCampaign(e) {
@@ -1354,7 +1535,6 @@ function resumeCampaign(e) {
 /**
  * ============================================================
  * PROMOTE PRODUCT
- * ?action=promoteproduct&userId=U001&productId=P001&campaignBudget=2000
  * ============================================================
  */
 function promoteProduct(e) {
@@ -1414,7 +1594,6 @@ function promoteProduct(e) {
 /**
  * ============================================================
  * PROMOTE BUSINESS
- * ?action=promotebusiness&userId=U001&businessId=B001&campaignBudget=2000
  * ============================================================
  */
 function promoteBusiness(e) {
@@ -1474,7 +1653,6 @@ function promoteBusiness(e) {
 /**
  * ============================================================
  * PROMOTE STORE
- * ?action=promotestore&userId=U001&storeId=S001&campaignBudget=2000
  * ============================================================
  */
 function promoteStore(e) {
@@ -1525,7 +1703,6 @@ function promoteStore(e) {
 /**
  * ============================================================
  * PROMOTE PROPERTY
- * ?action=promoteproperty&userId=U001&propertyId=PR001&campaignBudget=2000
  * ============================================================
  */
 function promoteProperty(e) {
@@ -1585,7 +1762,6 @@ function promoteProperty(e) {
 /**
  * ============================================================
  * PROMOTE LIVE
- * ?action=promotelive&userId=U001&liveId=L001&campaignBudget=2000
  * ============================================================
  */
 function promoteLive(e) {
@@ -1645,7 +1821,6 @@ function promoteLive(e) {
 /**
  * ============================================================
  * PROMOTE NEWS
- * ?action=promotenews&userId=U001&newsId=N001&campaignBudget=2000
  * ============================================================
  */
 function promoteNews(e) {
@@ -1687,7 +1862,6 @@ function promoteNews(e) {
       repeatRewardType: p.repeatRewardType || "ONCE",
       pipEnabled: p.pipEnabled || "Yes",
       featured: p.featured || "No",
-      maxViewsPerUser: p.maxViewsPerUser || "0",
       externalURL: p.externalURL || "",
       endDate: ""
     };
@@ -1704,7 +1878,6 @@ function promoteNews(e) {
 /**
  * ============================================================
  * PROMOTE EXTERNAL URL
- * ?action=promoteexternalurl&userId=U001&url=https://...&campaignBudget=2000
  * ============================================================
  */
 function promoteExternalUrl(e) {
@@ -1752,7 +1925,6 @@ function promoteExternalUrl(e) {
 /**
  * ============================================================
  * PROMOTE WEBSITE
- * ?action=promotewebsite&userId=U001&url=https://...&campaignBudget=2000
  * ============================================================
  */
 function promoteWebsite(e) {
@@ -1799,6 +1971,133 @@ function promoteWebsite(e) {
 
 /**
  * ============================================================
+ * CREATE DEMO AD CAMPAIGNS
+ * ?action=createdemocampaigns
+ * Creates 3 demo campaigns using OLD schema for compatibility
+ * ============================================================
+ */
+function createDemoAdCampaigns() {
+  try {
+    ensurePromotionSheets();
+    
+    var sheet = getSheet("PromotionCampaigns");
+    var data = sheet.getDataRange().getValues();
+    
+    // Only create demos if sheet is empty (only header row)
+    if (data.length > 1) {
+      return success({
+        created: 0,
+        message: "Campaigns already exist. Delete existing campaigns first if you want to recreate."
+      }, "Demo campaigns not needed - campaigns already exist.");
+    }
+    
+    var now = new Date();
+    var futureDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+    var created = 0;
+    
+    // Demo Campaign 1: Product Promotion
+    sheet.appendRow([
+      "CDEMO01",                    // CampaignID
+      "PROMOTE_PRODUCT",            // CampaignType
+      "SYSTEM",                      // OwnerUserID
+      "Product",                     // TargetType
+      "DEMO_PROD_001",              // TargetID
+      0,                             // CoinsSpent
+      5000,                          // RewardPool
+      0,                             // PlatformReserve
+      5000,                          // RemainingRewardCoins
+      "All India",                   // Radius
+      "",                            // City
+      "",                            // District
+      "",                            // State
+      "",                            // Country
+      "",                            // Latitude
+      "",                            // Longitude
+      0,                             // Views
+      0,                             // Clicks
+      0,                             // Interested
+      0,                             // Shares
+      now,                           // StartDate
+      futureDate,                    // EndDate
+      "Active",                      // Status
+      now                            // CreatedDate
+    ]);
+    created++;
+    
+    // Demo Campaign 2: Business Promotion
+    sheet.appendRow([
+      "CDEMO02",                    // CampaignID
+      "PROMOTE_BUSINESS",           // CampaignType
+      "SYSTEM",                      // OwnerUserID
+      "Business",                    // TargetType
+      "DEMO_BIZ_001",               // TargetID
+      0,                             // CoinsSpent
+      5000,                          // RewardPool
+      0,                             // PlatformReserve
+      5000,                          // RemainingRewardCoins
+      "All India",                   // Radius
+      "",                            // City
+      "",                            // District
+      "",                            // State
+      "",                            // Country
+      "",                            // Latitude
+      "",                            // Longitude
+      0,                             // Views
+      0,                             // Clicks
+      0,                             // Interested
+      0,                             // Shares
+      now,                           // StartDate
+      futureDate,                    // EndDate
+      "Active",                      // Status
+      now                            // CreatedDate
+    ]);
+    created++;
+    
+    // Demo Campaign 3: External URL Promotion
+    sheet.appendRow([
+      "CDEMO03",                    // CampaignID
+      "PROMOTE_EXTERNAL_URL",       // CampaignType
+      "SYSTEM",                      // OwnerUserID
+      "ExternalURL",                 // TargetType
+      "",                            // TargetID
+      0,                             // CoinsSpent
+      5000,                          // RewardPool
+      0,                             // PlatformReserve
+      5000,                          // RemainingRewardCoins
+      "All India",                   // Radius
+      "",                            // City
+      "",                            // District
+      "",                            // State
+      "",                            // Country
+      "",                            // Latitude
+      "",                            // Longitude
+      0,                             // Views
+      0,                             // Clicks
+      0,                             // Interested
+      0,                             // Shares
+      now,                           // StartDate
+      futureDate,                    // EndDate
+      "Active",                      // Status
+      now                            // CreatedDate
+    ]);
+    created++;
+    
+    console.log("Phase4: Created " + created + " demo campaigns");
+    
+    return success({
+      created: created,
+      campaigns: ["CDEMO01", "CDEMO02", "CDEMO03"],
+      message: created + " demo campaigns created successfully!"
+    }, "Demo campaigns created!");
+    
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ============================================================
  * INTERNAL: TRACK AD ANALYTICS
  * ============================================================
  */
@@ -1808,15 +2107,6 @@ function trackAdAnalytics(campaignId, eventType) {
     if (!sheet) return;
 
     var data = sheet.getDataRange().getValues();
-    var uniqueViewers = {};
-
-    // Build unique viewer set from existing data
-    for (var x = 1; x < data.length; x++) {
-      if (String(data[x][1]) === String(campaignId)) {
-        // We track unique viewers via campaign's RewardedUsersCount in PromotionCampaigns
-        break;
-      }
-    }
 
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][1]) === String(campaignId)) {
@@ -1832,12 +2122,11 @@ function trackAdAnalytics(campaignId, eventType) {
           var currentCompletions = Number(data[i][6] || 0) + 1;
           var currentViews = Number(data[i][3] || 0);
           var completionRate = currentViews > 0 ? Math.round((currentCompletions / currentViews) * 100) : 0;
-          sheet.getRange(i + 1, 6).setValue(currentCompletions); // Completions
-          sheet.getRange(i + 1, 7).setValue(completionRate);      // CompletionRate
+          sheet.getRange(i + 1, 6).setValue(currentCompletions);
+          sheet.getRange(i + 1, 7).setValue(completionRate);
         } else if (eventType === "reward") {
-          sheet.getRange(i + 1, 8).setValue(Number(data[i][7] || 0) + 1); // RewardsPaid
-          // TotalRewardPaid is tracked in PromotionCampaigns
-          sheet.getRange(i + 1, 9).setValue(Number(data[i][8] || 0) + 1); // TotalRewardPaid (increment count)
+          sheet.getRange(i + 1, 8).setValue(Number(data[i][7] || 0) + 1);
+          sheet.getRange(i + 1, 9).setValue(Number(data[i][8] || 0) + 1);
         }
         sheet.getRange(i + 1, 14).setValue(new Date());
         return;
@@ -1852,33 +2141,9 @@ function trackAdAnalytics(campaignId, eventType) {
 /**
  * ============================================================
  * INTERNAL: CALCULATE CAMPAIGN COST
- *
- * TEMPORARY IMPLEMENTATION ONLY
- * ============================================================
- * Phase 5 Admin Dashboard will control pricing.
- * DO NOT implement hardcoded pricing formulas.
- *
- * Pricing will depend on:
- * - Radius
- * - Maximum Views
- * - Reward Per User
- * - Campaign Budget
- * - Campaign Type
- * - Featured Status
- * - PIP Status
- * - Advertisement Package
- *
- * Each campaign has completely different economics.
- *
- * Examples:
- *   Campaign A: Budget=2000, Radius=25km, MaxViews=400, RewardPerUser=5
- *   Campaign B: Budget=5000, Radius=All India, MaxViews=2000, RewardPerUser=2
- *   Campaign C: Budget=1000, Radius=5km, MaxViews=100, RewardPerUser=10
  * ============================================================
  */
 function calculateCampaignCost(campaign) {
-  // Temporary: cost equals campaign budget
-  // Phase 5: Admin Dashboard will compute price dynamically
   return Number(campaign.CampaignBudget || campaign.rewardCoins || 0);
 }
 

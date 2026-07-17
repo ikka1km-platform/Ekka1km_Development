@@ -696,6 +696,12 @@ case "onboarding":
   case "promotewebsite":
     return promoteWebsite(e);
 
+  case "createdemocampaigns":
+    return createDemoAdCampaigns();
+
+  case "debugpip":
+    return debugPip(e);
+
       default:
         return error(
           "Invalid action : " + action
