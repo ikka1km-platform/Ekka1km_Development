@@ -1,0 +1,26 @@
+* [33m8010708[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Add AdminSetup debug utility
+* [33mfd085b3[m Checkpoint before AdminSetup debug
+* [33m65126e0[m[33m ([m[1;33mtag: [m[1;33mv5.3B[m[33m, [m[1;31morigin/main[m[33m)[m Phase 5.3B: Live Command Center with live analytics completed
+* [33m89eb5ba[m Phase 5.1-5.3A: Super Admin Dashboard and Live Command Center foundation
+* [33me94fc0d[m[33m ([m[1;33mtag: [m[1;33mv4.0-phase4-complete[m[33m)[m Phase 4 Production Ready
+* [33m831f1c6[m[33m ([m[1;33mtag: [m[1;33mv3.0-phase3-complete[m[33m)[m Phase 3 Production Ready
+* [33mf1fc654[m Resolve Config.js merge conflict
+*   [33m191359c[m Merge development branch
+[32m|[m[33m\[m  
+[32m|[m * [33mc183fdd[m[33m ([m[1;31morigin/development[m[33m)[m Add database backup
+[32m|[m * [33m80b3686[m Save remaining frontend modifications
+[32m|[m * [33m28ea543[m Sync clone laptop frontend changes
+[32m|[m [33m|[m * [33ma1af032[m[33m ([m[1;35mrefs/stash[m[33m)[m WIP on main: 92db53d Migration complete - unified production environment
+[32m|[m [33m|[m[32m/[m[35m|[m 
+[32m|[m[32m/[m[33m|[m [35m|[m 
+[32m|[m [33m|[m * [33m9164e64[m index on main: 92db53d Migration complete - unified production environment
+[32m|[m [33m|[m[32m/[m  
+[32m|[m[32m/[m[33m|[m   
+* [33m|[m [33m92db53d[m Migration complete - unified production environment
+[33m|[m[33m/[m  
+* [33m8333dff[m Phase 4 Final Fix - Correct GAS deployment URL
+* [33mbe1bd9b[m Phase 4 Complete - PIP Advertisement System and Phase 5 Economics Preparation
+* [33meb8362a[m[33m ([m[1;33mtag: [m[1;33mphase-3.2-stable[m[33m, [m[1;32mbackup-phase-3.2[m[33m)[m Phase 3.2 OTP Login System Final Stabilization Completed
+* [33m4f8ad91[m Backup before OTP stabilization
+* [33mdbf16d7[m Phase 3.2 Frontend OTP System Bug Fixes
+* [33m04a686c[m Phase 3.2 Frontend OTP System

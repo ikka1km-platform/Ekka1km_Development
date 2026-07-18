@@ -445,6 +445,11 @@
 
     });
 
+    // Expose functions to global scope for inline onclick handlers
+    window.handleSendOtp = handleSendOtp;
+    window.handleVerifyOtp = handleVerifyOtp;
+    window.goBackToStep1 = goBackToStep1;
+
   </script>
 
 </body>

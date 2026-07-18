@@ -559,6 +559,9 @@ case "liveunreadcount":
       case "ccdata":
         return getCommandCenterData(e);
 
+      case "initializeadmindatabase":
+        return initializeAdminDatabase(e);
+
       case "admin":
         return adminDashboard(e);
 
