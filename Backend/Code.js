@@ -556,6 +556,9 @@ case "liveunreadcount":
       case "admindashboardsummary":
         return getAdminDashboardSummary(e);
 
+      case "ccdata":
+        return getCommandCenterData(e);
+
       case "admin":
         return adminDashboard(e);
 

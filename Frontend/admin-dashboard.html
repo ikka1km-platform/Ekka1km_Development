@@ -425,6 +425,12 @@
               <span class="cc-status-sep">|</span>
 
               <span class="cc-status-item">
+                Zoom: <strong id="ccCurrentZoom">5</strong>
+              </span>
+
+              <span class="cc-status-sep">|</span>
+
+              <span class="cc-status-item">
                 Map: <strong id="ccStatusMap">Initializing...</strong>
               </span>
 
@@ -445,18 +451,9 @@
 
               <div id="panelRecentActivity" class="panel-subsection">
                 <div class="subsection-title">Recent Activity</div>
-                <div class="panel-list">
+                <div id="activityFeedContainer" class="panel-list">
                   <div class="panel-list-item">
-                    <span class="item-label">Dashboard loaded</span>
-                    <span class="item-value muted">Just now</span>
-                  </div>
-                  <div class="panel-list-item">
-                    <span class="item-label">Session validated</span>
-                    <span class="item-value muted">Just now</span>
-                  </div>
-                  <div class="panel-list-item">
-                    <span class="item-label">Admin logged in</span>
-                    <span class="item-value green" id="listLastLogin">Today</span>
+                    <span class="item-label">Loading...</span>
                   </div>
                 </div>
               </div>
@@ -506,6 +503,67 @@
 
             </div>
           </section>
+
+          <!-- ============================================================
+               PANEL: CITY ANALYTICS
+               ID: panelCityAnalytics
+               ============================================================ -->
+          <section id="panelCityAnalytics" class="panel" style="display: none;">
+            <div class="panel-header">
+              <span class="panel-title">📍 City Analytics</span>
+              <span class="panel-subtitle" id="cityAnalyticsSubtitle">Select a location</span>
+            </div>
+            <div class="panel-body">
+              <div id="cityAnalyticsContainer" class="panel-list">
+                <div class="panel-list-item">
+                  <span class="item-label">Click on the map to view city analytics</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============================================================
+               BOTTOM PANELS: Top Cities + Top Categories
+               ============================================================ -->
+          <div class="panels-grid panels-grid-bottom">
+
+            <!-- ============================================================
+                 PANEL: TOP CITIES
+                 ID: panelTopCities
+                 ============================================================ -->
+            <section id="panelTopCities" class="panel">
+              <div class="panel-header">
+                <span class="panel-title">Top Cities</span>
+                <span class="panel-subtitle">By user count</span>
+              </div>
+              <div class="panel-body">
+                <div id="topCitiesContainer" class="panel-list">
+                  <div class="panel-list-item">
+                    <span class="item-label">Loading...</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ============================================================
+                 PANEL: TOP CATEGORIES
+                 ID: panelTopCategories
+                 ============================================================ -->
+            <section id="panelTopCategories" class="panel">
+              <div class="panel-header">
+                <span class="panel-title">Top Categories</span>
+                <span class="panel-subtitle">By business count</span>
+              </div>
+              <div class="panel-body">
+                <div id="topCategoriesContainer" class="panel-list">
+                  <div class="panel-list-item">
+                    <span class="item-label">Loading...</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+          </div>
 
         </div><!-- /dashboardContent -->
 

@@ -53,8 +53,9 @@ const Dashboard = {
     // Init notification panel
     this._initNotifications();
 
-    // Init command center map (Phase 5.3A)
+    // Init command center map and load live data (Phase 5.3B)
     this._initCommandCenter();
+    this._loadCommandCenterData();
   },
 
 
@@ -495,6 +496,183 @@ const Dashboard = {
 
   /*
   ============================================================
+  PRIVATE: LOAD COMMAND CENTER DATA
+  Loads activity feed, top cities, top categories
+  ============================================================
+  */
+
+  async _loadCommandCenterData() {
+
+    const session = AdminAuth.getSession();
+
+    if (!session) return;
+
+    try {
+
+      const response = await fetch(
+        getApiUrl() +
+        "?action=ccdata" +
+        "&session=" +
+        encodeURIComponent(session)
+      );
+
+      const json = await response.json();
+
+      if (json && json.success && json.data) {
+
+        // Store city analytics for map click handler
+        this._cityAnalytics = json.data.cityAnalytics || [];
+
+        // Update activity feed
+        if (json.data.activityFeed && json.data.activityFeed.length > 0) {
+          this._updateActivityFeed(json.data.activityFeed);
+        }
+
+        // Update top cities
+        if (json.data.topCities && json.data.topCities.length > 0) {
+          this._updateTopCities(json.data.topCities);
+        }
+
+        // Update top categories
+        if (json.data.topCategories && json.data.topCategories.length > 0) {
+          this._updateTopCategories(json.data.topCategories);
+        }
+
+        // Update system health
+        if (json.data.systemHealth) {
+          this._updateSystemHealth(json.data.systemHealth);
+        }
+      }
+
+    } catch (err) {
+      console.error("Command Center data load error:", err);
+    }
+  },
+
+
+  /*
+  ============================================================
+  PRIVATE: UPDATE ACTIVITY FEED
+  ============================================================
+  */
+
+  _updateActivityFeed(activities) {
+
+    const container = document.getElementById("activityFeedContainer");
+
+    if (!container || !activities.length) return;
+
+    let html = "";
+
+    activities.slice(0, 10).forEach(function(activity) {
+      html += `
+        <div class="activity-feed-item">
+          <span class="activity-feed-icon">${activity.icon || "📌"}</span>
+          <div class="activity-feed-content">
+            <div class="activity-feed-title">${activity.title || "Activity"}</div>
+            <div class="activity-feed-meta">${activity.description || ""} ${activity.city ? "• " + activity.city : ""}</div>
+          </div>
+          <span class="item-value muted">${activity.time ? this._formatTimeAgo(activity.time) : ""}</span>
+        </div>
+      `;
+    }.bind(this));
+
+    container.innerHTML = html;
+  },
+
+
+  /*
+  ============================================================
+  PRIVATE: UPDATE TOP CITIES
+  ============================================================
+  */
+
+  _updateTopCities(cities) {
+
+    const container = document.getElementById("topCitiesContainer");
+
+    if (!container || !cities.length) return;
+
+    let html = "";
+
+    cities.slice(0, 10).forEach(function(city, index) {
+      html += `
+        <div class="top-list-item">
+          <span class="top-list-rank">${index + 1}</span>
+          <span class="top-list-label">${city.city || "Unknown"}</span>
+          <span class="top-list-value">${city.users || 0} users</span>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  },
+
+
+  /*
+  ============================================================
+  PRIVATE: UPDATE TOP CATEGORIES
+  ============================================================
+  */
+
+  _updateTopCategories(categories) {
+
+    const container = document.getElementById("topCategoriesContainer");
+
+    if (!container || !categories.length) return;
+
+    let html = "";
+
+    categories.slice(0, 10).forEach(function(cat, index) {
+      html += `
+        <div class="top-list-item">
+          <span class="top-list-rank">${index + 1}</span>
+          <span class="top-list-label">${cat.category || "Unknown"}</span>
+          <span class="top-list-value">${cat.businesses || 0} businesses</span>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  },
+
+
+  /*
+  ============================================================
+  PRIVATE: FORMAT TIME AGO
+  ============================================================
+  */
+
+  _formatTimeAgo(timestamp) {
+
+    if (!timestamp) return "";
+
+    try {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diff = now - date;
+
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+
+      if (minutes < 1) return "Just now";
+      if (minutes < 60) return minutes + "m ago";
+      if (hours < 24) return hours + "h ago";
+      if (days < 7) return days + "d ago";
+
+      return date.toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short"
+      });
+    } catch (e) {
+      return "";
+    }
+  },
+
+
+  /*
+  ============================================================
   PRIVATE: INIT COMMAND CENTER
   Initializes Leaflet map and command center components.
   Handles resize on sidebar toggle.
@@ -512,6 +690,13 @@ const Dashboard = {
         console.log("Command Center initialized from Dashboard");
       } else {
         console.warn("CommandCenter module not loaded");
+      }
+
+      // Listen for map clicks to show city analytics
+      if (typeof CommandCenter !== "undefined") {
+        CommandCenter.on("mapClick", function(data) {
+          Dashboard._showCityAnalytics(data.lat, data.lng);
+        });
       }
 
       // Handle sidebar toggle to resize map
@@ -536,6 +721,108 @@ const Dashboard = {
       });
 
     }, 100);
+  },
+
+
+  /*
+  ============================================================
+  PRIVATE: SHOW CITY ANALYTICS
+  Displays city analytics when map is clicked
+  ============================================================
+  */
+
+  _showCityAnalytics(lat, lng) {
+
+    const panel = document.getElementById("panelCityAnalytics");
+    const container = document.getElementById("cityAnalyticsContainer");
+    const subtitle = document.getElementById("cityAnalyticsSubtitle");
+
+    if (!panel || !container) return;
+
+    // Find nearest city from analytics data
+    let cityData = null;
+
+    if (this._cityAnalytics && this._cityAnalytics.length > 0) {
+      // Simple nearest city lookup (in production, use proper geospatial query)
+      cityData = this._cityAnalytics[0];
+    }
+
+    // Show panel
+    panel.style.display = "block";
+
+    // Update subtitle
+    if (subtitle) {
+      subtitle.textContent = cityData ? cityData.city + ", " + cityData.state : "Selected Location";
+    }
+
+    // Build analytics HTML
+    let html = "";
+
+    if (cityData) {
+      html += `
+        <div class="panel-list-item">
+          <span class="item-label">City</span>
+          <span class="item-value">${cityData.city || "N/A"}</span>
+        </div>
+        <div class="panel-list-item">
+          <span class="item-label">State</span>
+          <span class="item-value">${cityData.state || "N/A"}</span>
+        </div>
+        <div class="panel-list-item">
+          <span class="item-label">Users</span>
+          <span class="item-value">${cityData.users || 0}</span>
+        </div>
+        <div class="panel-list-item">
+          <span class="item-label">Businesses</span>
+          <span class="item-value">${cityData.businesses || 0}</span>
+        </div>
+        <div class="panel-list-item">
+          <span class="item-label">Products</span>
+          <span class="item-value">${cityData.products || 0}</span>
+        </div>
+        <div class="panel-list-item">
+          <span class="item-label">Properties</span>
+          <span class="item-value">${cityData.properties || 0}</span>
+        </div>
+        <div class="panel-list-item">
+          <span class="item-label">Advertisements</span>
+          <span class="item-value">${cityData.advertisements || 0}</span>
+        </div>
+        <div class="panel-list-item">
+          <span class="item-label">Promotions</span>
+          <span class="item-value">${cityData.promotions || 0}</span>
+        </div>
+        <div class="panel-list-item">
+          <span class="item-label">Revenue</span>
+          <span class="item-value">₹${cityData.revenue || 0}</span>
+        </div>
+        <div class="panel-list-item">
+          <span class="item-label">Pending Reports</span>
+          <span class="item-value">${cityData.pendingReports || 0}</span>
+        </div>
+        <div class="panel-list-item">
+          <span class="item-label">Pending Approvals</span>
+          <span class="item-value">${cityData.pendingApprovals || 0}</span>
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="panel-list-item">
+          <span class="item-label">Latitude</span>
+          <span class="item-value muted">${lat.toFixed(4)}</span>
+        </div>
+        <div class="panel-list-item">
+          <span class="item-label">Longitude</span>
+          <span class="item-value muted">${lng.toFixed(4)}</span>
+        </div>
+        <div class="panel-list-item">
+          <span class="item-label">Status</span>
+          <span class="item-value muted">No city data available</span>
+        </div>
+      `;
+    }
+
+    container.innerHTML = html;
   }
 };
 

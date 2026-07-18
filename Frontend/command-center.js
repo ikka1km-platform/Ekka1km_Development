@@ -2,8 +2,8 @@
 ============================================================
 EKKA1KM FRONTEND
 command-center.js
-V5.10.0 - LIVE COMMAND CENTER (Phase 5.3A)
-India Map Foundation with Leaflet
+V5.10.0 - LIVE COMMAND CENTER (Phase 5.3B)
+Live Data & Analytics with Leaflet
 Modular map component for future expansion
 ============================================================
 */
@@ -31,7 +31,13 @@ const CommandCenter = {
     tileUrl: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     tileAttribution: "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
     currentRadius: "51 km",
-    currentMode: "Standard"
+    currentMode: "Standard",
+    refreshInterval: 60000, // 60 seconds default
+    refreshIntervals: {
+      "30s": 30000,
+      "60s": 60000,
+      "5m": 300000
+    }
   },
 
 
@@ -47,6 +53,8 @@ const CommandCenter = {
   _activeLayer: null,
   _listeners: {},
   _initialized: false,
+  _data: null,
+  _refreshTimer: null,
 
 
   /*
@@ -56,17 +64,19 @@ const CommandCenter = {
   ============================================================
   */
 
-  init() {
+  async init() {
 
     if (this._initialized) return;
 
     this._setupHeader();
+    await this._loadData();
     this._initMap();
     this._setupToolbar();
     this._setupControls();
     this._setupInfoPanel();
     this._setupStatusBar();
     this._setupEvents();
+    this._startAutoRefresh();
 
     this._initialized = true;
 
@@ -82,6 +92,11 @@ const CommandCenter = {
   */
 
   destroy() {
+
+    if (this._refreshTimer) {
+      clearInterval(this._refreshTimer);
+      this._refreshTimer = null;
+    }
 
     if (this._map) {
       this._map.remove();
@@ -110,6 +125,21 @@ const CommandCenter = {
         this._map.invalidateSize();
       }, 300);
     }
+  },
+
+
+  /*
+  ============================================================
+  REFRESH DATA
+  Reload all data from backend
+  ============================================================
+  */
+
+  async refreshData() {
+
+    await this._loadData();
+    this._renderActiveLayer();
+    this._updateStatusBar();
   },
 
 
@@ -175,6 +205,9 @@ const CommandCenter = {
       btn.classList.add("active");
     }
 
+    // Render layer on map
+    this._renderActiveLayer();
+
     // Update status bar
     this._updateStatusBar();
 
@@ -225,6 +258,266 @@ const CommandCenter = {
 
   /*
   ============================================================
+  PRIVATE: LOAD DATA
+  Fetches all command center data from backend
+  ============================================================
+  */
+
+  async _loadData() {
+
+    const session = AdminAuth.getSession();
+
+    if (!session) {
+      console.warn("No admin session for command center data");
+      return;
+    }
+
+    try {
+
+      const response = await fetch(
+        getApiUrl() +
+        "?action=ccdata" +
+        "&session=" +
+        encodeURIComponent(session)
+      );
+
+      const json = await response.json();
+
+      if (json && json.success && json.data) {
+        this._data = json.data;
+        console.log("Command Center data loaded", json.data);
+      } else {
+        console.warn("Command Center data load failed:", json.message);
+      }
+
+    } catch (err) {
+      console.error("Command Center data error:", err);
+    }
+  },
+
+
+  /*
+  ============================================================
+  PRIVATE: RENDER ACTIVE LAYER
+  Renders the currently selected layer on the map
+  ============================================================
+  */
+
+  _renderActiveLayer() {
+
+    if (!this._map || !this._data) return;
+
+    // Clear existing markers
+    this._clearMarkers();
+
+    const layer = this._activeLayer;
+
+    if (!layer || layer === "standard") {
+      // No layer selected - just show base map
+      return;
+    }
+
+    // Render based on active layer
+    switch (layer) {
+      case "heatmap":
+        this._renderHeatMap();
+        break;
+      case "liveusers":
+        this._renderLiveUsers();
+        break;
+      case "businesses":
+        this._renderBusinesses();
+        break;
+      case "ads":
+        this._renderAdvertisements();
+        break;
+      case "promotions":
+        this._renderPromotions();
+        break;
+      default:
+        console.log("Layer not implemented yet:", layer);
+    }
+  },
+
+
+  /*
+  ============================================================
+  PRIVATE: CLEAR MARKERS
+  Removes all markers from the map
+  ============================================================
+  */
+
+  _clearMarkers() {
+
+    this._markers.forEach(marker => {
+      if (marker && this._map) {
+        this._map.removeLayer(marker);
+      }
+    });
+
+    this._markers = [];
+  },
+
+
+  /*
+  ============================================================
+  PRIVATE: RENDER HEAT MAP
+  Uses leaflet.heat plugin if available, otherwise shows circles
+  ============================================================
+  */
+
+  _renderHeatMap() {
+
+    if (!this._data.heatmap || !this._map) return;
+
+    const points = this._data.heatmap;
+
+    // Check if leaflet.heat is available
+    if (typeof L.heatLayer !== "undefined") {
+      const heatPoints = points.map(p => [p.lat, p.lng, p.intensity || 1]);
+      const heatLayer = L.heatLayer(heatPoints, {
+        radius: 25,
+        blur: 15,
+        maxZoom: 10,
+        max: 2.0
+      }).addTo(this._map);
+      this._layers.heatmap = heatLayer;
+    } else {
+      // Fallback: show as circles with opacity
+      points.forEach(point => {
+        const marker = L.circleMarker([point.lat, point.lng], {
+          radius: 8,
+          fillColor: "#ff4757",
+          color: "#ff4757",
+          weight: 1,
+          opacity: 0.6,
+          fillOpacity: 0.4
+        }).addTo(this._map);
+        this._markers.push(marker);
+      });
+    }
+  },
+
+
+  /*
+  ============================================================
+  PRIVATE: RENDER LIVE USERS
+  Shows user markers with clustering support
+  ============================================================
+  */
+
+  _renderLiveUsers() {
+
+    if (!this._data.liveUsers || !this._map) return;
+
+    const users = this._data.liveUsers;
+
+    users.forEach(user => {
+      const marker = L.marker([user.lat, user.lng])
+        .addTo(this._map)
+        .bindPopup(`
+          <div style="font-size: 13px;">
+            <strong>${user.name}</strong><br/>
+            <span style="color: #666;">${user.city}, ${user.state}</span><br/>
+            <small>Status: ${user.status}</small>
+          </div>
+        `);
+      this._markers.push(marker);
+    });
+  },
+
+
+  /*
+  ============================================================
+  PRIVATE: RENDER BUSINESSES
+  Shows business markers with popup details
+  ============================================================
+  */
+
+  _renderBusinesses() {
+
+    if (!this._data.businesses || !this._map) return;
+
+    const businesses = this._data.businesses;
+
+    businesses.forEach(biz => {
+      const marker = L.marker([biz.lat, biz.lng])
+        .addTo(this._map)
+        .bindPopup(`
+          <div style="font-size: 13px; min-width: 200px;">
+            <strong>${biz.name}</strong><br/>
+            <span style="color: #666;">${biz.category}</span><br/>
+            <small>Owner: ${biz.owner}</small><br/>
+            <small>Products: ${biz.productsCount}</small><br/>
+            <small>Promotion: ${biz.promotionStatus}</small>
+          </div>
+        `);
+      this._markers.push(marker);
+    });
+  },
+
+
+  /*
+  ============================================================
+  PRIVATE: RENDER ADVERTISEMENTS
+  Shows ad markers with campaign details
+  ============================================================
+  */
+
+  _renderAdvertisements() {
+
+    if (!this._data.advertisements || !this._map) return;
+
+    const ads = this._data.advertisements;
+
+    ads.forEach(ad => {
+      const marker = L.marker([ad.lat, ad.lng])
+        .addTo(this._map)
+        .bindPopup(`
+          <div style="font-size: 13px; min-width: 200px;">
+            <strong>${ad.name}</strong><br/>
+            <small>Radius: ${ad.radius} km</small><br/>
+            <small>Views: ${ad.views}</small><br/>
+            <small>Clicks: ${ad.clicks}</small><br/>
+            <small>Budget: ₹${ad.budget}</small>
+          </div>
+        `);
+      this._markers.push(marker);
+    });
+  },
+
+
+  /*
+  ============================================================
+  PRIVATE: RENDER PROMOTIONS
+  Shows promotion markers (different style from businesses)
+  ============================================================
+  */
+
+  _renderPromotions() {
+
+    if (!this._data.promotions || !this._map) return;
+
+    const promotions = this._data.promotions;
+
+    promotions.forEach(promo => {
+      const marker = L.marker([promo.lat, promo.lng])
+        .addTo(this._map)
+        .bindPopup(`
+          <div style="font-size: 13px; min-width: 200px;">
+            <strong>${promo.name}</strong><br/>
+            <small>Type: ${promo.type}</small><br/>
+            <small>Budget: ₹${promo.budget}</small><br/>
+            <small>Status: ${promo.status}</small>
+          </div>
+        `);
+      this._markers.push(marker);
+    });
+  },
+
+
+  /*
+  ============================================================
   PRIVATE: SETUP HEADER
   ============================================================
   */
@@ -235,6 +528,8 @@ const CommandCenter = {
     const dateEl = document.getElementById("ccCurrentDate");
     const radiusEl = document.getElementById("ccCurrentRadius");
     const modeEl = document.getElementById("ccCurrentMode");
+    const layerEl = document.getElementById("ccCurrentLayer");
+    const mapStatusEl = document.getElementById("ccCurrentMapStatus");
 
     if (radiusEl) {
       radiusEl.textContent = this.config.currentRadius;
@@ -242,6 +537,14 @@ const CommandCenter = {
 
     if (modeEl) {
       modeEl.textContent = this.config.currentMode;
+    }
+
+    if (layerEl) {
+      layerEl.textContent = "None";
+    }
+
+    if (mapStatusEl) {
+      mapStatusEl.textContent = "Initializing...";
     }
 
     // Update time every second
@@ -335,10 +638,10 @@ const CommandCenter = {
     });
 
     this._map.on("zoomend", () => {
-      this._emit("zoomChange", {
-        zoom: this._map.getZoom()
-      });
-      console.log("Zoom changed:", this._map.getZoom());
+      const zoom = this._map.getZoom();
+      this._emit("zoomChange", { zoom: zoom });
+      console.log("Zoom changed:", zoom);
+      this._updateStatusBar();
     });
 
     this._map.on("load", () => {
@@ -350,6 +653,10 @@ const CommandCenter = {
     setTimeout(() => {
       this._map.invalidateSize();
       this._emit("mapReady", {});
+      const mapStatusEl = document.getElementById("ccCurrentMapStatus");
+      if (mapStatusEl) {
+        mapStatusEl.textContent = "Ready";
+      }
     }, 500);
 
     console.log("Leaflet map initialized (India center)");
@@ -413,9 +720,10 @@ const CommandCenter = {
     // Refresh
     const refresh = document.getElementById("ccRefresh");
     if (refresh) {
-      refresh.addEventListener("click", () => {
+      refresh.addEventListener("click", async () => {
+        await this.refreshData();
         this._emit("refresh", {});
-        console.log("Command Center refresh requested");
+        console.log("Command Center refresh completed");
       });
     }
 
@@ -526,6 +834,8 @@ const CommandCenter = {
 
     const statusLayerEl = document.getElementById("ccStatusLayer");
     const statusMapEl = document.getElementById("ccStatusMap");
+    const statusRadiusEl = document.getElementById("ccStatusRadius");
+    const statusZoomEl = document.getElementById("ccCurrentZoom");
 
     if (statusLayerEl) {
       statusLayerEl.textContent = this._activeLayer || "None";
@@ -533,6 +843,14 @@ const CommandCenter = {
 
     if (statusMapEl) {
       statusMapEl.textContent = this._map ? "Ready" : "Not initialized";
+    }
+
+    if (statusRadiusEl) {
+      statusRadiusEl.textContent = this.config.currentRadius;
+    }
+
+    if (statusZoomEl && this._map) {
+      statusZoomEl.textContent = "Zoom " + this._map.getZoom();
     }
   },
 
@@ -577,6 +895,26 @@ const CommandCenter = {
 
   /*
   ============================================================
+  PRIVATE: START AUTO REFRESH
+  ============================================================
+  */
+
+  _startAutoRefresh() {
+
+    if (this._refreshTimer) {
+      clearInterval(this._refreshTimer);
+    }
+
+    this._refreshTimer = setInterval(() => {
+      this.refreshData();
+    }, this.config.refreshInterval);
+
+    console.log("Auto-refresh started:", this.config.refreshInterval / 1000, "seconds");
+  },
+
+
+  /*
+  ============================================================
   PRIVATE: EMIT EVENT
   ============================================================
   */
@@ -604,4 +942,4 @@ GLOBAL EXPORT
 
 window.CommandCenter = CommandCenter;
 
-console.log("Command Center module loaded (Phase 5.3A)");
+console.log("Command Center module loaded (Phase 5.3B)");
