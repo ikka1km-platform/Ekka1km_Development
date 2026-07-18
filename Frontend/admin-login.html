@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Admin Login | Ekka1km</title>
+  <meta name="robots" content="noindex, nofollow">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="admin-auth.css">
+</head>
+<body>
+
+  <div class="login-container">
+
+    <!-- Brand -->
+    <div class="login-brand">
+      <h1>Ekka<span>1km</span></h1>
+      <p>Admin Control Panel</p>
+      <div class="badge">Secure Access</div>
+    </div>
+
+    <!-- Messages -->
+    <div id="message" class="message"></div>
+
+    <!-- ============================================================
+         STEP 1: Admin ID
+         ============================================================ -->
+    <div id="step1" class="login-step active">
+
+      <div class="form-group">
+        <label for="adminId">Admin ID</label>
+        <input
+          type="text"
+          id="adminId"
+          placeholder="Enter your Admin ID (e.g. EKKA001)"
+          maxlength="20"
+          autocomplete="off"
+          autocapitalize="characters"
+          autofocus
+        />
+      </div>
+
+      <button
+        id="btnSendOtp"
+        class="btn btn-primary"
+        onclick="handleSendOtp()"
+      >
+        Send OTP
+      </button>
+
+    </div>
+
+    <!-- ============================================================
+         STEP 2: OTP Verification
+         ============================================================ -->
+    <div id="step2" class="login-step">
+
+      <!-- Admin Info Display -->
+      <div id="adminInfo" class="admin-info" style="display: none;">
+        <div class="admin-name" id="displayName"></div>
+        <div class="admin-role" id="displayRole"></div>
+        <div class="admin-id" id="displayAdminId"></div>
+      </div>
+
+      <!-- OTP Inputs -->
+      <div class="form-group">
+        <label>Enter OTP</label>
+        <div class="otp-inputs" id="otpInputs">
+          <input type="text" maxlength="1" class="otp-box" data-index="0" autocomplete="off" inputmode="numeric" pattern="[0-9]" />
+          <input type="text" maxlength="1" class="otp-box" data-index="1" autocomplete="off" inputmode="numeric" pattern="[0-9]" />
+          <input type="text" maxlength="1" class="otp-box" data-index="2" autocomplete="off" inputmode="numeric" pattern="[0-9]" />
+          <input type="text" maxlength="1" class="otp-box" data-index="3" autocomplete="off" inputmode="numeric" pattern="[0-9]" />
+          <input type="text" maxlength="1" class="otp-box" data-index="4" autocomplete="off" inputmode="numeric" pattern="[0-9]" />
+          <input type="text" maxlength="1" class="otp-box" data-index="5" autocomplete="off" inputmode="numeric" pattern="[0-9]" />
+        </div>
+      </div>
+
+      <!-- Remember Session -->
+      <div class="remember-group">
+        <input type="checkbox" id="rememberSession" />
+        <label for="rememberSession">Remember this session</label>
+      </div>
+
+      <!-- Buttons -->
+      <button
+        id="btnVerifyOtp"
+        class="btn btn-primary"
+        onclick="handleVerifyOtp()"
+      >
+        Verify OTP
+      </button>
+
+      <button
+        id="btnBack"
+        class="btn btn-secondary"
+        onclick="goBackToStep1()"
+        style="margin-top: 10px;"
+      >
+        Change Admin ID
+      </button>
+
+      <div id="devOtpSection" style="display: none; margin-top: 16px; text-align: center;">
+        <span id="devOtpLabel" style="color: rgba(255,255,255,0.4); font-size: 12px;"></span>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="login-footer">
+      <a href="index.html">Back to Main App</a>
+    </div>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="Config.js"></script>
+  <script src="admin-auth.js"></script>
+  <script>
+
+    /*
+    ============================================================
+    ADMIN LOGIN CONTROLLER
+    ============================================================
+    */
+
+    let currentAdminId = "";
+    let currentDevOtp = "";
+
+
+    /*
+    ============================================================
+    INIT - Check if already logged in
+    ============================================================
+    */
+
+    (async function init() {
+
+      if (AdminAuth.isLoggedIn()) {
+        const result = await AdminAuth.validateSession();
+
+        if (result.valid) {
+          AdminAuth.redirectToDashboard();
+          return;
+        }
+
+        // Session expired, clear and show login
+        AdminAuth.clearSession();
+      }
+
+    })();
+
+
+    /*
+    ============================================================
+    SHOW MESSAGE
+    ============================================================
+    */
+
+    function showMessage(text, type) {
+
+      const el = document.getElementById("message");
+
+      el.textContent = text;
+      el.className = "message " + (type || "error") + " show";
+    }
+
+
+    /*
+    ============================================================
+    HIDE MESSAGE
+    ============================================================
+    */
+
+    function hideMessage() {
+
+      const el = document.getElementById("message");
+
+      el.className = "message";
+      el.textContent = "";
+    }
+
+
+    /*
+    ============================================================
+    SET LOADING
+    ============================================================
+    */
+
+    function setLoading(btnId, loading) {
+
+      const btn = document.getElementById(btnId);
+
+      if (loading) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Please wait...';
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = btnId === "btnSendOtp" ? "Send OTP" : "Verify OTP";
+      }
+    }
+
+
+    /*
+    ============================================================
+    STEP 1: SEND OTP
+    ============================================================
+    */
+
+    async function handleSendOtp() {
+
+      hideMessage();
+
+      const adminId = document.getElementById("adminId")
+        .value
+        .trim()
+        .toUpperCase();
+
+      if (!adminId) {
+        showMessage("Please enter your Admin ID");
+        document.getElementById("adminId").classList.add("error");
+        return;
+      }
+
+      if (adminId.length < 4) {
+        showMessage("Invalid Admin ID format");
+        document.getElementById("adminId").classList.add("error");
+        return;
+      }
+
+      document.getElementById("adminId").classList.remove("error");
+
+      setLoading("btnSendOtp", true);
+
+      const result = await AdminAuth.sendOtp(adminId);
+
+      setLoading("btnSendOtp", false);
+
+      if (result.success) {
+
+        currentAdminId = adminId;
+        currentDevOtp = result.devOtp || "";
+
+        // Show admin info if available
+        if (result.data) {
+          document.getElementById("displayName").textContent = result.data.fullName || adminId;
+          document.getElementById("displayRole").textContent = result.data.role || "Admin";
+          document.getElementById("displayAdminId").textContent = adminId;
+          document.getElementById("adminInfo").style.display = "block";
+        }
+
+        // Show dev OTP if in dev mode
+        if (currentDevOtp) {
+          document.getElementById("devOtpLabel").textContent = "Dev OTP: " + currentDevOtp;
+          document.getElementById("devOtpSection").style.display = "block";
+        }
+
+        // Switch to OTP step
+        showStep("step2");
+
+        // Focus first OTP input
+        setTimeout(() => {
+          const firstOtp = document.querySelector(".otp-box");
+          if (firstOtp) firstOtp.focus();
+        }, 100);
+
+      } else {
+        showMessage(result.message || "Failed to send OTP");
+      }
+    }
+
+
+    /*
+    ============================================================
+    STEP 2: VERIFY OTP
+    ============================================================
+    */
+
+    async function handleVerifyOtp() {
+
+      hideMessage();
+
+      // Collect OTP from inputs
+      const otpBoxes = document.querySelectorAll(".otp-box");
+      let otp = "";
+
+      otpBoxes.forEach(function(box) {
+        otp += box.value.trim();
+      });
+
+      if (otp.length !== 6) {
+        showMessage("Please enter the complete 6-digit OTP");
+        otpBoxes.forEach(function(box) { box.classList.add("error"); });
+        return;
+      }
+
+      otpBoxes.forEach(function(box) { box.classList.remove("error"); });
+
+      const remember = document.getElementById("rememberSession").checked;
+
+      setLoading("btnVerifyOtp", true);
+
+      const result = await AdminAuth.verifyOtp(currentAdminId, otp, remember);
+
+      setLoading("btnVerifyOtp", false);
+
+      if (result.success) {
+
+        showMessage("Login successful! Redirecting...", "success");
+
+        // Redirect to dashboard (Phase 5.2)
+        setTimeout(function() {
+          AdminAuth.redirectToDashboard();
+        }, 800);
+
+      } else {
+        showMessage(result.message || "OTP verification failed");
+
+        // Clear OTP inputs on failure
+        otpBoxes.forEach(function(box) { box.value = ""; });
+
+        // Focus first OTP input
+        setTimeout(function() {
+          const firstOtp = document.querySelector(".otp-box");
+          if (firstOtp) firstOtp.focus();
+        }, 100);
+      }
+    }
+
+
+    /*
+    ============================================================
+    GO BACK TO STEP 1
+    ============================================================
+    */
+
+    function goBackToStep1() {
+
+      hideMessage();
+
+      currentAdminId = "";
+      currentDevOtp = "";
+
+      // Clear OTP inputs
+      document.querySelectorAll(".otp-box").forEach(function(box) {
+        box.value = "";
+      });
+
+      document.getElementById("adminInfo").style.display = "none";
+      document.getElementById("devOtpSection").style.display = "none";
+
+      showStep("step1");
+
+      document.getElementById("adminId").focus();
+      document.getElementById("adminId").select();
+    }
+
+
+    /*
+    ============================================================
+    SHOW STEP
+    ============================================================
+    */
+
+    function showStep(stepId) {
+
+      document.querySelectorAll(".login-step").forEach(function(el) {
+        el.classList.remove("active");
+      });
+
+      document.getElementById(stepId).classList.add("active");
+    }
+
+
+    /*
+    ============================================================
+    OTP INPUT AUTO-FOCUS
+    ============================================================
+    */
+
+    document.addEventListener("DOMContentLoaded", function() {
+
+      const otpBoxes = document.querySelectorAll(".otp-box");
+
+      otpBoxes.forEach(function(box, index) {
+
+        // Auto-focus next input on input
+        box.addEventListener("input", function(e) {
+
+          // Only allow digits
+          this.value = this.value.replace(/[^0-9]/g, "");
+
+          if (this.value && index < otpBoxes.length - 1) {
+            otpBoxes[index + 1].focus();
+          }
+        });
+
+        // Handle backspace
+        box.addEventListener("keydown", function(e) {
+
+          if (e.key === "Backspace" && !this.value && index > 0) {
+            otpBoxes[index - 1].focus();
+          }
+
+          // Handle Enter to submit
+          if (e.key === "Enter") {
+
+            let completeOtp = "";
+            otpBoxes.forEach(function(b) { completeOtp += b.value.trim(); });
+
+            if (completeOtp.length === 6) {
+              handleVerifyOtp();
+            }
+          }
+        });
+
+        // Paste support
+        box.addEventListener("paste", function(e) {
+
+          e.preventDefault();
+
+          const paste = (e.clipboardData || window.clipboardData).getData("text");
+          const digits = paste.replace(/[^0-9]/g, "");
+
+          otpBoxes.forEach(function(b, i) {
+            if (i < digits.length) {
+              b.value = digits[i];
+            } else {
+              b.value = "";
+            }
+          });
+
+          // Focus next empty or last
+          const nextIndex = Math.min(digits.length, otpBoxes.length - 1);
+          otpBoxes[nextIndex].focus();
+        });
+      });
+
+      // Enter key on admin ID input
+      document.getElementById("adminId").addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+          handleSendOtp();
+        }
+      });
+
+    });
+
+  </script>
+
+</body>
+</html>

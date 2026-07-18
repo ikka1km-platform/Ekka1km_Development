@@ -99,6 +99,8 @@ const CONFIG = {
 
     DASHBOARD_CACHE: "DashboardCache",
 
+    ADMINS: "Admins",
+
     ADMIN_SESSIONS: "AdminSessions",
 
     //==========================================================

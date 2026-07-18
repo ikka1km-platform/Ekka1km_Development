@@ -534,6 +534,28 @@ case "liveunreadcount":
         return getErrorLogs(e);
 
       // Admin
+      // Admin Auth (Phase 5.1)
+      case "adminlogin":
+        return adminLogin(e);
+
+      case "adminverifyotp":
+        return verifyAdminOTP(e);
+
+      case "adminvalidatesession":
+        return validateAdminSession(e);
+
+      case "adminlogout":
+        return logoutAdmin(e);
+
+      case "adminprofile":
+        return getAdminProfile(e);
+
+      case "adminpermissions":
+        return getAdminPermissions(e);
+
+      case "admindashboardsummary":
+        return getAdminDashboardSummary(e);
+
       case "admin":
         return adminDashboard(e);
 
@@ -1080,6 +1102,25 @@ case "getlivenotifications":
 
 case "liveunreadcount":
   return getLiveUnreadCount(e);
+
+      // Admin Auth via POST (Phase 5.1)
+      case "adminlogin":
+        return adminLogin(e);
+
+      case "adminverifyotp":
+        return verifyAdminOTP(e);
+
+      case "adminvalidatesession":
+        return validateAdminSession(e);
+
+      case "adminlogout":
+        return logoutAdmin(e);
+
+      case "adminprofile":
+        return getAdminProfile(e);
+
+      case "adminpermissions":
+        return getAdminPermissions(e);
 
       // OTP Login via POST
       case "sendotp":

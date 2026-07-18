@@ -88,7 +88,13 @@ const CONFIG = {
     LAST_VISIT_DATE: "ekka_last_visit_date",
     TOTAL_VISITS: "ekka_total_visits",
     DAILY_VISITS: "ekka_daily_visits",
-    PRODUCT_VIEWS: "ekka_product_views"
+    PRODUCT_VIEWS: "ekka_product_views",
+
+    // Admin Auth (Phase 5.1)
+    ADMIN_SESSION: "ekka1km_admin_session",
+    ADMIN_USER: "ekka1km_admin_user",
+    ADMIN_PERMISSIONS: "ekka1km_admin_permissions",
+    ADMIN_REMEMBER: "ekka1km_admin_remember"
   }
 };
 

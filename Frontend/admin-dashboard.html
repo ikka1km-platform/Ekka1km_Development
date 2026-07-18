@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Dashboard | Ekka1km Admin</title>
+  <meta name="robots" content="noindex, nofollow">
+
+  <!-- Leaflet CSS (lightweight open-source map library) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+  <!-- Overlays -->
+  <div id="sidebarOverlay" class="overlay"></div>
+  <div id="notifOverlay" class="overlay"></div>
+
+  <div class="dashboard-layout">
+
+    <!-- ============================================================
+         PANEL: SIDEBAR
+         ID: panelSidebar
+         ============================================================ -->
+    <aside id="panelSidebar" class="sidebar">
+
+      <div class="sidebar-brand">
+        <h2>Ekka<span>1km</span></h2>
+        <span class="brand-badge">Admin</span>
+      </div>
+
+      <nav class="sidebar-nav">
+
+        <div class="nav-section">Main</div>
+
+        <a class="nav-item active" href="admin-dashboard.html">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">📈</span> Analytics
+        </a>
+
+        <div class="nav-section">Management</div>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">👥</span> Users
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">🏪</span> Businesses
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">📦</span> Products
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">🏠</span> Properties
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">📰</span> News
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">📢</span> Advertisements
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">💰</span> Wallet & Rewards
+        </a>
+
+        <div class="nav-section">Monitoring</div>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">📍</span> GPS Analytics
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">🔍</span> Search Analytics
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">🔔</span> Notifications
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">✅</span> Verifications
+          <span class="nav-badge" id="sidebarApprovals">0</span>
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">🚩</span> Reports & Abuse
+        </a>
+
+        <div class="nav-section">System</div>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">⚙️</span> Settings
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">🎧</span> Support
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">💼</span> Jobs
+          <span class="coming-soon">Soon</span>
+        </a>
+
+        <a class="nav-item" href="#">
+          <span class="nav-icon">🛵</span> Home Delivery
+          <span class="coming-soon">Soon</span>
+        </a>
+
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="admin-mini">
+          <div class="admin-avatar" id="sidebarAvatar">A</div>
+          <div class="admin-mini-info">
+            <div class="admin-mini-name" id="sidebarName">Admin</div>
+            <div class="admin-mini-role" id="sidebarRole">Admin</div>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ============================================================
+         MAIN CONTENT AREA
+         ============================================================ -->
+    <main id="mainContent" class="main-content">
+
+      <!-- ============================================================
+           PANEL: HEADER
+           ID: panelHeader
+           ============================================================ -->
+      <header id="panelHeader" class="header">
+
+        <div class="header-left">
+          <button class="menu-toggle" onclick="Dashboard.toggleSidebar()" aria-label="Toggle Sidebar">
+            ☰
+          </button>
+          <h1 class="header-title">Dashboard</h1>
+        </div>
+
+        <div class="header-center">
+          <div class="search-bar">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Search dashboard..." />
+          </div>
+        </div>
+
+        <div class="header-right">
+
+          <div class="header-datetime">
+            <div class="time" id="currentTime"></div>
+            <div id="currentDate"></div>
+          </div>
+
+          <button class="header-btn" onclick="Dashboard.toggleNotifications()" aria-label="Notifications">
+            🔔
+            <span class="badge-dot"></span>
+          </button>
+
+          <div class="header-profile" onclick="Dashboard.logout()" title="Click to logout">
+            <div class="avatar" id="headerAvatar">A</div>
+            <div class="profile-info">
+              <div class="profile-name" id="headerName">Admin</div>
+              <div class="profile-role" id="headerRole">Admin</div>
+            </div>
+          </div>
+
+        </div>
+
+      </header>
+
+      <!-- Dashboard Content -->
+      <div class="dashboard-content">
+
+        <div id="headerLastLogin" class="last-login-info"></div>
+
+        <div id="dashboardLoading" class="dashboard-loading" style="display: none;">
+          <div class="loader"></div>
+          <p>Loading dashboard data...</p>
+        </div>
+
+        <div id="dashboardError" class="dashboard-error" style="display: none;"></div>
+
+        <div id="dashboardContent">
+
+          <!-- ============================================================
+               PANEL: STATISTICS CARDS
+               ID: panelStatistics
+               ============================================================ -->
+          <section id="panelStatistics" class="stats-grid">
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-label">Total Users</span>
+                <div class="stat-card-icon purple">👥</div>
+              </div>
+              <div class="stat-card-value" id="statTotalUsers">0</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-label">Total Products</span>
+                <div class="stat-card-icon blue">📦</div>
+              </div>
+              <div class="stat-card-value" id="statTotalProducts">0</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-label">Total Businesses</span>
+                <div class="stat-card-icon green">🏪</div>
+              </div>
+              <div class="stat-card-value" id="statTotalBusinesses">0</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-label">Total Properties</span>
+                <div class="stat-card-icon orange">🏠</div>
+              </div>
+              <div class="stat-card-value" id="statTotalProperties">0</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-label">Total Revenue</span>
+                <div class="stat-card-icon green">💰</div>
+              </div>
+              <div class="stat-card-value" id="statTotalRevenue">₹0</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-label">Coins Distributed</span>
+                <div class="stat-card-icon orange">🪙</div>
+              </div>
+              <div class="stat-card-value" id="statCoinsDistributed">0</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-label">Live Users</span>
+                <div class="stat-card-icon red">🔴</div>
+              </div>
+              <div class="stat-card-value" id="statLiveUsers">0</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-label">Active Cities</span>
+                <div class="stat-card-icon blue">🌍</div>
+              </div>
+              <div class="stat-card-value" id="statActiveCities">0</div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-label">Pending Approvals</span>
+                <div class="stat-card-icon purple">⏳</div>
+              </div>
+              <div class="stat-card-value" id="statPendingApprovals">0</div>
+            </div>
+
+          </section>
+
+          <!-- ============================================================
+               PANEL: LIVE COMMAND CENTER
+               ID: panelCommandCenter
+               ============================================================ -->
+          <section id="panelCommandCenter" class="panel cc-panel">
+
+            <!-- Command Center Header -->
+            <div class="panel-header cc-header">
+              <div class="cc-header-left">
+                <span class="panel-title">EKKA1KM LIVE COMMAND CENTER</span>
+              </div>
+              <div class="cc-header-info">
+                <span class="cc-header-item" id="ccCurrentDate"></span>
+                <span class="cc-header-sep">|</span>
+                <span class="cc-header-item" id="ccCurrentTime"></span>
+                <span class="cc-header-sep">|</span>
+                <span class="cc-header-item">Radius: <strong id="ccCurrentRadius">51 km</strong></span>
+                <span class="cc-header-sep">|</span>
+                <span class="cc-header-item">Mode: <strong id="ccCurrentMode">Standard</strong></span>
+                <span class="cc-header-sep">|</span>
+                <span class="cc-header-item">Layer: <strong id="ccCurrentLayer">None</strong></span>
+                <span class="cc-header-sep">|</span>
+                <span class="cc-header-item">Map: <strong id="ccCurrentMapStatus">Initializing...</strong></span>
+              </div>
+            </div>
+
+            <!-- Command Center Body -->
+            <div class="cc-body">
+
+              <!-- ============================================================
+                   SUB-PANEL: CONTROL PANEL (Left)
+                   ID: panelControlPanel
+                   ============================================================ -->
+              <aside id="panelControlPanel" class="cc-controls">
+
+                <div class="cc-controls-section">
+                  <div class="cc-controls-title">Map Mode</div>
+                  <div class="cc-controls-row">
+                    <label class="cc-radio-label">
+                      <input type="radio" name="ccMapMode" class="cc-layer-toggle" data-layer="standard" checked />
+                      <span>Standard</span>
+                    </label>
+                    <label class="cc-radio-label">
+                      <input type="radio" name="ccMapMode" class="cc-layer-toggle" data-layer="satellite" />
+                      <span>Satellite</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="cc-controls-section">
+                  <div class="cc-controls-title">Layer Toggle</div>
+                  <label class="cc-check-label">
+                    <input type="checkbox" class="cc-layer-toggle" data-layer="heatmap" />
+                    <span>Heat Map</span>
+                  </label>
+                  <label class="cc-check-label">
+                    <input type="checkbox" class="cc-layer-toggle" data-layer="liveusers" />
+                    <span>Live Users</span>
+                  </label>
+                  <label class="cc-check-label">
+                    <input type="checkbox" class="cc-layer-toggle" data-layer="businesses" />
+                    <span>Businesses</span>
+                  </label>
+                  <label class="cc-check-label">
+                    <input type="checkbox" class="cc-layer-toggle" data-layer="ads" />
+                    <span>Advertisements</span>
+                  </label>
+                  <label class="cc-check-label">
+                    <input type="checkbox" class="cc-layer-toggle" data-layer="promotions" />
+                    <span>Promotions</span>
+                  </label>
+                  <label class="cc-check-label">
+                    <input type="checkbox" class="cc-layer-toggle" data-layer="jobs" />
+                    <span>Jobs</span>
+                  </label>
+                  <label class="cc-check-label">
+                    <input type="checkbox" class="cc-layer-toggle" data-layer="delivery" />
+                    <span>Home Delivery</span>
+                  </label>
+                </div>
+
+                <div class="cc-controls-section">
+                  <div class="cc-controls-title">Actions</div>
+                  <button id="ccZoomIn" class="cc-control-btn">➕ Zoom In</button>
+                  <button id="ccZoomOut" class="cc-control-btn">➖ Zoom Out</button>
+                  <button id="ccResetView" class="cc-control-btn">🔄 Reset View</button>
+                  <button id="ccRefresh" class="cc-control-btn">🔃 Refresh</button>
+                  <button id="ccFullscreen" class="cc-control-btn">⛶ Fullscreen</button>
+                </div>
+
+              </aside>
+
+              <!-- ============================================================
+                   MAP CONTAINER (Center)
+                   ============================================================ -->
+              <div class="cc-map-area">
+                <div id="ccMapContainer" class="cc-map"></div>
+              </div>
+
+              <!-- ============================================================
+                   SUB-PANEL: LOCATION INFO (Right)
+                   ID: panelLocationInfo
+                   ============================================================ -->
+              <aside id="panelLocationInfo" class="cc-info-panel">
+
+                <div class="cc-info-header">
+                  <span>📍 Location Information</span>
+                </div>
+
+                <div id="ccLocationInfo" class="cc-info-body"></div>
+
+              </aside>
+
+            </div>
+
+            <!-- ============================================================
+                 SUB-PANEL: STATUS BAR (Bottom)
+                 ID: panelStatusBar
+                 ============================================================ -->
+            <div id="panelStatusBar" class="cc-status-bar">
+
+              <span class="cc-status-item">
+                Backend: <strong class="cc-status-online">ONLINE</strong>
+              </span>
+
+              <span class="cc-status-sep">|</span>
+
+              <span class="cc-status-item">
+                GPS Engine: <strong class="cc-status-online">READY</strong>
+              </span>
+
+              <span class="cc-status-sep">|</span>
+
+              <span class="cc-status-item">
+                Analytics Engine: <strong class="cc-status-online">ACTIVE</strong>
+              </span>
+
+              <span class="cc-status-sep">|</span>
+
+              <span class="cc-status-item">
+                Radius: <strong id="ccStatusRadius">51 km</strong>
+              </span>
+
+              <span class="cc-status-sep">|</span>
+
+              <span class="cc-status-item">
+                Layer: <strong id="ccStatusLayer">None</strong>
+              </span>
+
+              <span class="cc-status-sep">|</span>
+
+              <span class="cc-status-item">
+                Map: <strong id="ccStatusMap">Initializing...</strong>
+              </span>
+
+            </div>
+
+          </section>
+
+          <!-- ============================================================
+               PANEL: SYSTEM OVERVIEW (Activity + Health)
+               ID: panelSystemOverview
+               ============================================================ -->
+          <section id="panelSystemOverview" class="panel">
+            <div class="panel-header">
+              <span class="panel-title">System Overview</span>
+              <span class="panel-subtitle">Real-time</span>
+            </div>
+            <div class="panel-body">
+
+              <div id="panelRecentActivity" class="panel-subsection">
+                <div class="subsection-title">Recent Activity</div>
+                <div class="panel-list">
+                  <div class="panel-list-item">
+                    <span class="item-label">Dashboard loaded</span>
+                    <span class="item-value muted">Just now</span>
+                  </div>
+                  <div class="panel-list-item">
+                    <span class="item-label">Session validated</span>
+                    <span class="item-value muted">Just now</span>
+                  </div>
+                  <div class="panel-list-item">
+                    <span class="item-label">Admin logged in</span>
+                    <span class="item-value green" id="listLastLogin">Today</span>
+                  </div>
+                </div>
+              </div>
+
+              <div id="panelSystemHealth" class="panel-subsection">
+                <div class="subsection-title">System Health</div>
+                <div class="health-grid">
+
+                  <div class="health-item">
+                    <span class="health-dot online" id="healthBackendDot"></span>
+                    <span class="health-label" id="healthBackendLabel">Backend API</span>
+                    <span class="health-status online" id="healthBackendStatus">ONLINE</span>
+                  </div>
+
+                  <div class="health-item">
+                    <span class="health-dot online" id="healthSheetsDot"></span>
+                    <span class="health-label" id="healthSheetsLabel">Google Sheets</span>
+                    <span class="health-status online" id="healthSheetsStatus">ONLINE</span>
+                  </div>
+
+                  <div class="health-item">
+                    <span class="health-dot unknown" id="healthImageKitDot"></span>
+                    <span class="health-label" id="healthImageKitLabel">ImageKit</span>
+                    <span class="health-status unknown" id="healthImageKitStatus">UNKNOWN</span>
+                  </div>
+
+                  <div class="health-item">
+                    <span class="health-dot unknown" id="healthSmsDot"></span>
+                    <span class="health-label" id="healthSmsLabel">SMS Service</span>
+                    <span class="health-status unknown" id="healthSmsStatus">UNKNOWN</span>
+                  </div>
+
+                  <div class="health-item">
+                    <span class="health-dot online" id="healthStorageDot"></span>
+                    <span class="health-label" id="healthStorageLabel">Storage</span>
+                    <span class="health-status online" id="healthStorageStatus">ONLINE</span>
+                  </div>
+
+                  <div class="health-item">
+                    <span class="health-dot online"></span>
+                    <span class="health-label" id="healthVersionLabel">App Version</span>
+                    <span class="health-status online" id="healthVersionStatus">5.9.0</span>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+        </div><!-- /dashboardContent -->
+
+      </div><!-- /dashboard-content -->
+
+    </main>
+
+  </div><!-- /dashboard-layout -->
+
+  <!-- ============================================================
+       PANEL: NOTIFICATIONS DRAWER
+       ID: panelNotifications
+       ============================================================ -->
+  <aside id="panelNotifications" class="notification-panel">
+
+    <div class="notification-panel-header">
+      <h3>Notifications</h3>
+      <button class="notification-panel-close" onclick="Dashboard.toggleNotifications()">✕</button>
+    </div>
+
+    <div class="notification-empty">
+      No new notifications
+    </div>
+
+  </aside>
+
+  <!-- Scripts -->
+  <script src="Config.js"></script>
+  <script src="admin-auth.js"></script>
+  <script src="dashboard.js"></script>
+  <!-- Leaflet JavaScript (lightweight open-source map library) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="command-center.js"></script>
+
+</body>
+</html>
