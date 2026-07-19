@@ -32,18 +32,40 @@ function getProperties(e) {
   const radius =
     location.radius;
 
+  // Debug logging
+  console.log("=== getProperties DEBUG ===");
+  console.log("Requested lat:", lat, "lng:", lng, "radius:", radius);
+  console.log("Total properties before filter:", properties.length);
+
   if (
     lat &&
     lng &&
     radius
   ) {
+
+    // Log each property's coordinates before filtering
+    properties.forEach(function(p) {
+      const propLat = Number(p.Latitude || p.latitude);
+      const propLng = Number(p.Longitude || p.longitude);
+      console.log("Property:", p.PropertyID || p.Title || "unknown",
+        "| Latitude:", p.Latitude, "(" + typeof p.Latitude + ")",
+        "| Longitude:", p.Longitude, "(" + typeof p.Longitude + ")",
+        "| Parsed lat:", propLat, "lng:", propLng);
+    });
+
     properties = filterByRadius(
       properties,
       lat,
       lng,
       radius
     );
+
+    console.log("Properties after filter:", properties.length);
+  } else {
+    console.log("SKIPPING radius filter - lat:", lat, "lng:", lng, "radius:", radius);
   }
+
+  console.log("=== END getProperties DEBUG ===");
 
   return success({
     sheet: "Properties",
