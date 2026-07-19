@@ -602,6 +602,37 @@ case "liveunreadcount":
       case "admincategories":
         return getAdminCategories(e);
 
+      // Phase 5.5 - Task Management
+      case "admintaskstats":
+        return getAdminTaskStats(e);
+
+      case "admintasks":
+        return getAdminTasks(e);
+
+      case "admintaskcreate":
+        return createAdminTask(e);
+
+      case "admintaskupdate":
+        return updateAdminTask(e);
+
+      case "admintaskdetail":
+        return getAdminTaskDetail(e);
+
+      case "admintaskdelete":
+        return deleteAdminTask(e);
+
+      case "admintaskduplicate":
+        return duplicateAdminTask(e);
+
+      case "admintaskhistory":
+        return getAdminTaskHistory(e);
+
+      case "admintaskassignees":
+        return getAdminTaskAssignees(e);
+
+      case "admintaskdepartments":
+        return getAdminTaskDepartments(e);
+
       case "initializeadmindatabase":
         return initializeAdminDatabase(e);
 

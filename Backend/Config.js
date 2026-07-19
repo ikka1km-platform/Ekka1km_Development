@@ -157,7 +157,15 @@ const CONFIG = {
 
     DRAFTS: "Drafts",
 
-    MODERATION_QUEUE: "ModerationQueue"
+    MODERATION_QUEUE: "ModerationQueue",
+
+    //==========================================================
+    // V5.12.0 PHASE 5.5 - TASK MANAGEMENT
+    //==========================================================
+
+    TASKS: "Tasks",
+
+    TASK_HISTORY: "TaskHistory"
   },
 
   //============================================================
