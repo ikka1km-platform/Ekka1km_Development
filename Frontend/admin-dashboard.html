@@ -35,85 +35,79 @@
 
         <div class="nav-section">Main</div>
 
-        <a class="nav-item active" href="admin-dashboard.html">
+        <a class="nav-item active" href="#" data-module="dashboard">
           <span class="nav-icon">📊</span> Dashboard
         </a>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="analytics">
           <span class="nav-icon">📈</span> Analytics
         </a>
 
         <div class="nav-section">Management</div>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="users">
           <span class="nav-icon">👥</span> Users
         </a>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="businesses">
           <span class="nav-icon">🏪</span> Businesses
         </a>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="products">
           <span class="nav-icon">📦</span> Products
         </a>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="properties">
           <span class="nav-icon">🏠</span> Properties
         </a>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="news">
           <span class="nav-icon">📰</span> News
         </a>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="advertisements">
           <span class="nav-icon">📢</span> Advertisements
         </a>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="wallet">
           <span class="nav-icon">💰</span> Wallet & Rewards
         </a>
 
         <div class="nav-section">Monitoring</div>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="workforce">
+          <span class="nav-icon">💼</span> Workforce
+        </a>
+
+        <a class="nav-item" href="#" data-module="gps">
           <span class="nav-icon">📍</span> GPS Analytics
         </a>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="search">
           <span class="nav-icon">🔍</span> Search Analytics
         </a>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="notifications">
           <span class="nav-icon">🔔</span> Notifications
         </a>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="verifications">
           <span class="nav-icon">✅</span> Verifications
           <span class="nav-badge" id="sidebarApprovals">0</span>
         </a>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="reports">
           <span class="nav-icon">🚩</span> Reports & Abuse
         </a>
 
         <div class="nav-section">System</div>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="settings">
           <span class="nav-icon">⚙️</span> Settings
         </a>
 
-        <a class="nav-item" href="#">
+        <a class="nav-item" href="#" data-module="support">
           <span class="nav-icon">🎧</span> Support
-        </a>
-
-        <a class="nav-item" href="#">
-          <span class="nav-icon">💼</span> Jobs
-          <span class="coming-soon">Soon</span>
-        </a>
-
-        <a class="nav-item" href="#">
-          <span class="nav-icon">🛵</span> Home Delivery
-          <span class="coming-soon">Soon</span>
         </a>
 
       </nav>
@@ -145,7 +139,7 @@
           <button class="menu-toggle" onclick="Dashboard.toggleSidebar()" aria-label="Toggle Sidebar">
             ☰
           </button>
-          <h1 class="header-title">Dashboard</h1>
+          <h1 class="header-title" id="headerModuleTitle">Dashboard</h1>
         </div>
 
         <div class="header-center">
@@ -199,7 +193,7 @@
                ============================================================ -->
           <section id="panelStatistics" class="stats-grid">
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="users">
               <div class="stat-card-header">
                 <span class="stat-card-label">Total Users</span>
                 <div class="stat-card-icon purple">👥</div>
@@ -207,7 +201,7 @@
               <div class="stat-card-value" id="statTotalUsers">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="products">
               <div class="stat-card-header">
                 <span class="stat-card-label">Total Products</span>
                 <div class="stat-card-icon blue">📦</div>
@@ -215,7 +209,7 @@
               <div class="stat-card-value" id="statTotalProducts">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="businesses">
               <div class="stat-card-header">
                 <span class="stat-card-label">Total Businesses</span>
                 <div class="stat-card-icon green">🏪</div>
@@ -223,7 +217,7 @@
               <div class="stat-card-value" id="statTotalBusinesses">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="properties">
               <div class="stat-card-header">
                 <span class="stat-card-label">Total Properties</span>
                 <div class="stat-card-icon orange">🏠</div>
@@ -231,7 +225,7 @@
               <div class="stat-card-value" id="statTotalProperties">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="wallet">
               <div class="stat-card-header">
                 <span class="stat-card-label">Total Revenue</span>
                 <div class="stat-card-icon green">💰</div>
@@ -239,7 +233,7 @@
               <div class="stat-card-value" id="statTotalRevenue">₹0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="wallet">
               <div class="stat-card-header">
                 <span class="stat-card-label">Coins Distributed</span>
                 <div class="stat-card-icon orange">🪙</div>
@@ -247,7 +241,7 @@
               <div class="stat-card-value" id="statCoinsDistributed">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="workforce">
               <div class="stat-card-header">
                 <span class="stat-card-label">Live Users</span>
                 <div class="stat-card-icon red">🔴</div>
@@ -255,7 +249,7 @@
               <div class="stat-card-value" id="statLiveUsers">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="gps">
               <div class="stat-card-header">
                 <span class="stat-card-label">Active Cities</span>
                 <div class="stat-card-icon blue">🌍</div>
@@ -263,7 +257,7 @@
               <div class="stat-card-value" id="statActiveCities">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="verifications">
               <div class="stat-card-header">
                 <span class="stat-card-label">Pending Approvals</span>
                 <div class="stat-card-icon purple">⏳</div>
@@ -567,6 +561,12 @@
 
         </div><!-- /dashboardContent -->
 
+        <!-- ============================================================
+             MODULE CONTAINER
+             Dynamic module content loads here
+             ============================================================ -->
+        <div id="moduleContainer" class="module-container" style="display: none;"></div>
+
       </div><!-- /dashboard-content -->
 
     </main>
@@ -593,10 +593,18 @@
   <!-- Scripts -->
   <script src="Config.js"></script>
   <script src="admin-auth.js"></script>
+  <script src="admin-modules.js"></script>
   <script src="dashboard.js"></script>
   <!-- Leaflet JavaScript (lightweight open-source map library) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="command-center.js"></script>
+  <!-- Phase 5.4 - Admin Management Modules -->
+  <script src="admin-users.js"></script>
+  <script src="admin-businesses.js"></script>
+  <script src="admin-products.js"></script>
+  <script src="admin-properties.js"></script>
+  <script src="admin-news.js"></script>
+  <script src="admin-workforce.js"></script>
 
 </body>
 </html>

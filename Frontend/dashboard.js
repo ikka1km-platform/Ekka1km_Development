@@ -56,6 +56,9 @@ const Dashboard = {
     // Init command center map and load live data (Phase 5.3B)
     this._initCommandCenter();
     this._loadCommandCenterData();
+
+    // Init module navigation system (Phase 5.4)
+    AdminModules.init();
   },
 
 
