@@ -650,14 +650,25 @@ const CommandCenter = {
     });
 
     // Mark map as ready
+    // Multiple invalidateSize() calls to handle delayed container rendering
+    const invalidateMap = () => {
+      if (this._map) {
+        this._map.invalidateSize();
+      }
+    };
+
     setTimeout(() => {
-      this._map.invalidateSize();
+      invalidateMap();
       this._emit("mapReady", {});
       const mapStatusEl = document.getElementById("ccCurrentMapStatus");
       if (mapStatusEl) {
         mapStatusEl.textContent = "Ready";
       }
     }, 500);
+
+    // Additional invalidateSize() calls to handle delayed container visibility
+    setTimeout(invalidateMap, 1000);
+    setTimeout(invalidateMap, 2000);
 
     console.log("Leaflet map initialized (India center)");
   },

@@ -78,26 +78,26 @@ const AdminModules = {
 
     // Update header title
     const headerTitle = document.getElementById("headerModuleTitle");
+    const labels = {
+      dashboard: "Dashboard",
+      users: "User Management",
+      businesses: "Business Management",
+      products: "Product Management",
+      properties: "Property Management",
+      news: "News Management",
+      workforce: "Workforce Management",
+      analytics: "Analytics",
+      advertisements: "Advertisements",
+      wallet: "Wallet & Rewards",
+      gps: "GPS Analytics",
+      search: "Search Analytics",
+      notifications: "Notifications",
+      verifications: "Verifications",
+      reports: "Reports & Abuse",
+      settings: "Settings",
+      support: "Support"
+    };
     if (headerTitle) {
-      const labels = {
-        dashboard: "Dashboard",
-        users: "User Management",
-        businesses: "Business Management",
-        products: "Product Management",
-        properties: "Property Management",
-        news: "News Management",
-        workforce: "Workforce Management",
-        analytics: "Analytics",
-        advertisements: "Advertisements",
-        wallet: "Wallet & Rewards",
-        gps: "GPS Analytics",
-        search: "Search Analytics",
-        notifications: "Notifications",
-        verifications: "Verifications",
-        reports: "Reports & Abuse",
-        settings: "Settings",
-        support: "Support"
-      };
       headerTitle.textContent = labels[moduleName] || moduleName.charAt(0).toUpperCase() + moduleName.slice(1);
     }
 
