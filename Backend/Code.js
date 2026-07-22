@@ -941,6 +941,25 @@ case "onboarding":
   case "adminadvertisements":
     return getAdminAdvertisements(e);
 
+  // Phase 5.6B - Admin Campaign Lifecycle Actions
+  case "adminapprovecampaign":
+    return adminApproveCampaign(e);
+
+  case "adminrejectcampaign":
+    return adminRejectCampaign(e);
+
+  case "adminsuspendcampaign":
+    return adminSuspendCampaign(e);
+
+  case "adminterminatecampaign":
+    return adminTerminateCampaign(e);
+
+  case "admintogglefeatured":
+    return adminToggleFeatured(e);
+
+  case "admintogglepip":
+    return adminTogglePipEnabled(e);
+
   case "createdemocampaigns":
     return createDemoAdCampaigns();
 

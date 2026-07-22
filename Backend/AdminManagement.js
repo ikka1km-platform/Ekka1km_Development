@@ -5,8 +5,35 @@
  * V5.11.0 - ADMIN WORKFORCE MANAGEMENT & MODULE NAVIGATION (Phase 5.4)
  * User, Business, Product, Property, News, Workforce Management APIs
  * Phase 5.6A - Added adminPromotionCampaigns, adminAdvertisements APIs
+ * Phase 5.6B - Added campaign lifecycle action APIs
  * ============================================================
  */
+
+/**
+ * ============================================================
+ * HELPER: NORMALIZE BOOLEAN
+ * Safely converts various boolean representations to "Yes"/"No"
+ * Handles: YES, Yes, yes, TRUE, True, true, 1, Y, etc.
+ * ============================================================
+ */
+function normalizeBoolean(value, defaultValue) {
+  if (!value) return defaultValue || "No";
+  
+  const str = String(value).trim().toLowerCase();
+  
+  // Truthy values
+  if (["yes", "true", "1", "y", "on"].indexOf(str) !== -1) {
+    return "Yes";
+  }
+  
+  // Falsy values
+  if (["no", "false", "0", "n", "off", ""].indexOf(str) !== -1) {
+    return "No";
+  }
+  
+  // If unrecognized, return default
+  return defaultValue || "No";
+}
 
 
 /**
@@ -808,8 +835,9 @@ function getAdminPromotionCampaigns(e) {
         Status: c.Status || "",
         CreatedDate: c.CreatedDate || c.CreatedAt || "",
         Priority: Number(c.Priority || 0),
-        Featured: c.Featured || "No",
-        PIPEnabled: c.PIPEnabled || "Yes"
+        // Normalize Featured/PIPEnabled to consistent format for frontend
+        Featured: normalizeBoolean(c.Featured, "No"),
+        PIPEnabled: normalizeBoolean(c.PIPEnabled, "Yes")
       };
     });
 
@@ -912,4 +940,288 @@ function getAdminAdvertisements(e) {
  */
 function getPromotionCampaigns(e) {
   return getAdminPromotionCampaigns(e);
+}
+
+
+/**
+ * ============================================================
+ * PHASE 5.6B — ADMIN: CAMPAIGN LIFECYCLE ACTIONS
+ * ============================================================
+ */
+
+/**
+ * ADMIN: APPROVE CAMPAIGN
+ * ?action=adminapprovecampaign&session=TOKEN&campaignId=C001
+ */
+function adminApproveCampaign(e) {
+  try {
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+
+    const campaignId = (e.parameter.campaignId || "").trim();
+    if (!campaignId) return error("campaignId required");
+
+    const campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
+    if (!campaign) return error("Campaign not found");
+
+    const currentStatus = String(campaign.Status || "").toLowerCase();
+    if (currentStatus !== "pending") {
+      return error("Only pending campaigns can be approved. Current status: " + campaign.Status);
+    }
+
+    const updated = updateRow("PromotionCampaigns", "CampaignID", campaignId, {
+      Status: "Active"
+    });
+
+    if (!updated) return error("Failed to update campaign");
+
+    console.log("Admin Campaign Approval:", {
+      adminId: sessionResult.adminId,
+      campaignId: campaignId,
+      action: "approve",
+      previousStatus: "Pending",
+      newStatus: "Active",
+      timestamp: new Date()
+    });
+
+    return success({ campaignId: campaignId, status: "Active" }, "Campaign approved and activated");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ADMIN: REJECT CAMPAIGN
+ * ?action=adminrejectcampaign&session=TOKEN&campaignId=C001&reason=Reason+text
+ */
+function adminRejectCampaign(e) {
+  try {
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+
+    const campaignId = (e.parameter.campaignId || "").trim();
+    const reason = (e.parameter.reason || "").trim();
+
+    if (!campaignId) return error("campaignId required");
+    if (!reason) return error("Rejection reason is required");
+    if (reason.length < 5) return error("Rejection reason must be at least 5 characters");
+
+    const campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
+    if (!campaign) return error("Campaign not found");
+
+    const currentStatus = String(campaign.Status || "").toLowerCase();
+    if (currentStatus !== "pending") {
+      return error("Only pending campaigns can be rejected. Current status: " + campaign.Status);
+    }
+
+    const updated = updateRow("PromotionCampaigns", "CampaignID", campaignId, {
+      Status: "Rejected"
+    });
+
+    if (!updated) return error("Failed to update campaign");
+
+    console.log("Admin Campaign Rejection:", {
+      adminId: sessionResult.adminId,
+      campaignId: campaignId,
+      action: "reject",
+      previousStatus: "Pending",
+      newStatus: "Rejected",
+      reason: reason,
+      timestamp: new Date()
+    });
+
+    return success({ campaignId: campaignId, status: "Rejected", reason: reason }, "Campaign rejected");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ADMIN: SUSPEND CAMPAIGN
+ * ?action=adminsuspendcampaign&session=TOKEN&campaignId=C001&reason=Reason+text
+ */
+function adminSuspendCampaign(e) {
+  try {
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+
+    const campaignId = (e.parameter.campaignId || "").trim();
+    const reason = (e.parameter.reason || "").trim();
+
+    if (!campaignId) return error("campaignId required");
+    if (!reason) return error("Suspension reason is required");
+    if (reason.length < 5) return error("Suspension reason must be at least 5 characters");
+
+    const campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
+    if (!campaign) return error("Campaign not found");
+
+    const currentStatus = String(campaign.Status || "").toLowerCase();
+    if (currentStatus !== "active" && currentStatus !== "paused") {
+      return error("Only active or paused campaigns can be suspended. Current status: " + campaign.Status);
+    }
+
+    const updated = updateRow("PromotionCampaigns", "CampaignID", campaignId, {
+      Status: "Suspended"
+    });
+
+    if (!updated) return error("Failed to update campaign");
+
+    console.log("Admin Campaign Suspension:", {
+      adminId: sessionResult.adminId,
+      campaignId: campaignId,
+      action: "suspend",
+      previousStatus: campaign.Status,
+      newStatus: "Suspended",
+      reason: reason,
+      timestamp: new Date()
+    });
+
+    return success({ campaignId: campaignId, status: "Suspended", reason: reason }, "Campaign suspended");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ADMIN: TERMINATE CAMPAIGN
+ * ?action=adminterminatecampaign&session=TOKEN&campaignId=C001
+ */
+function adminTerminateCampaign(e) {
+  try {
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+
+    const campaignId = (e.parameter.campaignId || "").trim();
+    if (!campaignId) return error("campaignId required");
+
+    const campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
+    if (!campaign) return error("Campaign not found");
+
+    const currentStatus = String(campaign.Status || "").toLowerCase();
+    if (currentStatus === "completed" || currentStatus === "expired" || currentStatus === "ended") {
+      return error("Campaign has already ended. Status: " + campaign.Status);
+    }
+
+    const updated = updateRow("PromotionCampaigns", "CampaignID", campaignId, {
+      Status: "Terminated"
+    });
+
+    if (!updated) return error("Failed to update campaign");
+
+    console.log("Admin Campaign Termination:", {
+      adminId: sessionResult.adminId,
+      campaignId: campaignId,
+      action: "terminate",
+      previousStatus: campaign.Status,
+      newStatus: "Terminated",
+      timestamp: new Date()
+    });
+
+    return success({ campaignId: campaignId, status: "Terminated" }, "Campaign terminated");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ADMIN: TOGGLE FEATURED
+ * ?action=admintogglefeatured&session=TOKEN&campaignId=C001&featured=Yes
+ */
+function adminToggleFeatured(e) {
+  try {
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+
+    const campaignId = (e.parameter.campaignId || "").trim();
+    const featured = (e.parameter.featured || "").trim();
+
+    if (!campaignId) return error("campaignId required");
+    if (!featured) return error("featured value required (Yes/No)");
+
+    const featuredUpper = featured.toUpperCase();
+    if (featuredUpper !== "YES" && featuredUpper !== "NO") {
+      return error("featured must be Yes or No");
+    }
+
+    const campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
+    if (!campaign) return error("Campaign not found");
+
+    const previousFeatured = campaign.Featured || "No";
+
+    const updated = updateRow("PromotionCampaigns", "CampaignID", campaignId, {
+      Featured: featuredUpper
+    });
+
+    if (!updated) return error("Failed to update campaign");
+
+    console.log("Admin Featured Toggle:", {
+      adminId: sessionResult.adminId,
+      campaignId: campaignId,
+      action: "toggleFeatured",
+      previousValue: previousFeatured,
+      newValue: featuredUpper,
+      timestamp: new Date()
+    });
+
+    return success({ campaignId: campaignId, featured: featuredUpper }, "Campaign featured set to " + featuredUpper);
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ADMIN: TOGGLE PIP ENABLED
+ * ?action=admintogglepip&session=TOKEN&campaignId=C001&pipEnabled=Yes
+ */
+function adminTogglePipEnabled(e) {
+  try {
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+
+    const campaignId = (e.parameter.campaignId || "").trim();
+    const pipEnabled = (e.parameter.pipEnabled || "").trim();
+
+    if (!campaignId) return error("campaignId required");
+    if (!pipEnabled) return error("pipEnabled value required (Yes/No)");
+
+    const pipUpper = pipEnabled.toUpperCase();
+    if (pipUpper !== "YES" && pipUpper !== "NO") {
+      return error("pipEnabled must be Yes or No");
+    }
+
+    const campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
+    if (!campaign) return error("Campaign not found");
+
+    const previousPip = campaign.PIPEnabled || "No";
+
+    const updated = updateRow("PromotionCampaigns", "CampaignID", campaignId, {
+      PIPEnabled: pipUpper
+    });
+
+    if (!updated) return error("Failed to update campaign");
+
+    console.log("Admin PIP Toggle:", {
+      adminId: sessionResult.adminId,
+      campaignId: campaignId,
+      action: "togglePipEnabled",
+      previousValue: previousPip,
+      newValue: pipUpper,
+      timestamp: new Date()
+    });
+
+    return success({ campaignId: campaignId, pipEnabled: pipUpper }, "Campaign PIP enabled set to " + pipUpper);
+
+  } catch (err) {
+    return exception(err);
+  }
 }

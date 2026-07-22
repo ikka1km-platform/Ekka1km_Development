@@ -314,10 +314,72 @@ function getPipQueue(e) {
 
         if (status !== "active") return;
         if (pip !== "yes" && pip !== "true") return;
-        if (start && start > now) return;
-        if (end && end < now) return;
+        
+        // Normalize dates to start of day in local time for fair comparison
+        // This prevents timezone mismatches where UTC midnight appears as future time
+        if (start) {
+          start = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        }
+        if (end) {
+          end = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        }
+        var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        if (start && start > today) return;
+        if (end && end < today) return;
         if (remainingPool <= 0) return;
         if (maxViews > 0 && currentViews >= maxViews) return;
+        
+        // User-specific watch history filter
+        // Exclude campaigns this user has already completed (for ONCE reward type)
+        if (userId) {
+          try {
+            var history = getSheetData("AdWatchHistory");
+            var userCompleted = false;
+            var repeatType = String(c.RepeatRewardType || "ONCE").toUpperCase();
+            
+            for (var h = 0; h < history.length; h++) {
+              if (
+                String(history[h].UserID) === String(userId) &&
+                String(history[h].CampaignID) === String(c.CampaignID)
+              ) {
+                var histStatus = String(history[h].Status || "").toLowerCase();
+                var histDate = history[h].CreatedAt ? new Date(history[h].CreatedAt) : null;
+                
+                if (repeatType === "ONCE") {
+                  // For ONCE type, exclude if ever completed or rewarded
+                  if (histStatus === "completed" || histStatus === "rewarded") {
+                    userCompleted = true;
+                    break;
+                  }
+                } else if (repeatType === "DAILY") {
+                  // For DAILY type, exclude if completed today
+                  if (histDate && (histStatus === "completed" || histStatus === "rewarded")) {
+                    var todayStr = new Date().toISOString().split("T")[0];
+                    var histDateStr = histDate.toISOString().split("T")[0];
+                    if (todayStr === histDateStr) {
+                      userCompleted = true;
+                      break;
+                    }
+                  }
+                } else if (repeatType === "WEEKLY") {
+                  // For WEEKLY type, exclude if completed this week
+                  if (histDate && (histStatus === "completed" || histStatus === "rewarded")) {
+                    var weekStart = getWeekStart();
+                    if (histDate >= weekStart) {
+                      userCompleted = true;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            
+            if (userCompleted) return;
+          } catch (histErr) {
+            console.log("Phase4: History filter error:", histErr.toString());
+          }
+        }
 
         result.push(c);
       } catch (campErr) {
@@ -1119,7 +1181,7 @@ function completeAdWatch(e) {
     }
 
     updateRow("PromotionCampaigns", "CampaignID", campaignId, {
-      RemainingRewardPool: newRemainingPool,
+      RemainingRewardCoins: newRemainingPool,
       TotalRewardPaid: newTotalPaid,
       RewardedUsersCount: newRewardedCount,
       Views: newViews,
@@ -1274,7 +1336,7 @@ function skipAdWatch(e) {
         var newPool = Math.max(0, remainingPool - partialReward);
         var newPaid = Number(campaign.TotalRewardPaid || 0) + partialReward;
         updateRow("PromotionCampaigns", "CampaignID", campaignId, {
-          RemainingRewardPool: newPool,
+          RemainingRewardCoins: newPool,
           TotalRewardPaid: newPaid
         });
 
@@ -1375,7 +1437,7 @@ function claimAdReward(e) {
         if (campaign) {
           var newPool = Math.max(0, remainingPool - actualReward);
           updateRow("PromotionCampaigns", "CampaignID", campaignId, {
-            RemainingRewardPool: newPool,
+            RemainingRewardCoins: newPool,
             TotalRewardPaid: Number(campaign.TotalRewardPaid || 0) + actualReward
           });
         }
