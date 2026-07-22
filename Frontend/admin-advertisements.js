@@ -105,6 +105,8 @@ AdminModules.register("advertisements", async function(container) {
     html += kpiCard("👁️ Views", s.totalViews || 0, "#7c5cbf");
     html += kpiCard("🖱️ Clicks", s.totalClicks || 0, "#45d0e6");
     html += kpiCard("📈 CTR", ctr + "%", "#ff4757");
+    html += kpiCard("💬 Interested", s.totalInterested || 0, "#9b59b6");
+    html += kpiCard("🔄 Shares", s.totalShares || 0, "#3498db");
     html += kpiCard("🪙 Coins Spent", formatNumber(s.totalCoinsSpent || 0), "#ff9f43");
     html += kpiCard("💰 Reward Pool", formatNumber(s.totalRewardPool || 0), "#4caf88");
     html += kpiCard("💎 Remaining", formatNumber(s.totalRemainingRewardCoins || 0), "#5b8def");
@@ -305,7 +307,7 @@ AdminModules.register("advertisements", async function(container) {
     if (campaign.Country) locationParts.push(campaign.Country);
     var location = locationParts.length > 0 ? locationParts.join(", ") : (campaign.Radius || "Not specified");
     var ctr = campaign.Views > 0 ? ((campaign.Clicks / campaign.Views) * 100).toFixed(2) + "%" : "N/A";
-    var interestRate = campaign.Clicks > 0 ? ((campaign.Interested / campaign.Clicks) * 100).toFixed(2) + "%" : "N/A";
+    var interestRate = campaign.Views > 0 ? ((campaign.Interested / campaign.Views) * 100).toFixed(2) + "%" : "N/A";
     var statusLower = (campaign.Status || "").toLowerCase();
     // Normalize Featured/PIPEnabled for reliable comparison
     var featuredNormalized = normalizeBoolean(campaign.Featured, "No");
@@ -347,15 +349,64 @@ AdminModules.register("advertisements", async function(container) {
     mhtml += '      <div class="profile-field"><label>Clicks</label><span style="color:var(--accent-cyan);font-weight:600;">' + (campaign.Clicks || 0) + '</span></div>';
     mhtml += '      <div class="profile-field"><label>Interested</label><span>' + (campaign.Interested || 0) + '</span></div>';
     mhtml += '      <div class="profile-field"><label>Shares</label><span>' + (campaign.Shares || 0) + '</span></div>';
-    mhtml += '      <div class="profile-field"><label>CTR</label><span style="color:var(--accent-orange);font-weight:600;">' + ctr + '</span></div>';
-    mhtml += '      <div class="profile-field"><label>Interest Rate</label><span>' + interestRate + '</span></div>';
-    mhtml += '      <div class="profile-field"><label>Coins Spent</label><span>' + formatNumber(campaign.CoinsSpent || 0) + '</span></div>';
-    mhtml += '      <div class="profile-field"><label>Reward Pool</label><span>' + formatNumber(campaign.RewardPool || 0) + '</span></div>';
-    mhtml += '      <div class="profile-field"><label>Platform Reserve</label><span>' + formatNumber(campaign.PlatformReserve || 0) + '</span></div>';
-    mhtml += '      <div class="profile-field"><label>Remaining Coins</label><span style="color:var(--accent-green);font-weight:600;">' + formatNumber(campaign.RemainingRewardCoins || 0) + '</span></div>';
-    mhtml += '      <div class="profile-field"><label>Reward Per View</label><span>' + (campaign.RewardCoins || 0) + '</span></div>';
-    mhtml += '      <div class="profile-field"><label>Duration</label><span>' + (campaign.Duration || 0) + 's</span></div>';
     mhtml += '    </div></div>';
+    
+    // Phase 5.6C - Campaign Performance Section
+    var shareRate = campaign.Views > 0 ? ((campaign.Shares / campaign.Views) * 100).toFixed(2) : "0.00";
+    var performanceLabel = getPerformanceLabel(campaign.Views, campaign.Clicks, campaign.Interested, campaign.Shares);
+    mhtml += '    <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border-color);">';
+    mhtml += '      <h4 style="margin-bottom:12px;color:var(--text-secondary);">📊 Campaign Performance</h4>';
+    mhtml += '      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+    mhtml += '        <div style="background:var(--bg-secondary);padding:12px;border-radius:var(--radius-sm);">';
+    mhtml += '          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">CTR (Click-Through Rate)</div>';
+    mhtml += '          <div style="font-size:20px;font-weight:700;color:var(--accent-orange);">' + ctr + '</div>';
+    mhtml += '        </div>';
+    mhtml += '        <div style="background:var(--bg-secondary);padding:12px;border-radius:var(--radius-sm);">';
+    mhtml += '          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Interest Rate</div>';
+    mhtml += '          <div style="font-size:20px;font-weight:700;color:var(--accent-purple);">' + interestRate + '</div>';
+    mhtml += '        </div>';
+    mhtml += '        <div style="background:var(--bg-secondary);padding:12px;border-radius:var(--radius-sm);">';
+    mhtml += '          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Share Rate</div>';
+    mhtml += '          <div style="font-size:20px;font-weight:700;color:var(--accent-blue);">' + shareRate + '%</div>';
+    mhtml += '        </div>';
+    mhtml += '        <div style="background:var(--bg-secondary);padding:12px;border-radius:var(--radius-sm);">';
+    mhtml += '          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Performance</div>';
+    mhtml += '          <div style="font-size:14px;font-weight:600;color:var(--text-primary);">' + performanceLabel + '</div>';
+    mhtml += '        </div>';
+    mhtml += '      </div>';
+    mhtml += '    </div>';
+    
+    // Phase 5.6C - Campaign Economy Section
+    var rewardPoolUsed = Number(campaign.RewardPool || 0) - Number(campaign.RemainingRewardCoins || 0);
+    var rewardPoolUsage = campaign.RewardPool > 0 ? ((rewardPoolUsed / campaign.RewardPool) * 100).toFixed(2) : "0.00";
+    var usageBarWidth = Math.min(100, Math.max(0, rewardPoolUsage));
+    mhtml += '    <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border-color);">';
+    mhtml += '      <h4 style="margin-bottom:12px;color:var(--text-secondary);">💰 Campaign Economy</h4>';
+    mhtml += '      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">';
+    mhtml += '        <div class="profile-field"><label>Coins Spent</label><span>' + formatNumber(campaign.CoinsSpent || 0) + '</span></div>';
+    mhtml += '        <div class="profile-field"><label>Reward Pool</label><span>' + formatNumber(campaign.RewardPool || 0) + '</span></div>';
+    mhtml += '        <div class="profile-field"><label>Platform Reserve</label><span>' + formatNumber(campaign.PlatformReserve || 0) + '</span></div>';
+    mhtml += '        <div class="profile-field"><label>Reward Per View</label><span>' + (campaign.RewardCoins || 0) + '</span></div>';
+    mhtml += '        <div class="profile-field"><label>Used</label><span style="color:var(--accent-orange);">' + formatNumber(rewardPoolUsed) + '</span></div>';
+    mhtml += '        <div class="profile-field"><label>Remaining</label><span style="color:var(--accent-green);font-weight:600;">' + formatNumber(campaign.RemainingRewardCoins || 0) + '</span></div>';
+    mhtml += '      </div>';
+    mhtml += '      <div style="background:var(--bg-secondary);padding:12px;border-radius:var(--radius-sm);">';
+    mhtml += '        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">';
+    mhtml += '          <span style="font-size:11px;color:var(--text-muted);">Reward Pool Usage</span>';
+    mhtml += '          <span style="font-size:11px;font-weight:600;color:var(--text-primary);">' + rewardPoolUsage + '%</span>';
+    mhtml += '        </div>';
+    mhtml += '        <div style="background:var(--bg-card);border-radius:4px;height:8px;overflow:hidden;">';
+    mhtml += '          <div style="background:linear-gradient(90deg,var(--accent-green),var(--accent-orange));height:100%;width:' + usageBarWidth + '%;transition:width 0.3s;"></div>';
+    mhtml += '        </div>';
+    mhtml += '      </div>';
+    mhtml += '    </div>';
+    
+    // Phase 5.6C - Campaign Timeline Section
+    var timelineHtml = getCampaignTimeline(campaign);
+    mhtml += '    <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border-color);">';
+    mhtml += '      <h4 style="margin-bottom:12px;color:var(--text-secondary);">📅 Campaign Timeline</h4>';
+    mhtml += timelineHtml;
+    mhtml += '    </div>';
     // Media previews section
     mhtml += '    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-color);">';
     mhtml += '      <h4 style="margin-bottom:10px;color:var(--text-secondary);">Creative Assets</h4>';
@@ -556,4 +607,79 @@ AdminModules.register("advertisements", async function(container) {
   await render();
 });
 
-console.log("Admin Advertisements module loaded (Phase 5.6A)");
+/*
+PHASE 5.6C - ANALYTICS HELPERS
+*/
+
+/**
+ * Get performance label based on campaign metrics
+ * Rules:
+ * - No Activity: 0 views
+ * - Getting Views: views >= 100 but low engagement
+ * - Getting Engagement: click rate >= 3% or interest rate >= 2%
+ * - High Engagement: click rate >= 5% AND interest rate >= 3%
+ */
+function getPerformanceLabel(views, clicks, interested, shares) {
+  if (!views || views === 0) return "No Activity";
+  
+  var clickRate = (clicks / views) * 100;
+  var interestRate = interested > 0 ? (interested / views) * 100 : 0;
+  var shareRate = shares > 0 ? (shares / views) * 100 : 0;
+  
+  if (clickRate >= 5 && interestRate >= 3) return "High Engagement";
+  if (clickRate >= 3 || interestRate >= 2) return "Getting Engagement";
+  if (views >= 100) return "Getting Views";
+  
+  return "No Activity";
+}
+
+/**
+ * Get campaign timeline HTML with progress bar
+ */
+function getCampaignTimeline(campaign) {
+  var created = campaign.CreatedDate || campaign.CreatedAt || "";
+  var start = campaign.StartDate || "";
+  var end = campaign.EndDate || "";
+  var status = campaign.Status || "Active";
+  
+  // Calculate campaign progress
+  var progressHtml = "";
+  if (start && end) {
+    try {
+      var startDate = new Date(start);
+      var endDate = new Date(end);
+      var now = new Date();
+      var totalDuration = endDate - startDate;
+      var elapsed = now - startDate;
+      var progressPercent = totalDuration > 0 ? Math.min(100, Math.max(0, (elapsed / totalDuration) * 100)) : 0;
+      
+      var duration = Math.ceil(totalDuration / (1000 * 60 * 60 * 24));
+      var elapsedDays = Math.ceil(elapsed / (1000 * 60 * 60 * 24));
+      
+      progressHtml += '<div style="margin-top:12px;background:var(--bg-secondary);padding:12px;border-radius:var(--radius-sm);">';
+      progressHtml += '  <div style="display:flex;justify-content:space-between;margin-bottom:6px;">';
+      progressHtml += '    <span style="font-size:11px;color:var(--text-muted);">Campaign Progress</span>';
+      progressHtml += '    <span style="font-size:11px;font-weight:600;color:var(--text-primary);">' + progressPercent.toFixed(1) + '%</span>';
+      progressHtml += '  </div>';
+      progressHtml += '  <div style="background:var(--bg-card);border-radius:4px;height:8px;overflow:hidden;">';
+      progressHtml += '    <div style="background:linear-gradient(90deg,var(--accent-blue),var(--accent-green));height:100%;width:' + progressPercent + '%;transition:width 0.3s;"></div>';
+      progressHtml += '  </div>';
+      progressHtml += '  <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">' + elapsedDays + ' of ' + duration + ' days elapsed</div>';
+      progressHtml += '</div>';
+    } catch (e) {
+      // If date calculation fails, skip progress bar
+    }
+  }
+  
+  var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+  html += '  <div class="profile-field"><label>Created</label><span>' + escapeHtml(created) + '</span></div>';
+  html += '  <div class="profile-field"><label>Status</label><span class="status-badge status-' + status.toLowerCase() + '">' + escapeHtml(status) + '</span></div>';
+  html += '  <div class="profile-field"><label>Start Date</label><span>' + escapeHtml(start) + '</span></div>';
+  html += '  <div class="profile-field"><label>End Date</label><span>' + escapeHtml(end) + '</span></div>';
+  html += '</div>';
+  html += progressHtml;
+  
+  return html;
+}
+
+console.log("Admin Advertisements module loaded (Phase 5.6A + Phase 5.6C)");
