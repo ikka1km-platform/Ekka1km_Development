@@ -73,7 +73,17 @@
           <span class="nav-icon">💰</span> Wallet & Rewards
         </a>
 
+        <div class="nav-section">Tasks</div>
+
+        <a class="nav-item" href="#" data-module="tasks">
+          <span class="nav-icon">📋</span> Tasks
+        </a>
+
         <div class="nav-section">Monitoring</div>
+
+        <a class="nav-item" href="#" data-module="workforce">
+          <span class="nav-icon">💼</span> Workforce
+        </a>
 
         <a class="nav-item" href="#" data-module="gps">
           <span class="nav-icon">📍</span> GPS Analytics
@@ -104,16 +114,6 @@
 
         <a class="nav-item" href="#" data-module="support">
           <span class="nav-icon">🎧</span> Support
-        </a>
-
-        <a class="nav-item" href="#">
-          <span class="nav-icon">💼</span> Jobs
-          <span class="coming-soon">Soon</span>
-        </a>
-
-        <a class="nav-item" href="#">
-          <span class="nav-icon">🛵</span> Home Delivery
-          <span class="coming-soon">Soon</span>
         </a>
 
       </nav>
@@ -247,7 +247,7 @@
               <div class="stat-card-value" id="statCoinsDistributed">0</div>
             </div>
 
-            <div class="stat-card" data-module="analytics">
+            <div class="stat-card" data-module="workforce">
               <div class="stat-card-header">
                 <span class="stat-card-label">Live Users</span>
                 <div class="stat-card-icon red">🔴</div>
@@ -255,7 +255,7 @@
               <div class="stat-card-value" id="statLiveUsers">0</div>
             </div>
 
-            <div class="stat-card" data-module="analytics">
+            <div class="stat-card" data-module="gps">
               <div class="stat-card-header">
                 <span class="stat-card-label">Active Cities</span>
                 <div class="stat-card-icon blue">🌍</div>
@@ -571,6 +571,7 @@
              MODULE CONTAINER
              ID: moduleContainer
              SPA rendering target for admin management modules
+             Dynamic module content loads here
              ============================================================ -->
         <div id="moduleContainer" class="module-container" style="display: none;"></div>
 
@@ -606,6 +607,15 @@
   <!-- Leaflet JavaScript (lightweight open-source map library) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="command-center.js"></script>
+  <!-- Phase 5.4 - Admin Management Modules -->
+  <script src="admin-users.js"></script>
+  <script src="admin-businesses.js"></script>
+  <script src="admin-products.js"></script>
+  <script src="admin-properties.js"></script>
+  <script src="admin-news.js"></script>
+  <script src="admin-workforce.js"></script>
+  <!-- Phase 5.5 - Task Management Module -->
+  <script src="admin-tasks.js"></script>
 
 </body>
 </html>

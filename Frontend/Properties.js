@@ -2,11 +2,30 @@
 ============================================================
 EKKA1KM FRONTEND
 Properties.js
-Restored Properties listing module (Phase 5.5)
+Properties + Property Details
+V1.0 Trial
+Guest Mode Supported
 ============================================================
 */
 
 let CURRENT_PROPERTY = null;
+
+/*
+============================================================
+PROPERTY VIEW ANALYTICS
+============================================================
+*/
+
+function trackPropertyView() {
+  if (CURRENT_PROPERTY) {
+    const userId = getUserId();
+    const property = CURRENT_PROPERTY;
+
+    fetch(`${getApiUrl()}?action=trackevent&eventType=PropertyView&entityType=Property&entityId=${property.PropertyID}&userId=${userId || ""}&lat=${CURRENT_LAT}&lng=${CURRENT_LNG}`)
+      .catch(err => console.log("trackPropertyView error:", err));
+  }
+}
+
 
 /*
 ============================================================
@@ -18,12 +37,24 @@ async function loadProperties() {
   const container = document.getElementById("propertyList");
   if (!container) return;
 
+  // Use shared location helpers to get effective center
+  // (manual location if set, otherwise GPS)
+  const lat = getCenterLat();
+  const lng = getCenterLng();
+  const radius = getRadius();
+  const url = `${getApiUrl()}?action=properties&lat=${lat}&lng=${lng}&radius=${radius}`;
+
+  // Debug logging
+  console.log("Properties Location:");
+  console.log("Lat:", lat);
+  console.log("Lng:", lng);
+  console.log("Radius:", radius);
+  console.log("URL:", url);
+
   container.innerHTML = "<div class='card'>Loading Properties...</div>";
 
   try {
-    const response = await fetch(
-      getApiUrl() + "?action=properties&lat=" + CURRENT_LAT + "&lng=" + CURRENT_LNG + "&radius=" + getRadius()
-    );
+    const response = await fetch(url);
     const json = await response.json();
     const properties = (json.data && json.data.data) || [];
 
@@ -60,6 +91,9 @@ async function loadProperties() {
       if (prop.Bedrooms) {
         html += '<span class="badge">' + prop.Bedrooms + ' BHK</span>';
       }
+      if (prop.Area) {
+        html += '<span class="badge">' + prop.Area + ' sq ft</span>';
+      }
       if (prop.DistanceKm) {
         html += '<span class="badge">' + prop.DistanceKm + ' KM Away</span>';
       }
@@ -79,6 +113,7 @@ async function loadProperties() {
       html += 'View Details';
       html += '</button>';
       html += '</div>';
+
     });
 
     container.innerHTML = html;
@@ -97,6 +132,7 @@ PROPERTY DETAILS
 
 function showPropertyDetails(property) {
   CURRENT_PROPERTY = property;
+  trackPropertyView();
 
   const container = document.getElementById("propertyList");
   if (!container) return;
@@ -119,10 +155,11 @@ function showPropertyDetails(property) {
 
   html += '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">';
   html += '<span class="badge" style="background:#e8f5e9;color:#2e7d32;">' + purposeLabel + '</span>';
+  html += '<span class="badge">' + (property.Purpose || "") + '</span>';
   if (property.Type) html += '<span class="badge">' + property.Type + '</span>';
   if (property.Bedrooms) html += '<span class="badge">' + property.Bedrooms + ' BHK</span>';
   if (property.Bathrooms) html += '<span class="badge">' + property.Bathrooms + ' Bath</span>';
-  if (property.Area) html += '<span class="badge">' + property.Area + ' sq.ft</span>';
+  if (property.Area) html += '<span class="badge">' + property.Area + ' sq ft</span>';
   if (property.DistanceKm) html += '<span class="badge">' + property.DistanceKm + ' KM Away</span>';
   html += '</div>';
 
@@ -130,6 +167,7 @@ function showPropertyDetails(property) {
 
   // Details Grid
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px;padding:15px;background:#f9f9f9;border-radius:12px;">';
+  if (property.Category) html += '<div><strong>Category:</strong> ' + property.Category + '</div>';
   if (property.Type) html += '<div><strong>Type:</strong> ' + property.Type + '</div>';
   if (property.Purpose) html += '<div><strong>Purpose:</strong> ' + purposeLabel + '</div>';
   if (property.Bedrooms) html += '<div><strong>Bedrooms:</strong> ' + property.Bedrooms + '</div>';
@@ -137,7 +175,21 @@ function showPropertyDetails(property) {
   if (property.Area) html += '<div><strong>Area:</strong> ' + property.Area + ' sq.ft</div>';
   if (property.City) html += '<div><strong>City:</strong> ' + property.City + '</div>';
   if (property.State) html += '<div><strong>State:</strong> ' + property.State + '</div>';
+  if (property.Pincode) html += '<div><strong>Pincode:</strong> ' + property.Pincode + '</div>';
+  if (property.Facing) html += '<div><strong>Facing:</strong> ' + property.Facing + '</div>';
+  if (property.Floor) html += '<div><strong>Floor:</strong> ' + property.Floor + '</div>';
+  if (property.TotalFloors) html += '<div><strong>Total Floors:</strong> ' + property.TotalFloors + '</div>';
   if (property.Address) html += '<div style="grid-column:1/-1;"><strong>Address:</strong> ' + property.Address + '</div>';
+  html += '</div>';
+
+  // Price Details
+  html += '<div style="margin-top:15px;padding:15px;background:#fff3e0;border-radius:12px;">';
+  html += '<p style="font-size:14px;"><strong>Price:</strong> ₹ ' + (property.Price || 0).toLocaleString() + '</p>';
+  if (property.Purpose === "Rent") {
+    html += '<p style="font-size:14px;color:var(--primary);">Rental Property</p>';
+  } else if (property.Purpose === "Sell") {
+    html += '<p style="font-size:14px;color:#666;">For Sale</p>';
+  }
   html += '</div>';
 
   // User actions
@@ -145,17 +197,24 @@ function showPropertyDetails(property) {
     html += '<button onclick="contactPropertySeller()" style="margin-top:15px;">';
     html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> Contact Seller</button>';
 
+    html += '<button onclick="getPropertyDirections()" style="margin-top:15px;">';
+    html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">directions</i> Get Directions</button>';
+
     if (property.Phone) {
-      html += '<button onclick="callPropertySeller(\'' + property.Phone + '\')" style="background:#25D366;">';
+      html += '<button onclick="callPropertySeller(\'' + property.Phone + '\')" style="background:#25D366;margin-top:10px;">';
       html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Seller</button>';
     }
   } else {
     html += '<div style="margin-top:15px;padding:12px;border:1px solid #ddd;border-radius:10px;">';
-    html += '<p>Login to contact seller or show your interest.</p>';
+    html += '<p>Login to contact the owner.</p>';
     html += '<button onclick="openPage(\'login\')">Login</button>';
     html += '<button onclick="openPage(\'register\')" style="background:#666;">Register</button>';
     html += '</div>';
   }
+
+  // Share button for everyone
+  html += '<button onclick="shareProperty()" style="margin-top:10px;">';
+  html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">share</i> Share</button>';
 
   html += '<button onclick="loadProperties()" style="background:#666;margin-top:10px;">';
   html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back</button>';
@@ -187,6 +246,37 @@ function callPropertySeller(phone) {
   window.location.href = "tel:" + phone;
 }
 
+
+/*
+============================================================
+PROPERTY DIRECTIONS
+============================================================
+*/
+
+function getPropertyDirections() {
+  if (!CURRENT_PROPERTY) return;
+  const lat = CURRENT_PROPERTY.Latitude || CURRENT_LAT;
+  const lng = CURRENT_PROPERTY.Longitude || CURRENT_LNG;
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, "_blank");
+}
+
+
+/*
+============================================================
+SHARE PROPERTY
+============================================================
+*/
+
+function shareProperty() {
+  if (!CURRENT_PROPERTY) return;
+  const text = `${CURRENT_PROPERTY.Title || ""}\n₹ ${(CURRENT_PROPERTY.Price || 0).toLocaleString()}\n${CURRENT_PROPERTY.Description || ""}\n${CURRENT_PROPERTY.City || ""}`;
+  if (navigator.share) {
+    navigator.share({ title: CURRENT_PROPERTY.Title, text });
+  } else {
+    navigator.clipboard.writeText(text);
+    alert("Property details copied.");
+  }
+}
 
 /*
 ============================================================

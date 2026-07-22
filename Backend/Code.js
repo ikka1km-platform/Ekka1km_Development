@@ -559,6 +559,80 @@ case "liveunreadcount":
       case "ccdata":
         return getCommandCenterData(e);
 
+      // Phase 5.4 - Admin Management
+      case "adminusers":
+        return getAdminUsers(e);
+
+      case "adminuserstatus":
+        return setAdminUserStatus(e);
+
+      case "adminuserdetail":
+        return getAdminUserDetail(e);
+
+      case "adminbusinesses":
+        return getAdminBusinesses(e);
+
+      case "adminbusinessstatus":
+        return setAdminBusinessStatus(e);
+
+      case "adminproducts":
+        return getAdminProducts(e);
+
+      case "adminproductstatus":
+        return setAdminProductStatus(e);
+
+      case "adminproperties":
+        return getAdminProperties(e);
+
+      case "adminpropertystatus":
+        return setAdminPropertyStatus(e);
+
+      case "adminnews":
+        return getAdminNews(e);
+
+      case "adminnewsstatus":
+        return setAdminNewsStatus(e);
+
+      case "adminworkforce":
+        return getAdminWorkforce(e);
+
+      case "adminupdateworkforce":
+        return updateAdminWorkforce(e);
+
+      case "admincategories":
+        return getAdminCategories(e);
+
+      // Phase 5.5 - Task Management
+      case "admintaskstats":
+        return getAdminTaskStats(e);
+
+      case "admintasks":
+        return getAdminTasks(e);
+
+      case "admintaskcreate":
+        return createAdminTask(e);
+
+      case "admintaskupdate":
+        return updateAdminTask(e);
+
+      case "admintaskdetail":
+        return getAdminTaskDetail(e);
+
+      case "admintaskdelete":
+        return deleteAdminTask(e);
+
+      case "admintaskduplicate":
+        return duplicateAdminTask(e);
+
+      case "admintaskhistory":
+        return getAdminTaskHistory(e);
+
+      case "admintaskassignees":
+        return getAdminTaskAssignees(e);
+
+      case "admintaskdepartments":
+        return getAdminTaskDepartments(e);
+
       case "initializeadmindatabase":
         return initializeAdminDatabase(e);
 
@@ -1127,6 +1201,89 @@ case "liveunreadcount":
 
       case "adminpermissions":
         return getAdminPermissions(e);
+
+      case "admindashboardsummary":
+        return getAdminDashboardSummary(e);
+
+      case "ccdata":
+        return getCommandCenterData(e);
+
+      // Phase 5.4 - Admin Management (POST)
+      case "adminusers":
+        return getAdminUsers(e);
+
+      case "adminuserstatus":
+        return setAdminUserStatus(e);
+
+      case "adminuserdetail":
+        return getAdminUserDetail(e);
+
+      case "adminbusinesses":
+        return getAdminBusinesses(e);
+
+      case "adminbusinessstatus":
+        return setAdminBusinessStatus(e);
+
+      case "adminproducts":
+        return getAdminProducts(e);
+
+      case "adminproductstatus":
+        return setAdminProductStatus(e);
+
+      case "adminproperties":
+        return getAdminProperties(e);
+
+      case "adminpropertystatus":
+        return setAdminPropertyStatus(e);
+
+      case "adminnews":
+        return getAdminNews(e);
+
+      case "adminnewsstatus":
+        return setAdminNewsStatus(e);
+
+      case "adminworkforce":
+        return getAdminWorkforce(e);
+
+      case "adminupdateworkforce":
+        return updateAdminWorkforce(e);
+
+      case "admincategories":
+        return getAdminCategories(e);
+
+      // Phase 5.5 - Task Management (POST)
+      case "admintaskstats":
+        return getAdminTaskStats(e);
+
+      case "admintasks":
+        return getAdminTasks(e);
+
+      case "admintaskcreate":
+        return createAdminTask(e);
+
+      case "admintaskupdate":
+        return updateAdminTask(e);
+
+      case "admintaskdetail":
+        return getAdminTaskDetail(e);
+
+      case "admintaskdelete":
+        return deleteAdminTask(e);
+
+      case "admintaskduplicate":
+        return duplicateAdminTask(e);
+
+      case "admintaskhistory":
+        return getAdminTaskHistory(e);
+
+      case "admintaskassignees":
+        return getAdminTaskAssignees(e);
+
+      case "admintaskdepartments":
+        return getAdminTaskDepartments(e);
+
+      case "initializeadmindatabase":
+        return initializeAdminDatabase(e);
 
       // OTP Login via POST
       case "sendotp":
