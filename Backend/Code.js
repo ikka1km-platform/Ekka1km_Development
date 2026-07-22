@@ -938,6 +938,12 @@ case "onboarding":
   case "createdemocampaigns":
     return createDemoAdCampaigns();
 
+  case "getpipcreativedata":
+    return getPipCreativeData(e);
+
+  case "trackpipclick":
+    return trackPipClick(e);
+
   case "debugpip":
     return debugPip(e);
 

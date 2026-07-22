@@ -5,6 +5,13 @@
  * Phase 4 - PIP Advertisement + Reward Ad Center + Promotion Engine
  * Phase 5 Prep - Dynamic Campaign Economics (Admin Dashboard)
  * Builds on Advertisements.js
+ * 
+ * PRE-5.6 UPGRADE: 
+ * - Responsive PIP creative types (IMAGE, BANNER, VIDEO, PAGE)
+ * - Clickable destinations (external + internal Ekka1km content)
+ * - Promotional mini-page support
+ * - Schema extensions for CreativeType, CTA, DestinationType, PageContent
+ * - Backward compatible: existing campaigns continue working
  * ============================================================
  * APIs:
  *   getPipQueue()
@@ -30,6 +37,8 @@
  *   promoteExternalUrl()
  *   createDemoAdCampaigns()
  *   debugPip()
+ *   getPipCreativeData()      [NEW]
+ *   trackPipClick()           [NEW]
  * ============================================================
  */
 
@@ -37,6 +46,7 @@
 /**
  * ============================================================
  * ENSURE SHEETS EXIST
+ * Now includes new columns for Pre-5.6 creative upgrade
  * ============================================================
  */
 function ensurePromotionSheets() {
@@ -62,10 +72,34 @@ function ensurePromotionSheets() {
       } else if (name === "AdAnalytics") {
         s.appendRow(["AnalyticsID", "CampaignID", "Impressions", "Views", "UniqueViewers", "Skips", "Completions", "CompletionRate", "RewardsPaid", "TotalRewardPaid", "RemainingRewardPool", "RewardedUsersCount", "CTR", "UpdatedAt"]);
       } else if (name === "PromotionCampaigns") {
-        s.appendRow(["CampaignID", "CampaignType", "OwnerUserID", "TargetType", "TargetID", "CoinsSpent", "RewardPool", "PlatformReserve", "RemainingRewardCoins", "Radius", "City", "District", "State", "Country", "Latitude", "Longitude", "Views", "Clicks", "Interested", "Shares", "StartDate", "EndDate", "Status", "CreatedDate"]);
+        // Extended schema with Pre-5.6 creative columns
+        s.appendRow(["CampaignID", "CampaignType", "OwnerUserID", "TargetType", "TargetID", "CoinsSpent", "RewardPool", "PlatformReserve", "RemainingRewardCoins", "Radius", "City", "District", "State", "Country", "Latitude", "Longitude", "Views", "Clicks", "Interested", "Shares", "StartDate", "EndDate", "Status", "CreatedDate", "ImageURL", "VideoURL", "ExternalURL", "Duration", "RewardCoins", "CreativeType", "CTA", "DestinationType", "PageContent", "Priority", "Featured", "PIPEnabled"]);
       }
     }
   });
+  
+  // Ensure existing PromotionCampaigns sheet has new columns
+  var pcSheet = ss.getSheetByName("PromotionCampaigns");
+  if (pcSheet) {
+    var headers = pcSheet.getDataRange().getValues()[0];
+    var requiredHeaders = ["ImageURL", "VideoURL", "ExternalURL", "Duration", "RewardCoins", "CreativeType", "CTA", "DestinationType", "PageContent", "Priority", "Featured", "PIPEnabled"];
+    var existingCount = headers.length;
+    var needUpdate = false;
+    
+    requiredHeaders.forEach(function(h) {
+      if (headers.indexOf(h) === -1) {
+        headers.push(h);
+        needUpdate = true;
+      }
+    });
+    
+    if (needUpdate && headers.length > existingCount) {
+      // Add missing header columns
+      for (var ci = existingCount; ci < headers.length; ci++) {
+        pcSheet.getRange(1, ci + 1).setValue(headers[ci]);
+      }
+    }
+  }
 }
 
 
@@ -73,6 +107,7 @@ function ensurePromotionSheets() {
  * ============================================================
  * COMPATIBILITY MAPPING
  * Maps old PromotionCampaigns schema to new expected fields
+ * Updated for Pre-5.6 with creative type support
  * ============================================================
  */
 function normalizeCampaign(c) {
@@ -194,6 +229,54 @@ function normalizeCampaign(c) {
   if (!c.CreatedAt && c.CreatedDate) c.CreatedAt = c.CreatedDate;
   if (!c.CreatedAt) c.CreatedAt = new Date();
   
+  // ============================================================
+  // Pre-5.6 CREATIVE TYPE FIELDS
+  // Backward compatible defaults for existing campaigns
+  // ============================================================
+  
+  // CreativeType: IMAGE, BANNER, VIDEO, PAGE
+  // Auto-detect from available media if not set
+  if (!c.CreativeType) {
+    if (c.PageContent && String(c.PageContent).length > 5) {
+      c.CreativeType = "PAGE";
+    } else if (c.VideoURL && String(c.VideoURL).length > 0) {
+      c.CreativeType = "VIDEO";
+    } else if (c.AdType === "BANNER" || (c.ImageURL && String(c.ImageURL).length > 0 && c.AdType === "URL")) {
+      c.CreativeType = "BANNER";
+    } else if (c.ImageURL && String(c.ImageURL).length > 0) {
+      c.CreativeType = "IMAGE";
+    } else {
+      c.CreativeType = "IMAGE"; // safest default
+    }
+  }
+  
+  // CTA - Call to action text
+  if (!c.CTA) {
+    if (c.CampaignType === "PROMOTE_PRODUCT") c.CTA = "View Product";
+    else if (c.CampaignType === "PROMOTE_BUSINESS") c.CTA = "Visit Business";
+    else if (c.CampaignType === "PROMOTE_PROPERTY") c.CTA = "View Property";
+    else if (c.CampaignType === "PROMOTE_NEWS") c.CTA = "Read News";
+    else if (c.CampaignType === "PROMOTE_LIVE") c.CTA = "Watch Live";
+    else if (c.CampaignType === "PROMOTE_EXTERNAL_URL" || c.CampaignType === "PROMOTE_WEBSITE") c.CTA = "Learn More";
+    else c.CTA = "Learn More";
+  }
+  
+  // DestinationType: External, Internal, Both, None
+  if (!c.DestinationType) {
+    if (c.ExternalURL && String(c.ExternalURL).length > 0 && c.TargetID && String(c.TargetID).length > 0) {
+      c.DestinationType = "Both";
+    } else if (c.ExternalURL && String(c.ExternalURL).length > 0) {
+      c.DestinationType = "External";
+    } else if (c.TargetID && String(c.TargetID).length > 0) {
+      c.DestinationType = "Internal";
+    } else {
+      c.DestinationType = "None";
+    }
+  }
+  
+  // PageContent - JSON string for promotional mini-page
+  if (!c.PageContent) c.PageContent = "";
+  
   return c;
 }
 
@@ -203,7 +286,7 @@ function normalizeCampaign(c) {
  * GET PIP QUEUE
  * ?action=getpipqueue
  * Returns max 3 ads with priority sorting
- * Only shows campaigns with remaining reward pool
+ * Now includes creative type data for Pre-5.6
  * ============================================================
  */
 function getPipQueue(e) {
@@ -288,12 +371,141 @@ function getPipQueue(e) {
 
   } catch (err) {
     console.log("Phase4: getPipQueue error:", err.toString());
-    // NEVER crash - always return empty queue
     return success({
       queue: [],
       total: 0,
       remaining: 0
     }, "PIP Queue Loaded (empty)");
+  }
+}
+
+
+/**
+ * ============================================================
+ * GET PIP CREATIVE DATA (Pre-5.6)
+ * ?action=getpipcreativedata&campaignId=C001
+ * Returns full creative configuration for a PIP campaign
+ * Used by the frontend to render the correct creative type
+ * ============================================================
+ */
+function getPipCreativeData(e) {
+  try {
+    ensurePromotionSheets();
+    var campaignId = e.parameter.campaignId || "";
+    
+    if (!campaignId) {
+      return error("campaignId required");
+    }
+    
+    var campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
+    if (!campaign) {
+      return error("Campaign not found");
+    }
+    
+    campaign = normalizeCampaign(campaign);
+    
+    var creativeData = {
+      CampaignID: campaign.CampaignID,
+      CreativeType: campaign.CreativeType || "IMAGE",
+      Title: campaign.Title || "",
+      Description: campaign.Description || "",
+      ImageURL: campaign.ImageURL || "",
+      VideoURL: campaign.VideoURL || "",
+      ExternalURL: campaign.ExternalURL || "",
+      CTA: campaign.CTA || "Learn More",
+      DestinationType: campaign.DestinationType || "None",
+      TargetType: campaign.TargetType || "",
+      TargetID: campaign.TargetID || "",
+      PageContent: campaign.PageContent || "",
+      Duration: Number(campaign.Duration || 5),
+      RewardCoins: Number(campaign.RewardCoins || 0),
+      AdType: campaign.AdType || "IMAGE",
+      CampaignType: campaign.CampaignType || "",
+      Featured: campaign.Featured || "No"
+    };
+    
+    // For VIDEO type, include additional video config
+    if (creativeData.CreativeType === "VIDEO") {
+      creativeData.VideoConfig = {
+        autoplay: false,
+        controls: true,
+        muted: true,
+        loop: false
+      };
+    }
+    
+    return success(creativeData, "Creative data loaded");
+    
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ============================================================
+ * TRACK PIP CLICK (Pre-5.6)
+ * ?action=trackpipclick&userId=U001&campaignId=C001&destinationType=Internal&entityType=Product&entityId=PROD001
+ * Records a promotion click via analytics
+ * ============================================================
+ */
+function trackPipClick(e) {
+  try {
+    var p = e.parameter;
+    var userId = p.userId || "";
+    var campaignId = p.campaignId || "";
+    var destinationType = p.destinationType || "";
+    var entityType = p.entityType || "";
+    var entityId = p.entityId || "";
+    var destinationUrl = p.destinationUrl || "";
+    
+    if (!campaignId) {
+      return error("campaignId required");
+    }
+    
+    // Update the campaign click counter
+    var campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
+    if (campaign) {
+      var currentClicks = Number(campaign.Clicks || 0);
+      updateRow("PromotionCampaigns", "CampaignID", campaignId, {
+        Clicks: currentClicks + 1
+      });
+    }
+    
+    // Track via analytics engine (existing)
+    if (typeof trackEvent === "function") {
+      var syntheticE = {
+        parameter: {
+          eventType: "PromotionClick",
+          userId: userId,
+          entityType: entityType || "Promotion",
+          entityId: campaignId,
+          eventData: JSON.stringify({
+            destinationType: destinationType,
+            destinationEntityType: entityType,
+            destinationEntityId: entityId,
+            destinationUrl: destinationUrl,
+            campaignId: campaignId
+          })
+        }
+      };
+      trackEvent(syntheticE);
+    }
+    
+    // Track in AdAnalytics
+    try {
+      trackAdAnalytics(campaignId, "click");
+    } catch (trackErr) {
+      Logger.log("trackPipClick analytics error: " + trackErr.toString());
+    }
+    
+    return success({
+      campaignId: campaignId,
+      tracked: true
+    }, "Click tracked");
+    
+  } catch (err) {
+    return exception(err);
   }
 }
 
@@ -413,7 +625,12 @@ function getAdvertisementCenter(e) {
           RemainingReward: Math.min(remainingReward, remainingPool),
           ProgressPercent: totalDuration > 0 ? Math.min(100, Math.round((watched / totalDuration) * 100)) : 0,
           CanWatch: remainingSeconds > 0 && remainingPool > 0,
-          Status: progress ? progress.Status : "new"
+          Status: progress ? progress.Status : "new",
+          // Pre-5.6 creative fields
+          CreativeType: c.CreativeType || "IMAGE",
+          CTA: c.CTA || "Learn More",
+          DestinationType: c.DestinationType || "None",
+          PageContent: c.PageContent || ""
         };
       } catch (mapErr) {
         console.log("Phase4: Map error:", mapErr.toString());
@@ -440,7 +657,6 @@ function getAdvertisementCenter(e) {
  * ============================================================
  * DEBUG PIP
  * ?action=debugpip
- * Returns detailed diagnostics about PIP queue processing
  * ============================================================
  */
 function debugPip(e) {
@@ -493,6 +709,9 @@ function debugPip(e) {
           EndDate: c.EndDate ? String(c.EndDate) : "",
           Views: c.Views,
           MaxViews: c.MaxViews,
+          CreativeType: c.CreativeType || "IMAGE",
+          CTA: c.CTA || "",
+          DestinationType: c.DestinationType || "None",
           passed: !rejected,
           reason: reason,
           normalized: c
@@ -516,7 +735,6 @@ function debugPip(e) {
 /**
  * ============================================================
  * START AD WATCH
- * ?action=startadwatch&userId=U001&campaignId=C001
  * ============================================================
  */
 function startAdWatch(e) {
@@ -535,7 +753,6 @@ function startAdWatch(e) {
       return error("Campaign not found");
     }
     
-    // Normalize
     campaign = normalizeCampaign(campaign);
 
     var status = String(campaign.Status || "").toLowerCase();
@@ -543,24 +760,20 @@ function startAdWatch(e) {
       return error("Campaign is not active");
     }
 
-    // Check reward pool
     var remainingPool = Number(campaign.RemainingRewardPool || 0);
     if (remainingPool <= 0) {
       return error("Campaign reward pool exhausted.");
     }
 
-    // Check max views
     var maxViews = Number(campaign.MaxViews || 0);
     var currentViews = Number(campaign.Views || 0);
     if (maxViews > 0 && currentViews >= maxViews) {
       return error("Campaign maximum views reached.");
     }
 
-    // Check max rewarded users
     var maxUsers = Number(campaign.MaxRewardedUsers || 0);
     var rewardedCount = Number(campaign.RewardedUsersCount || 0);
 
-    // Check repeat reward type
     var repeatType = String(campaign.RepeatRewardType || "ONCE").toUpperCase();
     if (repeatType === "ONCE") {
       var history = getSheetData("AdWatchHistory");
@@ -601,7 +814,6 @@ function startAdWatch(e) {
       }
     }
 
-    // Check max views per user
     var maxPerUser = Number(campaign.MaxViewsPerUser || 0);
     if (maxPerUser > 0) {
       var hist3 = getSheetData("AdWatchHistory");
@@ -616,7 +828,6 @@ function startAdWatch(e) {
       }
     }
 
-    // Get existing progress
     var progressSheet = getSheet("AdWatchProgress");
     var progressData = progressSheet.getDataRange().getValues();
     var existingProgress = null;
@@ -633,11 +844,9 @@ function startAdWatch(e) {
       }
     }
 
-    // Increment views
     trackAdAnalytics(campaignId, "view");
     trackAdAnalytics(campaignId, "uniqueViewer");
 
-    // Track in watch history
     var watchId = "WH" + Utilities.getUuid().substring(0, 8);
     var historySheet = getSheet("AdWatchHistory");
     historySheet.appendRow([
@@ -676,7 +885,14 @@ function startAdWatch(e) {
       videoURL: campaign.VideoURL || "",
       externalURL: campaign.ExternalURL || "",
       title: campaign.Title || campaign.CampaignType || "Promotion",
-      description: campaign.Description || ""
+      description: campaign.Description || "",
+      // Pre-5.6 creative fields for ad center modal
+      creativeType: campaign.CreativeType || "IMAGE",
+      cta: campaign.CTA || "Learn More",
+      destinationType: campaign.DestinationType || "None",
+      targetType: campaign.TargetType || "",
+      targetId: campaign.TargetID || "",
+      pageContent: campaign.PageContent || ""
     }, "Ad watch started");
 
   } catch (err) {
@@ -688,8 +904,6 @@ function startAdWatch(e) {
 /**
  * ============================================================
  * UPDATE AD PROGRESS
- * ?action=updateadprogress&userId=U001&campaignId=C001&watchedSeconds=5
- * Concurrency protected with LockService
  * ============================================================
  */
 function updateAdProgress(e) {
@@ -787,9 +1001,6 @@ function updateAdProgress(e) {
 /**
  * ============================================================
  * COMPLETE AD WATCH
- * ?action=completeadwatch&userId=U001&campaignId=C001
- * Deducts from the campaign's RemainingRewardPool
- * Concurrency protected with LockService + idempotency check
  * ============================================================
  */
 function completeAdWatch(e) {
@@ -806,7 +1017,6 @@ function completeAdWatch(e) {
       return error("userId and campaignId required");
     }
 
-    // Idempotency check
     var existingRewards = getSheetData("AdRewards");
     for (var r = 0; r < existingRewards.length; r++) {
       if (
@@ -862,7 +1072,6 @@ function completeAdWatch(e) {
     var finalReward = Math.min(totalReward, rewardPerUser, remainingPool);
     var finalWatched = totalDuration;
 
-    // Update progress
     var progressSheet = getSheet("AdWatchProgress");
     var progressData = progressSheet.getDataRange().getValues();
     for (var i = 1; i < progressData.length; i++) {
@@ -878,7 +1087,6 @@ function completeAdWatch(e) {
       }
     }
 
-    // Update watch history
     var historySheet = getSheet("AdWatchHistory");
     var histData = historySheet.getDataRange().getValues();
     for (var j = 1; j < histData.length; j++) {
@@ -892,12 +1100,10 @@ function completeAdWatch(e) {
       }
     }
 
-    // Credit reward to wallet
     if (finalReward > 0) {
       creditWallet(userId, finalReward, campaignId, "Ad Reward - " + (campaign.Title || ""));
     }
 
-    // Update campaign reward pool
     var newRemainingPool = Math.max(0, remainingPool - finalReward);
     var newTotalPaid = Number(campaign.TotalRewardPaid || 0) + finalReward;
     var newRewardedCount = rewardedCount + 1;
@@ -920,7 +1126,6 @@ function completeAdWatch(e) {
       Status: completedStatus
     });
 
-    // Create reward record
     var rewardSheet = getSheet("AdRewards");
     var rewardId = "AR" + Utilities.getUuid().substring(0, 8);
     rewardSheet.appendRow([
@@ -956,7 +1161,6 @@ function completeAdWatch(e) {
 /**
  * ============================================================
  * SKIP AD WATCH
- * ?action=skipadwatch&userId=U001&campaignId=C001&watchedSeconds=3
  * ============================================================
  */
 function skipAdWatch(e) {
@@ -986,7 +1190,6 @@ function skipAdWatch(e) {
     var remainingPool = Number(campaign.RemainingRewardPool || 0);
     var rewardPerUser = Number(campaign.RewardPerUser || campaign.RewardCoins || 0);
 
-    // Save progress
     var progressSheet = getSheet("AdWatchProgress");
     var progressData = progressSheet.getDataRange().getValues();
     var found = false;
@@ -1033,7 +1236,6 @@ function skipAdWatch(e) {
       ]);
     }
 
-    // Update history
     var historySheet = getSheet("AdWatchHistory");
     var histData = historySheet.getDataRange().getValues();
     for (var j = 1; j < histData.length; j++) {
@@ -1361,6 +1563,7 @@ function getCampaignAnalytics(e) {
 /**
  * ============================================================
  * CREATE PROMOTION CAMPAIGN
+ * Now includes Pre-5.6 creative fields
  * ============================================================
  */
 function createPromotionCampaign(e) {
@@ -1427,7 +1630,7 @@ function createPromotionCampaign(e) {
       var totalRewardPool = campaignBudget;
       var remainingRewardPool = campaignBudget;
 
-      // Use OLD schema for backward compatibility
+      // Use NEW schema with creative fields for Pre-5.6
       sheet.appendRow([
         campaignId,                    // CampaignID
         campaignType,                  // CampaignType
@@ -1440,8 +1643,8 @@ function createPromotionCampaign(e) {
         remainingRewardPool,           // RemainingRewardCoins
         p.targetRadius || "All India", // Radius
         p.targetCity || "",            // City
-        p.targetState || "",           // State
         p.targetState || "",           // District
+        p.targetState || "",           // State
         p.targetCountry || "",         // Country
         "",                            // Latitude
         "",                            // Longitude
@@ -1452,7 +1655,19 @@ function createPromotionCampaign(e) {
         now,                           // StartDate
         p.endDate ? new Date(p.endDate) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // EndDate
         "Active",                      // Status
-        now                            // CreatedDate
+        now,                           // CreatedDate
+        p.imageURL || "",              // ImageURL
+        p.videoURL || "",              // VideoURL
+        p.externalURL || "",           // ExternalURL
+        p.duration || "10",            // Duration
+        p.rewardCoins || "0",          // RewardCoins
+        p.creativeType || "IMAGE",     // CreativeType
+        p.cta || "Learn More",         // CTA
+        p.destinationType || "",       // DestinationType
+        p.pageContent || "",           // PageContent
+        p.priority || "0",             // Priority
+        p.featured || "No",            // Featured
+        p.pipEnabled || "Yes"          // PIPEnabled
       ]);
 
       return success({
@@ -1579,7 +1794,10 @@ function promoteProduct(e) {
       targetCategory: product.Category || "",
       targetCity: product.City || "",
       targetState: product.State || "",
-      endDate: ""
+      endDate: "",
+      creativeType: "IMAGE",
+      cta: "View Product",
+      destinationType: "Internal"
     };
 
     var syntheticE = { parameter: campaignParams };
@@ -1638,7 +1856,10 @@ function promoteBusiness(e) {
       targetCategory: business.Category || "",
       targetCity: business.City || "",
       targetState: business.State || "",
-      endDate: ""
+      endDate: "",
+      creativeType: "IMAGE",
+      cta: "Visit Business",
+      destinationType: "Internal"
     };
 
     var syntheticE = { parameter: campaignParams };
@@ -1688,7 +1909,10 @@ function promoteStore(e) {
       targetCity: p.targetCity || "",
       targetState: p.targetState || "",
       externalURL: p.externalURL || "",
-      endDate: ""
+      endDate: "",
+      creativeType: p.creativeType || "IMAGE",
+      cta: "View Store",
+      destinationType: p.destinationType || "Internal"
     };
 
     var syntheticE = { parameter: campaignParams };
@@ -1747,7 +1971,10 @@ function promoteProperty(e) {
       targetCategory: property.Category || "",
       targetCity: property.City || "",
       targetState: property.State || "",
-      endDate: ""
+      endDate: "",
+      creativeType: "IMAGE",
+      cta: "View Property",
+      destinationType: "Internal"
     };
 
     var syntheticE = { parameter: campaignParams };
@@ -1806,7 +2033,10 @@ function promoteLive(e) {
       targetCategory: live.Category || "",
       targetCity: live.City || "",
       targetState: live.State || "",
-      endDate: ""
+      endDate: "",
+      creativeType: "VIDEO",
+      cta: "Watch Live",
+      destinationType: "Internal"
     };
 
     var syntheticE = { parameter: campaignParams };
@@ -1863,7 +2093,10 @@ function promoteNews(e) {
       pipEnabled: p.pipEnabled || "Yes",
       featured: p.featured || "No",
       externalURL: p.externalURL || "",
-      endDate: ""
+      endDate: "",
+      creativeType: "IMAGE",
+      cta: "Read News",
+      destinationType: "Internal"
     };
 
     var syntheticE = { parameter: campaignParams };
@@ -1910,7 +2143,10 @@ function promoteExternalUrl(e) {
       pipEnabled: p.pipEnabled || "Yes",
       featured: p.featured || "No",
       externalURL: url,
-      endDate: ""
+      endDate: "",
+      creativeType: p.creativeType || "IMAGE",
+      cta: "Learn More",
+      destinationType: "External"
     };
 
     var syntheticE = { parameter: campaignParams };
@@ -1957,7 +2193,10 @@ function promoteWebsite(e) {
       pipEnabled: p.pipEnabled || "Yes",
       featured: p.featured || "No",
       externalURL: url,
-      endDate: ""
+      endDate: "",
+      creativeType: p.creativeType || "IMAGE",
+      cta: "Visit Website",
+      destinationType: "External"
     };
 
     var syntheticE = { parameter: campaignParams };
@@ -1972,8 +2211,6 @@ function promoteWebsite(e) {
 /**
  * ============================================================
  * CREATE DEMO AD CAMPAIGNS
- * ?action=createdemocampaigns
- * Creates 3 demo campaigns using OLD schema for compatibility
  * ============================================================
  */
 function createDemoAdCampaigns() {
@@ -1983,7 +2220,6 @@ function createDemoAdCampaigns() {
     var sheet = getSheet("PromotionCampaigns");
     var data = sheet.getDataRange().getValues();
     
-    // Only create demos if sheet is empty (only header row)
     if (data.length > 1) {
       return success({
         created: 0,
@@ -1995,99 +2231,53 @@ function createDemoAdCampaigns() {
     var futureDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
     var created = 0;
     
-    // Demo Campaign 1: Product Promotion
+    // Demo Campaign 1: Product Promotion with IMAGE creative
     sheet.appendRow([
-      "CDEMO01",                    // CampaignID
-      "PROMOTE_PRODUCT",            // CampaignType
-      "SYSTEM",                      // OwnerUserID
-      "Product",                     // TargetType
-      "DEMO_PROD_001",              // TargetID
-      0,                             // CoinsSpent
-      5000,                          // RewardPool
-      0,                             // PlatformReserve
-      5000,                          // RemainingRewardCoins
-      "All India",                   // Radius
-      "",                            // City
-      "",                            // District
-      "",                            // State
-      "",                            // Country
-      "",                            // Latitude
-      "",                            // Longitude
-      0,                             // Views
-      0,                             // Clicks
-      0,                             // Interested
-      0,                             // Shares
-      now,                           // StartDate
-      futureDate,                    // EndDate
-      "Active",                      // Status
-      now                            // CreatedDate
+      "CDEMO01", "PROMOTE_PRODUCT", "SYSTEM", "Product", "DEMO_PROD_001",
+      0, 5000, 0, 5000, "All India", "", "", "", "", "", "",
+      0, 0, 0, 0, now, futureDate, "Active", now,
+      "https://picsum.photos/seed/product1/800/600", "", "",
+      10, 5, "IMAGE", "View Product", "Internal", "", 0, "No", "Yes"
     ]);
     created++;
     
-    // Demo Campaign 2: Business Promotion
+    // Demo Campaign 2: Business Promotion with BANNER creative
     sheet.appendRow([
-      "CDEMO02",                    // CampaignID
-      "PROMOTE_BUSINESS",           // CampaignType
-      "SYSTEM",                      // OwnerUserID
-      "Business",                    // TargetType
-      "DEMO_BIZ_001",               // TargetID
-      0,                             // CoinsSpent
-      5000,                          // RewardPool
-      0,                             // PlatformReserve
-      5000,                          // RemainingRewardCoins
-      "All India",                   // Radius
-      "",                            // City
-      "",                            // District
-      "",                            // State
-      "",                            // Country
-      "",                            // Latitude
-      "",                            // Longitude
-      0,                             // Views
-      0,                             // Clicks
-      0,                             // Interested
-      0,                             // Shares
-      now,                           // StartDate
-      futureDate,                    // EndDate
-      "Active",                      // Status
-      now                            // CreatedDate
+      "CDEMO02", "PROMOTE_BUSINESS", "SYSTEM", "Business", "DEMO_BIZ_001",
+      0, 5000, 0, 5000, "All India", "", "", "", "", "", "",
+      0, 0, 0, 0, now, futureDate, "Active", now,
+      "https://picsum.photos/seed/business1/1200/400", "", "",
+      10, 5, "BANNER", "Visit Business", "Internal", "", 0, "No", "Yes"
     ]);
     created++;
     
-    // Demo Campaign 3: External URL Promotion
+    // Demo Campaign 3: External URL with VIDEO creative
     sheet.appendRow([
-      "CDEMO03",                    // CampaignID
-      "PROMOTE_EXTERNAL_URL",       // CampaignType
-      "SYSTEM",                      // OwnerUserID
-      "ExternalURL",                 // TargetType
-      "",                            // TargetID
-      0,                             // CoinsSpent
-      5000,                          // RewardPool
-      0,                             // PlatformReserve
-      5000,                          // RemainingRewardCoins
-      "All India",                   // Radius
-      "",                            // City
-      "",                            // District
-      "",                            // State
-      "",                            // Country
-      "",                            // Latitude
-      "",                            // Longitude
-      0,                             // Views
-      0,                             // Clicks
-      0,                             // Interested
-      0,                             // Shares
-      now,                           // StartDate
-      futureDate,                    // EndDate
-      "Active",                      // Status
-      now                            // CreatedDate
+      "CDEMO03", "PROMOTE_EXTERNAL_URL", "SYSTEM", "ExternalURL", "",
+      0, 5000, 0, 5000, "All India", "", "", "", "", "", "",
+      0, 0, 0, 0, now, futureDate, "Active", now,
+      "", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      "https://example.com", 10, 5, "VIDEO", "Watch Now", "External", "",
+      0, "No", "Yes"
     ]);
     created++;
     
-    console.log("Phase4: Created " + created + " demo campaigns");
+    // Demo Campaign 4: News with PAGE creative
+    sheet.appendRow([
+      "CDEMO04", "PROMOTE_NEWS", "SYSTEM", "News", "DEMO_NEWS_001",
+      0, 5000, 0, 5000, "All India", "", "", "", "", "", "",
+      0, 0, 0, 0, now, futureDate, "Active", now,
+      "https://picsum.photos/seed/news1/800/600", "", "",
+      10, 5, "PAGE", "Read More", "Internal",
+      '{"heading":"Special Promotion","description":"Check out our latest news and updates!","buttonText":"Read Now"}',
+      1, "Yes", "Yes"
+    ]);
+    created++;
     
     return success({
       created: created,
-      campaigns: ["CDEMO01", "CDEMO02", "CDEMO03"],
-      message: created + " demo campaigns created successfully!"
+      campaigns: ["CDEMO01", "CDEMO02", "CDEMO03", "CDEMO04"],
+      message: created + " demo campaigns created with Pre-5.6 creative types!"
     }, "Demo campaigns created!");
     
   } catch (err) {
@@ -2127,6 +2317,8 @@ function trackAdAnalytics(campaignId, eventType) {
         } else if (eventType === "reward") {
           sheet.getRange(i + 1, 8).setValue(Number(data[i][7] || 0) + 1);
           sheet.getRange(i + 1, 9).setValue(Number(data[i][8] || 0) + 1);
+        } else if (eventType === "click") {
+          sheet.getRange(i + 1, 8).setValue(Number(data[i][10] || 0) + 1);
         }
         sheet.getRange(i + 1, 14).setValue(new Date());
         return;
