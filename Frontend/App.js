@@ -283,6 +283,13 @@ function loadAll() {
   }
 
   if (
+    typeof loadProperties ===
+    "function"
+  ) {
+    loadProperties();
+  }
+
+  if (
     typeof loadNews ===
     "function"
   ) {

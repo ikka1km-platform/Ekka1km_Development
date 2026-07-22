@@ -199,7 +199,7 @@
                ============================================================ -->
           <section id="panelStatistics" class="stats-grid">
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="users">
               <div class="stat-card-header">
                 <span class="stat-card-label">Total Users</span>
                 <div class="stat-card-icon purple">👥</div>
@@ -207,7 +207,7 @@
               <div class="stat-card-value" id="statTotalUsers">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="products">
               <div class="stat-card-header">
                 <span class="stat-card-label">Total Products</span>
                 <div class="stat-card-icon blue">📦</div>
@@ -215,7 +215,7 @@
               <div class="stat-card-value" id="statTotalProducts">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="businesses">
               <div class="stat-card-header">
                 <span class="stat-card-label">Total Businesses</span>
                 <div class="stat-card-icon green">🏪</div>
@@ -223,7 +223,7 @@
               <div class="stat-card-value" id="statTotalBusinesses">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="properties">
               <div class="stat-card-header">
                 <span class="stat-card-label">Total Properties</span>
                 <div class="stat-card-icon orange">🏠</div>
@@ -231,7 +231,7 @@
               <div class="stat-card-value" id="statTotalProperties">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="wallet">
               <div class="stat-card-header">
                 <span class="stat-card-label">Total Revenue</span>
                 <div class="stat-card-icon green">💰</div>
@@ -239,7 +239,7 @@
               <div class="stat-card-value" id="statTotalRevenue">₹0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="wallet">
               <div class="stat-card-header">
                 <span class="stat-card-label">Coins Distributed</span>
                 <div class="stat-card-icon orange">🪙</div>
@@ -247,7 +247,7 @@
               <div class="stat-card-value" id="statCoinsDistributed">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="analytics">
               <div class="stat-card-header">
                 <span class="stat-card-label">Live Users</span>
                 <div class="stat-card-icon red">🔴</div>
@@ -255,7 +255,7 @@
               <div class="stat-card-value" id="statLiveUsers">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="analytics">
               <div class="stat-card-header">
                 <span class="stat-card-label">Active Cities</span>
                 <div class="stat-card-icon blue">🌍</div>
@@ -263,7 +263,7 @@
               <div class="stat-card-value" id="statActiveCities">0</div>
             </div>
 
-            <div class="stat-card">
+            <div class="stat-card" data-module="verifications">
               <div class="stat-card-header">
                 <span class="stat-card-label">Pending Approvals</span>
                 <div class="stat-card-icon purple">⏳</div>
@@ -593,6 +593,7 @@
   <!-- Scripts -->
   <script src="Config.js"></script>
   <script src="admin-auth.js"></script>
+  <script src="admin-modules.js"></script>
   <script src="dashboard.js"></script>
   <!-- Leaflet JavaScript (lightweight open-source map library) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
