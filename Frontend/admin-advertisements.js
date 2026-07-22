@@ -126,6 +126,31 @@ AdminModules.register("advertisements", async function(container) {
 
   /*
   ============================================================
+  HELPER: NORMALIZE BOOLEAN
+  Safely converts various boolean representations to "Yes"/"No"
+  ============================================================
+  */
+  function normalizeBoolean(value, defaultValue) {
+    if (!value) return defaultValue || "No";
+    
+    const str = String(value).trim().toLowerCase();
+    
+    // Truthy values
+    if (["yes", "true", "1", "y", "on"].indexOf(str) !== -1) {
+      return "Yes";
+    }
+    
+    // Falsy values
+    if (["no", "false", "0", "n", "off", ""].indexOf(str) !== -1) {
+      return "No";
+    }
+    
+    // If unrecognized, return default
+    return defaultValue || "No";
+  }
+
+  /*
+  ============================================================
   RENDER CAMPAIGNS TAB
   ============================================================
   */
@@ -281,6 +306,10 @@ AdminModules.register("advertisements", async function(container) {
     var location = locationParts.length > 0 ? locationParts.join(", ") : (campaign.Radius || "Not specified");
     var ctr = campaign.Views > 0 ? ((campaign.Clicks / campaign.Views) * 100).toFixed(2) + "%" : "N/A";
     var interestRate = campaign.Clicks > 0 ? ((campaign.Interested / campaign.Clicks) * 100).toFixed(2) + "%" : "N/A";
+    var statusLower = (campaign.Status || "").toLowerCase();
+    // Normalize Featured/PIPEnabled for reliable comparison
+    var featuredNormalized = normalizeBoolean(campaign.Featured, "No");
+    var pipEnabledNormalized = normalizeBoolean(campaign.PIPEnabled, "Yes");
     var mhtml = '<div class="modal-overlay" onclick="closeModal(event)">';
     mhtml += '  <div class="modal-content modal-lg" onclick="event.stopPropagation()">';
     mhtml += '    <div class="modal-header">';
@@ -296,15 +325,15 @@ AdminModules.register("advertisements", async function(container) {
     mhtml += '      <div class="profile-field"><label>Campaign Type</label><span>' + escapeHtml(campaign.CampaignType || "") + '</span></div>';
     mhtml += '      <div class="profile-field"><label>Owner</label><span>' + escapeHtml(campaign.OwnerName || campaign.OwnerUserID || "Unknown") + '</span></div>';
     mhtml += '      <div class="profile-field"><label>Title</label><span>' + escapeHtml(campaign.Title || "") + '</span></div>';
-    mhtml += '      <div class="profile-field"><label>Creative Type</label><span>' + getCreativeBadge(campaign.CreativeType) + '</span></div>';
+    mhtml += '      <div class="profile-field"><label>Creative Type</label><span>' + getCreativeBadge(campaign.CreativeType || "IMAGE") + '</span></div>';
     mhtml += '      <div class="profile-field"><label>CTA</label><span>' + escapeHtml(campaign.CTA || "") + '</span></div>';
     mhtml += '      <div class="profile-field"><label>Destination Type</label><span>' + escapeHtml(campaign.DestinationType || "None") + '</span></div>';
     mhtml += '      <div class="profile-field"><label>Target</label><span>' + escapeHtml(campaign.TargetType || "") + ' ' + escapeHtml(campaign.TargetID || "") + '</span></div>';
-    mhtml += '      <div class="profile-field"><label>Status</label><span class="status-badge status-' + (campaign.Status || "").toLowerCase() + '">' + escapeHtml(campaign.Status || "") + '</span></div>';
-    if (campaign.Featured === "Yes") {
+    mhtml += '      <div class="profile-field"><label>Status</label><span class="status-badge status-' + statusLower + '">' + escapeHtml(campaign.Status || "") + '</span></div>';
+    if (featuredNormalized === "Yes") {
       mhtml += '      <div class="profile-field"><label>Featured</label><span style="color:var(--accent-orange);">⭐ Yes</span></div>';
     }
-    mhtml += '      <div class="profile-field"><label>PIP Enabled</label><span>' + (campaign.PIPEnabled === "Yes" ? "✅" : "❌") + '</span></div>';
+    mhtml += '      <div class="profile-field"><label>PIP Enabled</label><span>' + (pipEnabledNormalized === "Yes" ? "✅" : "❌") + '</span></div>';
     mhtml += '      <div class="profile-field"><label>Priority</label><span>' + (campaign.Priority || 0) + '</span></div>';
     mhtml += '    </div>';
     // Right column
@@ -351,6 +380,41 @@ AdminModules.register("advertisements", async function(container) {
       mhtml += '      <p style="color:var(--text-primary);font-size:13px;">' + escapeHtml(campaign.Description) + '</p>';
       mhtml += '    </div>';
     }
+    // Phase 5.6B - Admin Actions Section
+    mhtml += '    <div style="margin-top:20px;padding-top:16px;border-top:2px solid var(--border-color);">';
+    mhtml += '      <h4 style="margin-bottom:12px;color:var(--text-secondary);">⚙️ Admin Actions</h4>';
+    mhtml += '      <div style="display:flex;flex-wrap:wrap;gap:8px;">';
+    // Pending actions
+    if (statusLower === "pending") {
+      mhtml += '        <button class="module-btn module-btn-success" onclick="window._adminApproveCampaign(\'' + escapeHtml(campaign.CampaignID) + '\')">✅ Approve</button>';
+      mhtml += '        <button class="module-btn module-btn-danger" onclick="window._adminRejectCampaign(\'' + escapeHtml(campaign.CampaignID) + '\')">❌ Reject</button>';
+    }
+    // Active actions
+    if (statusLower === "active") {
+      mhtml += '        <button class="module-btn module-btn-secondary" onclick="window._adminPauseCampaign(\'' + escapeHtml(campaign.CampaignID) + '\')">⏸️ Pause</button>';
+      mhtml += '        <button class="module-btn module-btn-danger" onclick="window._adminSuspendCampaign(\'' + escapeHtml(campaign.CampaignID) + '\')">🚫 Suspend</button>';
+      mhtml += '        <button class="module-btn module-btn-danger" onclick="window._adminTerminateCampaign(\'' + escapeHtml(campaign.CampaignID) + '\')">⛔ Terminate</button>';
+    }
+    // Paused actions
+    if (statusLower === "paused") {
+      mhtml += '        <button class="module-btn module-btn-success" onclick="window._adminResumeCampaign(\'' + escapeHtml(campaign.CampaignID) + '\')">▶️ Resume</button>';
+      mhtml += '        <button class="module-btn module-btn-danger" onclick="window._adminSuspendCampaign(\'' + escapeHtml(campaign.CampaignID) + '\')">🚫 Suspend</button>';
+      mhtml += '        <button class="module-btn module-btn-danger" onclick="window._adminTerminateCampaign(\'' + escapeHtml(campaign.CampaignID) + '\')">⛔ Terminate</button>';
+    }
+    // Featured toggle (use normalized value)
+    if (featuredNormalized === "Yes") {
+      mhtml += '        <button class="module-btn module-btn-secondary" onclick="window._adminToggleFeatured(\'' + escapeHtml(campaign.CampaignID) + '\', \'No\')">⭐ Unfeature</button>';
+    } else {
+      mhtml += '        <button class="module-btn module-btn-secondary" onclick="window._adminToggleFeatured(\'' + escapeHtml(campaign.CampaignID) + '\', \'Yes\')">⭐ Feature</button>';
+    }
+    // PIP toggle (use normalized value)
+    if (pipEnabledNormalized === "Yes") {
+      mhtml += '        <button class="module-btn module-btn-secondary" onclick="window._adminTogglePip(\'' + escapeHtml(campaign.CampaignID) + '\', \'No\')">📺 Disable PIP</button>';
+    } else {
+      mhtml += '        <button class="module-btn module-btn-secondary" onclick="window._adminTogglePip(\'' + escapeHtml(campaign.CampaignID) + '\', \'Yes\')">📺 Enable PIP</button>';
+    }
+    mhtml += '      </div>';
+    mhtml += '    </div>';
     mhtml += '    </div>';
     mhtml += '    <div class="modal-footer">';
     mhtml += '      <button class="module-btn module-btn-secondary" onclick="closeModal()">Close</button>';
@@ -393,6 +457,101 @@ AdminModules.register("advertisements", async function(container) {
     activeSubTab = tab;
     render();
   };
+
+  /*
+  ============================================================
+  PHASE 5.6B - ADMIN ACTION HANDLERS
+  ============================================================
+  */
+  window._adminApproveCampaign = async function(campaignId) {
+    var confirmed = confirm("Approve campaign " + campaignId + "?\n\nThis will activate the campaign and make it eligible for PIP delivery.");
+    if (!confirmed) return;
+    await executeAdminAction("adminapprovecampaign", { campaignId: campaignId }, "Campaign approved");
+  };
+
+  window._adminRejectCampaign = async function(campaignId) {
+    var reason = prompt("Reject campaign " + campaignId + "?\n\nPlease provide a rejection reason (minimum 5 characters):");
+    if (!reason || reason.trim().length < 5) {
+      showToast("Rejection reason is required (minimum 5 characters)", "error");
+      return;
+    }
+    var confirmed = confirm("Reject campaign " + campaignId + "?\n\nReason: " + reason);
+    if (!confirmed) return;
+    await executeAdminAction("adminrejectcampaign", { campaignId: campaignId, reason: reason.trim() }, "Campaign rejected");
+  };
+
+  window._adminPauseCampaign = async function(campaignId) {
+    var confirmed = confirm("Pause campaign " + campaignId + "?\n\nThe campaign will stop serving through PIP immediately.");
+    if (!confirmed) return;
+    await executeAdminAction("pausecampaign", { campaignId: campaignId }, "Campaign paused");
+  };
+
+  window._adminResumeCampaign = async function(campaignId) {
+    var confirmed = confirm("Resume campaign " + campaignId + "?\n\nThe campaign will become eligible for PIP delivery again.");
+    if (!confirmed) return;
+    await executeAdminAction("resumecampaign", { campaignId: campaignId }, "Campaign resumed");
+  };
+
+  window._adminSuspendCampaign = async function(campaignId) {
+    var reason = prompt("Suspend campaign " + campaignId + "?\n\nPlease provide a suspension reason (minimum 5 characters):");
+    if (!reason || reason.trim().length < 5) {
+      showToast("Suspension reason is required (minimum 5 characters)", "error");
+      return;
+    }
+    var confirmed = confirm("Suspend campaign " + campaignId + "?\n\nReason: " + reason + "\n\nThis will stop the campaign immediately.");
+    if (!confirmed) return;
+    await executeAdminAction("adminsuspendcampaign", { campaignId: campaignId, reason: reason.trim() }, "Campaign suspended");
+  };
+
+  window._adminTerminateCampaign = async function(campaignId) {
+    var confirmed = confirm("TERMINATE campaign " + campaignId + "?\n\nThis action cannot be undone.\nThe campaign will stop immediately.\nAll analytics and history will be preserved.");
+    if (!confirmed) return;
+    var doubleConfirm = confirm("Are you absolutely sure you want to TERMINATE campaign " + campaignId + "?");
+    if (!doubleConfirm) return;
+    await executeAdminAction("adminterminatecampaign", { campaignId: campaignId }, "Campaign terminated");
+  };
+
+  window._adminToggleFeatured = async function(campaignId, featured) {
+    var action = featured === "Yes" ? "Feature" : "Unfeature";
+    var confirmed = confirm(action + " campaign " + campaignId + "?");
+    if (!confirmed) return;
+    await executeAdminAction("admintogglefeatured", { campaignId: campaignId, featured: featured }, "Campaign " + action.toLowerCase() + "d");
+  };
+
+  window._adminTogglePip = async function(campaignId, pipEnabled) {
+    var action = pipEnabled === "Yes" ? "Enable PIP" : "Disable PIP";
+    var confirmed = confirm(action + " for campaign " + campaignId + "?");
+    if (!confirmed) return;
+    await executeAdminAction("admintogglepip", { campaignId: campaignId, pipEnabled: pipEnabled }, "PIP " + (pipEnabled === "Yes" ? "enabled" : "disabled"));
+  };
+
+  async function executeAdminAction(action, params, successMessage) {
+    var session = AdminAuth.getSession();
+    if (!session) {
+      showToast("Session expired. Please login again.", "error");
+      return;
+    }
+    try {
+      var url = getApiUrl() + "?action=" + action + "&session=" + encodeURIComponent(session);
+      for (var key in params) {
+        if (params.hasOwnProperty(key)) {
+          url += "&" + encodeURIComponent(key) + "=" + encodeURIComponent(params[key]);
+        }
+      }
+      var response = await fetch(url);
+      var json = await response.json();
+      if (json && json.success) {
+        showToast(successMessage, "success");
+        closeModal();
+        await render();
+      } else {
+        showToast(json.message || "Action failed", "error");
+      }
+    } catch (err) {
+      showToast("Error: " + err.message, "error");
+    }
+  }
+
   // Initial render
   await render();
 });
