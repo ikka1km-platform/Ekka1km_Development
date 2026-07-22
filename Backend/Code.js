@@ -935,6 +935,12 @@ case "onboarding":
   case "promotewebsite":
     return promoteWebsite(e);
 
+  case "adminpromotioncampaigns":
+    return getAdminPromotionCampaigns(e);
+
+  case "adminadvertisements":
+    return getAdminAdvertisements(e);
+
   case "createdemocampaigns":
     return createDemoAdCampaigns();
 

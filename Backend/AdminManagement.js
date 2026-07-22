@@ -4,6 +4,7 @@
  * AdminManagement.js
  * V5.11.0 - ADMIN WORKFORCE MANAGEMENT & MODULE NAVIGATION (Phase 5.4)
  * User, Business, Product, Property, News, Workforce Management APIs
+ * Phase 5.6A - Added adminPromotionCampaigns, adminAdvertisements APIs
  * ============================================================
  */
 
@@ -11,7 +12,6 @@
 /**
  * ============================================================
  * ADMIN: GET ALL USERS
- * ?action=adminusers&session=TOKEN&search=TERM&status=FILTER&page=1&limit=50
  * ============================================================
  */
 
@@ -28,7 +28,6 @@ function getAdminUsers(e) {
 
     let users = getSheetData(CONFIG.SHEETS.USERS);
 
-    // Filter by search
     if (search) {
       users = users.filter(function(u) {
         return (u.FullName || "").toLowerCase().indexOf(search) !== -1 ||
@@ -39,7 +38,6 @@ function getAdminUsers(e) {
       });
     }
 
-    // Filter by status
     if (statusFilter) {
       users = users.filter(function(u) {
         return (u.Status || "").toLowerCase() === statusFilter;
@@ -68,7 +66,6 @@ function getAdminUsers(e) {
 /**
  * ============================================================
  * ADMIN: UPDATE USER STATUS
- * ?action=adminuserstatus&session=TOKEN&userId=U001&status=Active|Suspended|Deactivated|Deleted
  * ============================================================
  */
 
@@ -109,7 +106,6 @@ function setAdminUserStatus(e) {
 /**
  * ============================================================
  * ADMIN: GET USER DETAIL
- * ?action=adminuserdetail&session=TOKEN&userId=U001
  * ============================================================
  */
 
@@ -125,7 +121,6 @@ function getAdminUserDetail(e) {
     const user = getRowById(CONFIG.SHEETS.USERS, "UserID", userId);
     if (!user) return error("User not found");
 
-    // Get wallet info
     let wallet = {};
     try {
       const walletData = getSheetData(CONFIG.SHEETS.WALLET);
@@ -136,7 +131,6 @@ function getAdminUserDetail(e) {
       });
     } catch (e) { /* ignore */ }
 
-    // Get product count
     let productCount = 0;
     try {
       const products = getSheetData(CONFIG.SHEETS.PRODUCTS);
@@ -147,7 +141,6 @@ function getAdminUserDetail(e) {
       });
     } catch (e) { /* ignore */ }
 
-    // Get business count
     let businessCount = 0;
     try {
       const businesses = getSheetData(CONFIG.SHEETS.BUSINESSES);
@@ -176,7 +169,6 @@ function getAdminUserDetail(e) {
 /**
  * ============================================================
  * ADMIN: GET ALL BUSINESSES
- * ?action=adminbusinesses&session=TOKEN&search=TERM&status=FILTER&page=1&limit=50
  * ============================================================
  */
 
@@ -231,7 +223,6 @@ function getAdminBusinesses(e) {
 /**
  * ============================================================
  * ADMIN: UPDATE BUSINESS STATUS
- * ?action=adminbusinessstatus&session=TOKEN&businessId=B001&status=Active|Rejected|Suspended|Deleted
  * ============================================================
  */
 
@@ -270,7 +261,6 @@ function setAdminBusinessStatus(e) {
 /**
  * ============================================================
  * ADMIN: GET ALL PRODUCTS
- * ?action=adminproducts&session=TOKEN&search=TERM&status=FILTER&category=FILTER&page=1&limit=50
  * ============================================================
  */
 
@@ -331,7 +321,6 @@ function getAdminProducts(e) {
 /**
  * ============================================================
  * ADMIN: UPDATE PRODUCT STATUS
- * ?action=adminproductstatus&session=TOKEN&productId=P001&status=Active|Rejected|Deleted|Featured
  * ============================================================
  */
 
@@ -370,7 +359,6 @@ function setAdminProductStatus(e) {
 /**
  * ============================================================
  * ADMIN: GET ALL PROPERTIES
- * ?action=adminproperties&session=TOKEN&search=TERM&status=FILTER&purpose=FILTER&page=1&limit=50
  * ============================================================
  */
 
@@ -431,7 +419,6 @@ function getAdminProperties(e) {
 /**
  * ============================================================
  * ADMIN: UPDATE PROPERTY STATUS
- * ?action=adminpropertystatus&session=TOKEN&propertyId=PR001&status=Active|Rejected|Deleted
  * ============================================================
  */
 
@@ -470,7 +457,6 @@ function setAdminPropertyStatus(e) {
 /**
  * ============================================================
  * ADMIN: GET ALL NEWS
- * ?action=adminnews&session=TOKEN&search=TERM&status=FILTER&page=1&limit=50
  * ============================================================
  */
 
@@ -524,7 +510,6 @@ function getAdminNews(e) {
 /**
  * ============================================================
  * ADMIN: UPDATE NEWS STATUS
- * ?action=adminnewsstatus&session=TOKEN&newsId=N001&status=Published|Unpublished|Deleted
  * ============================================================
  */
 
@@ -562,8 +547,7 @@ function setAdminNewsStatus(e) {
 
 /**
  * ============================================================
- * ADMIN: GET WORKFORCE (ADMINS LIST)
- * ?action=adminworkforce&session=TOKEN
+ * ADMIN: GET WORKFORCE
  * ============================================================
  */
 
@@ -575,7 +559,6 @@ function getAdminWorkforce(e) {
 
     const admins = getSheetData(CONFIG.SHEETS.ADMINS);
 
-    // Get active sessions to determine online status
     let activeSessions = {};
     try {
       const sessionsSheet = getSheet(CONFIG.SHEETS.ADMIN_SESSIONS);
@@ -604,7 +587,6 @@ function getAdminWorkforce(e) {
       }
     } catch (e) { /* ignore */ }
 
-    // Build workforce list
     const workforce = admins.map(function(a) {
       const session = activeSessions[a.AdminID] || {};
       return {
@@ -635,7 +617,6 @@ function getAdminWorkforce(e) {
 /**
  * ============================================================
  * ADMIN: UPDATE WORKFORCE MEMBER
- * ?action=adminupdateworkforce&session=TOKEN&adminId=EKKA001&role=Manager&department=Sales&designation=Sr.Manager&status=Active
  * ============================================================
  */
 
@@ -674,8 +655,7 @@ function updateAdminWorkforce(e) {
 
 /**
  * ============================================================
- * ADMIN: GET CATEGORIES LIST (for filters)
- * ?action=admincategories&session=TOKEN&type=products|businesses|news
+ * ADMIN: GET CATEGORIES LIST
  * ============================================================
  */
 
@@ -714,4 +694,222 @@ function getAdminCategories(e) {
   } catch (err) {
     return exception(err);
   }
+}
+
+
+/**
+ * ============================================================
+ * PHASE 5.6A — ADMIN: GET PROMOTION CAMPAIGNS
+ * ?action=adminpromotioncampaigns&session=TOKEN&search=TERM&status=FILTER&creativeType=FILTER&page=1&limit=20
+ * Returns normalized PromotionCampaign data with owner info
+ * ============================================================
+ */
+function getAdminPromotionCampaigns(e) {
+  try {
+
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+
+    const search = (e.parameter.search || "").trim().toLowerCase();
+    const statusFilter = (e.parameter.status || "").trim().toLowerCase();
+    const creativeFilter = (e.parameter.creativeType || "").trim();
+    const page = Math.max(1, parseInt(e.parameter.page || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(e.parameter.limit || "20")));
+
+    // Get raw campaign data and normalize
+    let campaigns = getSheetData("PromotionCampaigns");
+
+    // Build user lookup map for owner resolution
+    var userMap = {};
+    try {
+      var usersData = getSheetData(CONFIG.SHEETS.USERS);
+      usersData.forEach(function(u) {
+        userMap[u.UserID] = u.FullName || u.Name || u.Mobile || "";
+      });
+    } catch (e) { /* ignore */ }
+
+    // Normalize and filter
+    if (typeof normalizeCampaign === "function") {
+      campaigns = campaigns.map(function(c) { return normalizeCampaign(c); });
+    }
+
+    if (search) {
+      campaigns = campaigns.filter(function(c) {
+        return (c.CampaignID || "").toLowerCase().indexOf(search) !== -1 ||
+               (c.CampaignType || "").toLowerCase().indexOf(search) !== -1 ||
+               (c.TargetType || "").toLowerCase().indexOf(search) !== -1 ||
+               (c.TargetID || "").toLowerCase().indexOf(search) !== -1 ||
+               (c.Title || "").toLowerCase().indexOf(search) !== -1 ||
+               (c.City || "").toLowerCase().indexOf(search) !== -1 ||
+               (c.State || "").toLowerCase().indexOf(search) !== -1 ||
+               (c.OwnerUserID || "").toLowerCase().indexOf(search) !== -1 ||
+               (userMap[c.OwnerUserID] || "").toLowerCase().indexOf(search) !== -1;
+      });
+    }
+
+    if (statusFilter) {
+      var statusLower = statusFilter;
+      campaigns = campaigns.filter(function(c) {
+        var cs = (c.Status || "").toLowerCase();
+        // Support grouping: "expired" includes Ended/Completed
+        if (statusLower === "expired" || statusLower === "ended") {
+          return cs === "expired" || cs === "ended" || cs === "completed";
+        }
+        if (statusLower === "active") {
+          return cs === "active";
+        }
+        return cs === statusLower;
+      });
+    }
+
+    if (creativeFilter) {
+      campaigns = campaigns.filter(function(c) {
+        return (c.CreativeType || "").toLowerCase() === creativeFilter.toLowerCase();
+      });
+    }
+
+    // Build response with owner name
+    var enriched = campaigns.map(function(c) {
+      return {
+        CampaignID: c.CampaignID || "",
+        CampaignType: c.CampaignType || "",
+        OwnerUserID: c.OwnerUserID || "",
+        OwnerName: userMap[c.OwnerUserID] || c.OwnerUserID || "Unknown",
+        TargetType: c.TargetType || "",
+        TargetID: c.TargetID || "",
+        CreativeType: c.CreativeType || "IMAGE",
+        CTA: c.CTA || "",
+        DestinationType: c.DestinationType || "None",
+        ImageURL: c.ImageURL || "",
+        VideoURL: c.VideoURL || "",
+        ExternalURL: c.ExternalURL || "",
+        PageContent: c.PageContent || "",
+        Title: c.Title || "",
+        Description: c.Description || "",
+        Radius: c.Radius || c.TargetRadius || "",
+        City: c.City || "",
+        District: c.District || "",
+        State: c.State || "",
+        Country: c.Country || "",
+        Latitude: c.Latitude || "",
+        Longitude: c.Longitude || "",
+        Views: Number(c.Views || 0),
+        Clicks: Number(c.Clicks || 0),
+        Interested: Number(c.Interested || 0),
+        Shares: Number(c.Shares || 0),
+        CoinsSpent: Number(c.CoinsSpent || 0),
+        RewardPool: Number(c.RewardPool || 0),
+        PlatformReserve: Number(c.PlatformReserve || 0),
+        RemainingRewardCoins: Number(c.RemainingRewardCoins || 0),
+        RewardCoins: Number(c.RewardCoins || 0),
+        Duration: Number(c.Duration || 0),
+        StartDate: c.StartDate || "",
+        EndDate: c.EndDate || "",
+        Status: c.Status || "",
+        CreatedDate: c.CreatedDate || c.CreatedAt || "",
+        Priority: Number(c.Priority || 0),
+        Featured: c.Featured || "No",
+        PIPEnabled: c.PIPEnabled || "Yes"
+      };
+    });
+
+    const total = enriched.length;
+    const totalPages = Math.ceil(total / limit);
+    const start = (page - 1) * limit;
+    const paged = enriched.slice(start, start + limit);
+
+    // Also compute summary stats
+    var stats = {
+      totalCampaigns: total,
+      activeCount: 0,
+      pausedCount: 0,
+      pendingCount: 0,
+      expiredCount: 0,
+      completedCount: 0,
+      totalViews: 0,
+      totalClicks: 0,
+      totalInterested: 0,
+      totalShares: 0,
+      totalCoinsSpent: 0,
+      totalRewardPool: 0,
+      totalRemainingRewardCoins: 0
+    };
+
+    enriched.forEach(function(c) {
+      var s = (c.Status || "").toLowerCase();
+      if (s === "active") stats.activeCount++;
+      else if (s === "paused") stats.pausedCount++;
+      else if (s === "pending") stats.pendingCount++;
+      else if (s === "expired" || s === "ended" || s === "completed") stats.expiredCount++;
+      else stats.completedCount++;
+      stats.totalViews += c.Views;
+      stats.totalClicks += c.Clicks;
+      stats.totalInterested += c.Interested;
+      stats.totalShares += c.Shares;
+      stats.totalCoinsSpent += c.CoinsSpent;
+      stats.totalRewardPool += c.RewardPool;
+      stats.totalRemainingRewardCoins += c.RemainingRewardCoins;
+    });
+
+    return success({
+      count: total,
+      totalPages: totalPages,
+      page: page,
+      limit: limit,
+      data: paged,
+      stats: stats
+    }, "Promotion Campaigns Loaded");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ============================================================
+ * PHASE 5.6A — ADMIN: GET LEGACY ADVERTISEMENTS (read-only)
+ * ?action=adminadvertisements&session=TOKEN&page=1&limit=50
+ * Returns legacy Advertisements data for unified view
+ * ============================================================
+ */
+function getAdminAdvertisements(e) {
+  try {
+
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+
+    const page = Math.max(1, parseInt(e.parameter.page || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(e.parameter.limit || "50")));
+
+    let ads = getSheetData("Advertisements");
+
+    const total = ads.length;
+    const totalPages = Math.ceil(total / limit);
+    const start = (page - 1) * limit;
+    const paged = ads.slice(start, start + limit);
+
+    return success({
+      count: total,
+      totalPages: totalPages,
+      page: page,
+      limit: limit,
+      data: paged
+    }, "Advertisements Loaded");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ============================================================
+ * Phase 5.6A — ADMIN: Get promotionCampaigns (legacy route)
+ * ?action=promotioncampaigns&session=TOKEN
+ * Also kept for backward compatibility
+ * ============================================================
+ */
+function getPromotionCampaigns(e) {
+  return getAdminPromotionCampaigns(e);
 }
