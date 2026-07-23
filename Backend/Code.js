@@ -602,6 +602,25 @@ case "liveunreadcount":
       case "admincategories":
         return getAdminCategories(e);
 
+      // Phase 5.7A - Wallet & Rewards Economy
+      case "admineconomysummary":
+        return getAdminEconomySummary(e);
+
+      case "adminwalletexplorer":
+        return getAdminWalletExplorer(e);
+
+      case "adminwalletdetail":
+        return getAdminWalletDetail(e);
+
+      case "adminwallettransactions":
+        return getAdminWalletTransactions(e);
+
+      case "adminrewardactivity":
+        return getAdminRewardActivity(e);
+
+      case "admincampaigneconomy":
+        return getAdminCampaignEconomy(e);
+
       // Phase 5.5 - Task Management
       case "admintaskstats":
         return getAdminTaskStats(e);
