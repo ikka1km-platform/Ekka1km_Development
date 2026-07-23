@@ -63,9 +63,9 @@ function getAdminEconomySummary(e) {
     let totalDebits = 0;
     let walletTxCount = walletTxData.length;
     walletTxData.forEach(function(tx) {
-      const amount = Number(tx.Amount || 0);
-      // Transactions with positive amount are credits (REWARD type)
-      // We use Amount field - positive amounts are credits
+      const amount = Number(tx.Coins || tx.Amount || 0);
+      // WalletTransactions canonical schema stores value in "Coins".
+      // Positive => credits, negative => debits
       if (amount > 0) {
         totalCredits += amount;
       } else {

@@ -621,6 +621,34 @@ case "liveunreadcount":
       case "admincampaigneconomy":
         return getAdminCampaignEconomy(e);
 
+      // Phase 5.7B - Economy Reconciliation & Integrity Monitoring
+      case "economyintegritysummary":
+        return getEconomyIntegritySummary(e);
+
+      case "walletreconciliation":
+        return getWalletReconciliation(e);
+
+      case "transactionanomalies":
+        return getTransactionAnomalies(e);
+
+      case "rewardanomalies":
+        return getRewardAnomalies(e);
+
+      case "duplicaterewards":
+        return getDuplicateRewards(e);
+
+      case "campaignreconciliation":
+        return getCampaignReconciliation(e);
+
+      case "anomalyexplorer":
+        return getAnomalyExplorer(e);
+
+      case "adminwalletdetailintegrity":
+        return getAdminWalletDetailIntegrity(e);
+
+      case "campaigneconomyintegrity":
+        return getCampaignEconomyIntegrity(e);
+
       // Phase 5.5 - Task Management
       case "admintaskstats":
         return getAdminTaskStats(e);
