@@ -732,81 +732,20 @@ function restoreNews(e) {
 
 /**
  * ============================================================
- * CREATE ANNOUNCEMENT
- * ?action=createannouncement&userId=U001&title=Notice&description=Details&category=General
+ * CREATE ANNOUNCEMENT (V2 - Delegated to Announcements.js)
+ * 
+ * NOTE: The V2 createAnnouncement is now in Announcements.js
+ * and requires Active Announcer authorization.
+ * 
+ * This function is kept as a thin wrapper for backward compatibility
+ * but delegates to the V2 implementation.
+ * 
+ * The old behavior (any user could post) is replaced by the
+ * Announcer-authorized flow.
+ * 
+ * For non-announcer users, use addAnnouncement (legacy).
  * ============================================================
  */
-function createAnnouncement(e) {
-  try {
-    var p = e && e.parameter ? e.parameter : {};
-    var userId = p.userId || "";
-
-    if (!userId) return error("userId required");
-
-    var limitCheck = validatePostingLimit(userId, "Announcement");
-    if (!limitCheck.allowed) {
-      return error(limitCheck.reason);
-    }
-
-    const sheet = getSheet("Announcements");
-    if (!sheet) return error("Announcements sheet not found");
-
-    const announcementId = "A" + Utilities.getUuid().substring(0, 8);
-
-    var status = p.status || "Pending";
-    if (status !== "Draft" && status !== "Pending" && status !== "Active" && status !== "Expired" && status !== "Deleted") {
-      status = "Pending";
-    }
-
-    sheet.appendRow([
-      announcementId,
-      userId,
-      p.title || "",
-      p.description || "",
-      p.category || "General",
-      p.image || "",
-      p.address || "",
-      p.city || "",
-      p.district || "",
-      p.state || "",
-      p.country || "India",
-      p.latitude || "",
-      p.longitude || "",
-      p.startDate || "",
-      p.endDate || "",
-      p.priority || "Normal",
-      "Pending",
-      new Date(),
-      new Date()
-    ]);
-
-    // Submit to ModerationQueue
-    try {
-      if (typeof ensureModerationQueueSheet === "function" && typeof submitModeration === "function") {
-        submitModeration({
-          parameter: {
-            contentType: "Announcement",
-            contentId: announcementId,
-            userId: userId,
-            reason: "New announcement pending review"
-          }
-        });
-      }
-    } catch (mqErr) {
-      Logger.log("ModerationQueue submission error: " + mqErr);
-    }
-
-    try {
-      if (typeof trackEvent === "function") {
-        trackEvent({
-          parameter: { eventType: "AnnouncementCreated", userId: userId, entityType: "Announcement", entityId: announcementId }
-        });
-      }
-    } catch (te) { Logger.log("AnnouncementCreated track error: " + te); }
-
-    return success({ announcementId: announcementId, status: "Pending" }, "Announcement created successfully");
-
-  } catch (err) {
-    return exception(err);
-  }
-}
+// createAnnouncement is now defined in Announcements.js (V2)
+// The old Posting.js version has been removed to avoid conflicts.
+// All announcement creation goes through Announcements.js authorization.

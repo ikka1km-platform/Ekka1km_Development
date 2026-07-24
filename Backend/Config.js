@@ -50,6 +50,7 @@ const CONFIG = {
     NEWS: "News",
 
     ANNOUNCEMENTS: "Announcements",
+    ANNOUNCERS: "Announcers",
 
     MEDIA: "Media",
 

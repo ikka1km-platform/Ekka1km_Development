@@ -259,6 +259,34 @@ case "notification_sent":
       case "restoreannouncement":
         return restoreAnnouncement(e);
 
+      // V2 Announcer System
+      case "applyannouncer":
+        return applyAnnouncer(e);
+
+      case "myannouncerstatus":
+        return getMyAnnouncerStatus(e);
+
+      case "myannouncements":
+        return getMyAnnouncements(e);
+
+      case "getallannouncers":
+        return getAllAnnouncers(e);
+
+      case "adminverifyannouncer":
+        return adminVerifyAnnouncer(e);
+
+      case "adminsuspendannouncer":
+        return adminSuspendAnnouncer(e);
+
+      case "adminreactivateannouncer":
+        return adminReactivateAnnouncer(e);
+
+      case "adminrevokeannouncer":
+        return adminRevokeAnnouncer(e);
+
+      case "adminannouncementstatus":
+        return setAnnouncementStatus(e);
+
       // Campaigns
       case "campaigns":
         return getCampaigns(e);
