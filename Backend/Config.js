@@ -49,6 +49,8 @@ const CONFIG = {
 
     NEWS: "News",
 
+    ANNOUNCEMENTS: "Announcements",
+
     MEDIA: "Media",
 
     ADVERTISEMENTS: "Advertisements",

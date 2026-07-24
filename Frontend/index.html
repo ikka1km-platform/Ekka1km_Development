@@ -504,21 +504,28 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
     <div
       class="menuCard"
-      onclick="openUploadTest()"
+      onclick="openPage('announcements')"
       style="background:#e8f5e9;">
 
       <i class="material-icons" style="color:#0f9d58;">
-        cloud_upload
+        campaign
       </i>
 
       <h4>
-        Upload Test
+        Announcements
       </h4>
 
     </div>
 
   </div>
 
+</div>
+
+<!-- ANNOUNCEMENTS -->
+
+<div id="announcements" class="page">
+  <div class="sectionTitle">Announcements</div>
+  <div id="announcementList"></div>
 </div>
 
 <!-- PRODUCTS -->
@@ -747,6 +754,18 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       </i>
 
       <span>Promote</span>
+
+    </div>
+
+    <div
+      class="fabMenuItem"
+      onclick="openPostAnnouncementForm()">
+
+      <i class="material-icons">
+        campaign
+      </i>
+
+      <span>Post Announcement</span>
 
     </div>
 
@@ -1259,6 +1278,72 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
 </div>
 
+<!-- POST ANNOUNCEMENT -->
+
+<div id="postAnnouncement" class="page">
+
+  <div class="sectionTitle">
+    Post Announcement
+  </div>
+
+  <div class="card">
+
+    <input
+      id="annTitle"
+      placeholder="Announcement Title *">
+
+    <textarea
+      id="annDescription"
+      placeholder="Announcement Description *">
+    </textarea>
+
+    <select id="annCategory">
+      <option value="General">General</option>
+      <option value="Community">Community</option>
+      <option value="Public Notice">Public Notice</option>
+      <option value="Event">Event</option>
+      <option value="Education">Education</option>
+      <option value="Utility / Service">Utility / Service</option>
+      <option value="Emergency / Important">Emergency / Important</option>
+    </select>
+
+    <input
+      id="annImage"
+      placeholder="Image URL (optional)">
+
+    <input
+      id="annAddress"
+      placeholder="Address (optional)">
+
+    <input
+      id="annCity"
+      placeholder="City">
+
+    <input
+      id="annStartDate"
+      type="date"
+      placeholder="Start Date (optional)">
+
+    <input
+      id="annEndDate"
+      type="date"
+      placeholder="End Date (optional)">
+
+    <button
+      onclick="submitAnnouncement()">
+      Post Announcement
+    </button>
+
+    <button
+      class="btn-gray"
+      onclick="openPage('announcements')">
+      Cancel
+    </button>
+
+  </div>
+
+</div>
+
 <!-- MY PRODUCTS -->
 
 <div id="myProducts" class="page">
@@ -1386,6 +1471,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 <script src="PostBusiness.js"></script>
 <script src="PostNews.js"></script>
 <script src="Drafts.js"></script>
+<script src="Announcements.js"></script>
 
 </body>
 </html>

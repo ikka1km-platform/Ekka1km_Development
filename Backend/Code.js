@@ -237,7 +237,27 @@ case "marknotificationread":
 case "notification_sent":
   return markNotificationSent(e);
 
+      // Announcements
+      case "announcements":
+        return getAnnouncements(e);
 
+      case "announcement":
+        return getAnnouncement(e);
+
+      case "addannouncement":
+        return addAnnouncement(e);
+
+      case "createannouncement":
+        return createAnnouncement(e);
+
+      case "updateannouncement":
+        return updateAnnouncement(e);
+
+      case "deleteannouncement":
+        return deleteAnnouncement(e);
+
+      case "restoreannouncement":
+        return restoreAnnouncement(e);
 
       // Campaigns
       case "campaigns":
@@ -1107,6 +1127,15 @@ function doPost(e) {
 
       case "deletenews":
         return deleteNews(e);
+
+      case "addannouncement":
+        return addAnnouncement(e);
+
+      case "updateannouncement":
+        return updateAnnouncement(e);
+
+      case "deleteannouncement":
+        return deleteAnnouncement(e);
 
       case "addadvertisement":
         return addAdvertisement(e);

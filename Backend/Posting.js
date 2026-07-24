@@ -18,7 +18,8 @@ var POSTING_LIMITS = {
   "Product": { daily: 20, hourly: 5 },
   "Property": { daily: 10, hourly: 3 },
   "Business": { daily: 5, hourly: 2 },
-  "News": { daily: 10, hourly: 3 }
+  "News": { daily: 10, hourly: 3 },
+  "Announcement": { daily: 10, hourly: 3 }
 };
 
 /**
@@ -723,6 +724,87 @@ function restoreNews(e) {
     if (!updated) return error("News not found");
 
     return success({ newsId: newsId }, "News restored successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * CREATE ANNOUNCEMENT
+ * ?action=createannouncement&userId=U001&title=Notice&description=Details&category=General
+ * ============================================================
+ */
+function createAnnouncement(e) {
+  try {
+    var p = e && e.parameter ? e.parameter : {};
+    var userId = p.userId || "";
+
+    if (!userId) return error("userId required");
+
+    var limitCheck = validatePostingLimit(userId, "Announcement");
+    if (!limitCheck.allowed) {
+      return error(limitCheck.reason);
+    }
+
+    const sheet = getSheet("Announcements");
+    if (!sheet) return error("Announcements sheet not found");
+
+    const announcementId = "A" + Utilities.getUuid().substring(0, 8);
+
+    var status = p.status || "Pending";
+    if (status !== "Draft" && status !== "Pending" && status !== "Active" && status !== "Expired" && status !== "Deleted") {
+      status = "Pending";
+    }
+
+    sheet.appendRow([
+      announcementId,
+      userId,
+      p.title || "",
+      p.description || "",
+      p.category || "General",
+      p.image || "",
+      p.address || "",
+      p.city || "",
+      p.district || "",
+      p.state || "",
+      p.country || "India",
+      p.latitude || "",
+      p.longitude || "",
+      p.startDate || "",
+      p.endDate || "",
+      p.priority || "Normal",
+      "Pending",
+      new Date(),
+      new Date()
+    ]);
+
+    // Submit to ModerationQueue
+    try {
+      if (typeof ensureModerationQueueSheet === "function" && typeof submitModeration === "function") {
+        submitModeration({
+          parameter: {
+            contentType: "Announcement",
+            contentId: announcementId,
+            userId: userId,
+            reason: "New announcement pending review"
+          }
+        });
+      }
+    } catch (mqErr) {
+      Logger.log("ModerationQueue submission error: " + mqErr);
+    }
+
+    try {
+      if (typeof trackEvent === "function") {
+        trackEvent({
+          parameter: { eventType: "AnnouncementCreated", userId: userId, entityType: "Announcement", entityId: announcementId }
+        });
+      }
+    } catch (te) { Logger.log("AnnouncementCreated track error: " + te); }
+
+    return success({ announcementId: announcementId, status: "Pending" }, "Announcement created successfully");
 
   } catch (err) {
     return exception(err);

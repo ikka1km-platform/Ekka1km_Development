@@ -133,6 +133,11 @@ function trackEvent(e) {
       incrementNewsView(entityId);
     }
 
+    // For AnnouncementView, increment announcement view count
+    if (eventType === "AnnouncementView" && entityId) {
+      incrementAnnouncementView(entityId);
+    }
+
     // For Share, increment share count
     if (eventType === "Share" && entityId && entityType === "News") {
       incrementNewsShare(entityId);
@@ -173,6 +178,35 @@ function incrementNewsView(newsId) {
     }
   } catch (err) {
     Logger.log("incrementNewsView error: " + err.toString());
+  }
+}
+
+
+/**
+ * ============================================================
+ * INCREMENT ANNOUNCEMENT VIEW
+ * ============================================================
+ */
+
+function incrementAnnouncementView(announcementId) {
+  try {
+    var sheet = getSheet("Announcements");
+    if (!sheet) return;
+
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var viewsCol = headers.indexOf("Views");
+    if (viewsCol < 0) return;
+
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]).trim() === String(announcementId).trim()) {
+        var currentViews = parseInt(data[i][viewsCol]) || 0;
+        sheet.getRange(i + 1, viewsCol + 1).setValue(currentViews + 1);
+        return;
+      }
+    }
+  } catch (err) {
+    Logger.log("incrementAnnouncementView error: " + err.toString());
   }
 }
 

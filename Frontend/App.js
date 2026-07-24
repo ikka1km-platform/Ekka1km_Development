@@ -304,6 +304,13 @@ function loadAll() {
   }
 
   if (
+    typeof loadAnnouncements ===
+    "function"
+  ) {
+    loadAnnouncements();
+  }
+
+  if (
     typeof loadWallet ===
     "function"
   ) {
