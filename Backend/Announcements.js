@@ -87,19 +87,29 @@ function filterAnnouncementsByDualRadius(announcements, userLat, userLng) {
     var targetRadius = String(item.Radius || "").trim();
     var annLat = Number(item.Latitude);
     var annLng = Number(item.Longitude);
+    var annId = String(item.AnnouncementID || "");
     
     // No radius set → fall back to normal filterByRadius behavior
     if (!targetRadius || targetRadius === "") {
+      if (annId.indexOf("A6e803177") !== -1) {
+        Logger.log("A6e803177 radius check - No radius set, passing through");
+      }
       return true; // Will be filtered by existing filterByRadius
     }
     
     // All India → always visible
     if (targetRadius.toLowerCase() === "all india" || targetRadius === "0") {
+      if (annId.indexOf("A6e803177") !== -1) {
+        Logger.log("A6e803177 radius check - All India radius, passing");
+      }
       return true;
     }
     
     // No coordinates on announcement → skip radius filter
     if (!annLat || !annLng || isNaN(annLat) || isNaN(annLng)) {
+      if (annId.indexOf("A6e803177") !== -1) {
+        Logger.log("A6e803177 radius check - No coordinates, passing");
+      }
       return true;
     }
     
@@ -109,8 +119,13 @@ function filterAnnouncementsByDualRadius(announcements, userLat, userLng) {
     
     if (isNaN(radiusNum)) return true;
     
+    var passes = distance <= radiusNum;
+    if (annId.indexOf("A6e803177") !== -1) {
+      Logger.log("A6e803177 radius check - Distance: " + distance.toFixed(2) + " KM, Radius: " + radiusNum + " KM, passes: " + passes);
+    }
+    
     // Visible only if user is within announcement's target radius
-    return distance <= radiusNum;
+    return passes;
   });
 }
 
@@ -181,20 +196,48 @@ function getAnnouncements(e) {
       announcements.push(row);
     }
 
+    // DIAGNOSTIC: Log all announcements found in sheet
+    Logger.log("ALL ANNOUNCEMENTS IN SHEET: " + announcements.length);
+    announcements.forEach(function(item) {
+      Logger.log("  - " + item.AnnouncementID + " | Status: '" + item.Status + "' | EndDate: '" + item.EndDate + "' | Radius: '" + item.Radius + "' | AnnouncerID: '" + item.AnnouncerID + "'");
+    });
+
     // Filter by status: only show Active announcements
+    Logger.log("STATUS FILTER - Total announcements before: " + announcements.length);
     announcements = announcements.filter(function(item) {
       var status = String(item.Status || "Active").toLowerCase();
-      return status === "active" || status === "published";
+      var passes = status === "active" || status === "published";
+      if (String(item.AnnouncementID || "").indexOf("A6e803177") !== -1) {
+        Logger.log("A6e803177 status check - Status: '" + item.Status + "', normalized: '" + status + "', passes: " + passes);
+      }
+      return passes;
     });
+    Logger.log("STATUS FILTER - After status filter: " + announcements.length);
 
     // Filter out expired announcements if EndDate exists
     var now = new Date();
+    Logger.log("DATE FILTER - Now: " + now.toISOString() + " (local: " + now.toLocaleString() + ")");
     announcements = announcements.filter(function(item) {
-      if (!item.EndDate || String(item.EndDate).trim() === "") return true;
+      if (!item.EndDate || String(item.EndDate).trim() === "") {
+        if (String(item.AnnouncementID || "").indexOf("A6e803177") !== -1) {
+          Logger.log("A6e803177 date check - No EndDate, passing");
+        }
+        return true;
+      }
       var endDate = new Date(item.EndDate);
-      if (isNaN(endDate.getTime())) return true;
-      return endDate >= now;
+      if (isNaN(endDate.getTime())) {
+        if (String(item.AnnouncementID || "").indexOf("A6e803177") !== -1) {
+          Logger.log("A6e803177 date check - Invalid EndDate, passing");
+        }
+        return true;
+      }
+      var passes = endDate >= now;
+      if (String(item.AnnouncementID || "").indexOf("A6e803177") !== -1) {
+        Logger.log("A6e803177 date check - EndDate raw: '" + item.EndDate + "', parsed: " + endDate.toISOString() + " (local: " + endDate.toLocaleString() + "), now: " + now.toISOString() + ", passes: " + passes);
+      }
+      return passes;
     });
+    Logger.log("DATE FILTER - After date filter: " + announcements.length);
 
     // Get user's discovery location context
     var location = getLocationContext(e);
@@ -355,15 +398,26 @@ function createAnnouncement(e) {
     }
 
     // ============================================================
-    // Use Announcer's verified location (NOT phone GPS)
     // ============================================================
-    var annLat = announcer.Latitude || p.latitude || "";
-    var annLng = announcer.Longitude || p.longitude || "";
-    var annCity = announcer.City || p.city || "";
-    var annDistrict = announcer.District || p.district || "";
-    var annState = announcer.State || p.state || "";
+    // Use Announcer's verified location (NOT phone GPS)
+    // STRICT: only use Announcer record values
+    // Do NOT fall back to caller-supplied latitude/longitude/city
+    // ============================================================
+    var annLat = announcer.Latitude || "";
+    var annLng = announcer.Longitude || "";
+    var annCity = announcer.City || "";
+    var annDistrict = announcer.District || "";
+    var annState = announcer.State || "";
     var annCountry = announcer.Country || "India";
-    var annAddress = announcer.Address || p.address || "";
+    var annAddress = announcer.Address || "";
+    
+    // Validate coordinates for official radius-based announcements
+    if (selectedRadius && selectedRadius !== "" && selectedRadius.toLowerCase() !== "all india") {
+      if (!annLat || !annLng || isNaN(Number(annLat)) || isNaN(Number(annLng))) {
+        // All India radius does not require coordinates
+        return error("Announcer authorization has incomplete coordinates. Radius-limited announcements require valid Latitude/Longitude on the Announcer record. Contact admin to update coordinates.");
+      }
+    }
 
     // Validate posting limit
     var limitCheck = validatePostingLimit(userId, "Announcement");

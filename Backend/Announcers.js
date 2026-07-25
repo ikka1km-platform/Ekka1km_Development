@@ -174,6 +174,33 @@ function applyAnnouncer(e) {
 
 /**
  * ============================================================
+ * GET ANNOUNCER BY ID (API route)
+ * ?action=getannouncerbyid&announcerId=AN001
+ * ============================================================
+ */
+function getAnnouncerByIdRoute(e) {
+  try {
+    var p = e && e.parameter ? e.parameter : {};
+    var announcerId = p.announcerId || "";
+    
+    if (!announcerId) {
+      return error("AnnouncerID required");
+    }
+    
+    var announcer = getAnnouncerById(announcerId);
+    if (!announcer) {
+      return error("Announcer not found");
+    }
+    
+    return success(announcer, "Announcer loaded");
+    
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
  * GET MY ANNOUNCER STATUS
  * ?action=myannouncerstatus&userId=U001
  * ============================================================

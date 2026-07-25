@@ -297,6 +297,11 @@ function openAnnouncerCreateForm(announcerId) {
   setTimeout(function() {
     var announcerIdField = document.getElementById("announcerIdField");
     if (announcerIdField) announcerIdField.value = announcerId;
+    
+    // Show the radius container
+    var radiusContainer = document.getElementById("annRadiusContainer");
+    if (radiusContainer) radiusContainer.style.display = "block";
+    
     if (typeof loadAnnouncerPostInfo === "function") loadAnnouncerPostInfo(announcerId);
   }, 300);
 }

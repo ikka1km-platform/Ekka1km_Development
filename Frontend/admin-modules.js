@@ -88,6 +88,7 @@ const AdminModules = {
       workforce: "Workforce Management",
       analytics: "Analytics",
       advertisements: "Advertisements",
+      moderation: "Moderation",
       wallet: "Wallet & Rewards",
       gps: "GPS Analytics",
       search: "Search Analytics",

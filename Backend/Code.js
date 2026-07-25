@@ -266,6 +266,9 @@ case "notification_sent":
       case "myannouncerstatus":
         return getMyAnnouncerStatus(e);
 
+      case "getannouncerbyid":
+        return getAnnouncerByIdRoute(e);
+
       case "myannouncements":
         return getMyAnnouncements(e);
 

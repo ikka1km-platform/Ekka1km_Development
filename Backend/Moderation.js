@@ -108,6 +108,42 @@ function updateModeration(e) {
 
     if (!updated) return error("Moderation item not found");
 
+    // ============================================================
+    // MODERATION CASCADE: If approving an Announcement, update its
+    // Status to Active in the Announcements sheet
+    // ============================================================
+    if (status === "Approved") {
+      // Get the moderation item to find the contentId and contentType
+      var queueData = getSheetData("ModerationQueue") || [];
+      var queueItem = null;
+      for (var qi = 0; qi < queueData.length; qi++) {
+        if (String(queueData[qi].QueueID) === String(queueId)) {
+          queueItem = queueData[qi];
+          break;
+        }
+      }
+      
+      if (queueItem && String(queueItem.ContentType || "").toLowerCase() === "announcement") {
+        var contentId = queueItem.ContentID || "";
+        if (contentId) {
+          var annUpdated = updateRow("Announcements", "AnnouncementID", contentId, {
+            Status: "Active",
+            UpdatedDate: new Date()
+          });
+          
+          if (!annUpdated) {
+            // CRITICAL: Cascade failed - revert moderation status and report error
+            updateRow("ModerationQueue", "QueueID", queueId, {
+              Status: "Pending"
+            });
+            return error("Failed to activate Announcement " + contentId + ". Moderation status reverted.");
+          }
+          
+          Logger.log("Moderation cascade: Announcement " + contentId + " set to Active");
+        }
+      }
+    }
+
     return success({ queueId: queueId, status: status }, "Moderation updated successfully");
 
   } catch (err) {

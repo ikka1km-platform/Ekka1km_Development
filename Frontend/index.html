@@ -831,24 +831,10 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
     </select>
 
     <input
-      id="prodBrand"
-      placeholder="Brand">
+      id="annCity"
+      placeholder="City">
 
-    <input
-      id="prodModel"
-      placeholder="Model">
-
-    <!-- Product Images Section -->
-    <div style="margin:15px 0;">
-      <label style="font-weight:600;font-size:14px;display:block;margin-bottom:8px;">Product Images (up to 5)</label>
-      <div id="prodImageUploads">
-        <div id="prodImageUpload1" style="margin-bottom:10px;"></div>
-        <div id="prodImageUpload2" style="margin-bottom:10px;"></div>
-        <div id="prodImageUpload3" style="margin-bottom:10px;"></div>
-        <div id="prodImageUpload4" style="margin-bottom:10px;"></div>
-        <div id="prodImageUpload5" style="margin-bottom:10px;"></div>
-      </div>
-      <div id="prodImageUrls" style="display:none;">
+    <div id="prodImageUrls" style="display:none;">
         <input id="prodImage" placeholder="Image URL">
         <input id="prodImage2" placeholder="Image 2 URL">
         <input id="prodImage3" placeholder="Image 3 URL">
@@ -1325,6 +1311,31 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
     <input
       id="annCity"
       placeholder="City">
+
+    <!-- Hidden Announcer ID field (for V2 Announcer-authorized posts) -->
+    <input
+      id="announcerIdField"
+      type="hidden"
+      value="">
+
+    <!-- Announcer Official Jurisdiction Context (shown when active Announcer) -->
+    <div id="announcerPostContext"></div>
+
+    <!-- Announcement Coverage / Radius (shown for Announcer-authorized posts) -->
+    <div id="annRadiusContainer" style="display:none;">
+      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;margin-top:8px;">
+        Announcement Coverage / Radius
+      </label>
+      <select id="annRadius" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;">
+        <option value="1">1 KM</option>
+        <option value="5">5 KM</option>
+        <option value="10">10 KM</option>
+        <option value="25">25 KM</option>
+        <option value="51">51 KM</option>
+        <option value="100">100 KM</option>
+        <option value="All India">All India</option>
+      </select>
+    </div>
 
     <input
       id="annStartDate"
