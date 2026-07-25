@@ -1331,3 +1331,151 @@ li{
   }
 }
 
+/* ==========================================================
+   STAGE 2 BASE STYLES
+========================================================== */
+
+.header-menu-btn,
+.header-notif-btn{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:40px;
+  height:40px;
+  border:none;
+  background:transparent;
+  border-radius:8px;
+  cursor:pointer;
+  color:#222;
+  flex-shrink:0;
+  margin:0;
+  padding:0;
+}
+
+.header-menu-btn:active,
+.header-notif-btn:active{
+  background:#f5f5f5;
+}
+
+.header-menu-btn i,
+.header-notif-btn i{
+  font-size:24px;
+}
+
+.header-notif-dot{
+  position:absolute;
+  top:6px;
+  right:6px;
+  width:8px;
+  height:8px;
+  background:#d32f2f;
+  border-radius:50%;
+  display:none;
+}
+
+.header-notif-dot.visible{
+  display:block;
+}
+
+.locationDiscoveryCard{
+  width:100%;
+  max-width:100%;
+  margin:0 15px 15px;
+  background:#fff;
+  border-radius:18px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+
+.searchRadiusRow{
+  display:flex;
+  flex-direction:column;
+  width:100%;
+  gap:12px;
+  padding:12px 15px 15px;
+}
+
+.discoverySearchBox{
+  flex:1;
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  background:#f5f5f5;
+  border-radius:12px;
+  padding:10px 14px;
+  border:1px solid #ddd;
+}
+
+.discoverySearchBox i{
+  color:#888;
+  font-size:20px;
+  flex-shrink:0;
+}
+
+.discoverySearchBox input{
+  flex:1;
+  border:none;
+  background:transparent;
+  padding:0;
+  margin:0;
+  font-size:14px;
+  outline:none;
+  min-width:0;
+}
+
+.radiusSelector{
+  width:100%;
+}
+
+.radiusSelector select{
+  width:100%;
+  padding:12px;
+  border:1px solid #ddd;
+  border-radius:12px;
+  background:#fff;
+  font-size:14px;
+  font-weight:500;
+  color:#222;
+  appearance:auto;
+}
+
+/* ==========================================================
+   DESKTOP
+========================================================== */
+
+@media(min-width:1025px){
+
+  .page{
+    max-width:1200px;
+    margin:0 auto;
+  }
+
+  header{
+    max-width:1200px;
+    margin:0 auto;
+    left:auto;
+    transform:none;
+  }
+
+  .bottomNav{
+    max-width:1200px;
+    margin:0 auto;
+    left:auto;
+    transform:none;
+  }
+
+  .searchRadiusRow{
+    flex-direction:row;
+  }
+
+  .discoverySearchBox{
+    flex:1;
+  }
+
+  .radiusSelector{
+    flex-shrink:0;
+    width:auto;
+  }
+}
+

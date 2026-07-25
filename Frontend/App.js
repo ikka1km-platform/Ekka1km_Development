@@ -123,6 +123,9 @@ function openPage(pageId) {
     }
   }
 
+  // Close side drawer on page change
+  closeSideDrawer();
+
   window.scrollTo(0, 0);
 }
 
@@ -572,6 +575,9 @@ window.addEventListener(
 
     loadLocation();
 
+    // Stage 2: Initialize new header and location features
+    initStage2();
+
     if (
       typeof autoFillMobile ===
       "function"
@@ -583,3 +589,443 @@ window.addEventListener(
     }
   }
 );
+
+/*
+SIDE DRAWER
+Stage 1 shell functions
+*/
+
+function openSideDrawer() {
+  const drawer = document.getElementById("sideDrawer");
+  const overlay = document.getElementById("drawerOverlay");
+  if (drawer) drawer.classList.add("open");
+  if (overlay) overlay.classList.add("open");
+}
+
+function closeSideDrawer() {
+  const drawer = document.getElementById("sideDrawer");
+  const overlay = document.getElementById("drawerOverlay");
+  if (drawer) drawer.classList.remove("open");
+  if (overlay) overlay.classList.remove("open");
+}
+
+
+/*
+LOCATION SELECTOR BOTTOM SHEET (Stage 2)
+*/
+
+function openLocationSelector() {
+  const selector = document.getElementById("locationSelector");
+  if (selector) {
+    selector.style.display = "flex";
+    updateSelectorGpsStatus();
+  }
+}
+
+function closeLocationSelector() {
+  const selector = document.getElementById("locationSelector");
+  if (selector) {
+    selector.style.display = "none";
+  }
+}
+
+function updateSelectorGpsStatus() {
+  const statusEl = document.getElementById("selectorGpsStatus");
+  if (!statusEl) return;
+
+  const center = getEffectiveCenter();
+  if (center.source === "manual") {
+    statusEl.innerText = "Using manual location";
+  } else {
+    statusEl.innerText = "Detecting GPS...";
+  }
+}
+
+function useCurrentLocation() {
+  closeLocationSelector();
+  clearSearchCenter();
+  showLocationToast("Current Location");
+}
+
+function openSearchFromSelector() {
+  closeLocationSelector();
+  openSearchModal();
+}
+
+function handleRadiusChange() {
+  const radius = getRadius();
+  saveRadius(radius);
+  loadAll();
+}
+
+function handleDiscoverySearch() {
+  const input = document.getElementById("discoverySearchInput");
+  if (!input) return;
+
+  const query = input.value.trim();
+  if (!query) return;
+
+  // Store the search query and navigate to appropriate page
+  // For now, navigate to products page with search term
+  input.value = "";
+
+  // Could be enhanced to show search results page
+  openPage("products");
+}
+
+
+/*
+UPDATE DISCOVERY CARD (Stage 2)
+*/
+
+function updateDiscoveryCard() {
+  const nameEl = document.getElementById("discoveryLocationName");
+  const subtitleEl = document.getElementById("discoveryLocationSubtitle");
+
+  if (!nameEl || !subtitleEl) return;
+
+  const center = getEffectiveCenter();
+
+  if (center.source === "manual") {
+    nameEl.innerText = center.name || "Selected Location";
+    subtitleEl.innerText = "Manual location";
+  } else {
+    nameEl.innerText = "Current Location";
+    subtitleEl.innerText = "Detecting GPS...";
+  }
+}
+
+
+/*
+NOTIFICATION BADGE (Stage 2)
+*/
+
+function updateNotificationBadge() {
+  const dot = document.getElementById("headerNotifDot");
+  if (!dot) return;
+
+  // Check if user has unread notifications
+  // This is a simple implementation - can be enhanced
+  const hasUnread = checkUnreadNotifications();
+
+  if (hasUnread) {
+    dot.classList.add("visible");
+  } else {
+    dot.classList.remove("visible");
+  }
+}
+
+function checkUnreadNotifications() {
+  // Placeholder - integrate with actual notification system
+  // For now, return false
+  return false;
+}
+
+
+/*
+LOCATION TOAST (Stage 2 - enhanced)
+*/
+
+function showLocationToast(name) {
+  // Remove existing toast if any
+  var existing = document.getElementById("locationToast");
+  if (existing) {
+    existing.remove();
+  }
+
+  var toast = document.createElement("div");
+  toast.id = "locationToast";
+  toast.style.cssText = "position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 12px 24px; border-radius: 30px; font-size: 14px; z-index: 999999; box-shadow: 0 4px 20px rgba(0,0,0,0.3); text-align: center; max-width: 90%; animation: fadeInUp 0.3s ease;";
+
+  toast.innerText = "📍 Location set to " + name;
+
+  document.body.appendChild(toast);
+
+  // Auto remove after 3 seconds
+  setTimeout(function() {
+    if (toast.parentNode) {
+      toast.style.animation = "fadeOutDown 0.3s ease";
+      setTimeout(function() {
+        if (toast.parentNode) {
+          toast.remove();
+        }
+      }, 300);
+    }
+  }, 3000);
+}
+
+
+/*
+RECENT LOCATIONS (Stage 2 - localStorage)
+*/
+
+const RECENT_LOCATIONS_KEY = "ekka1km_recent_locations";
+const MAX_RECENT_LOCATIONS = 5;
+
+function getRecentLocations() {
+  try {
+    const stored = localStorage.getItem(RECENT_LOCATIONS_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.log("Get recent locations error:", e);
+  }
+  return [];
+}
+
+function saveRecentLocation(lat, lng, name) {
+  try {
+    let recent = getRecentLocations();
+
+    // Remove if already exists
+    recent = recent.filter(function(loc) {
+      return !(loc.lat === lat && loc.lng === lng);
+    });
+
+    // Add to beginning
+    recent.unshift({
+      lat: lat,
+      lng: lng,
+      name: name,
+      timestamp: Date.now()
+    });
+
+    // Keep only MAX_RECENT_LOCATIONS
+    if (recent.length > MAX_RECENT_LOCATIONS) {
+      recent = recent.slice(0, MAX_RECENT_LOCATIONS);
+    }
+
+    localStorage.setItem(RECENT_LOCATIONS_KEY, JSON.stringify(recent));
+  } catch (e) {
+    console.log("Save recent location error:", e);
+  }
+}
+
+function addLocationToRecent(lat, lng, name) {
+  saveRecentLocation(lat, lng, name);
+  renderRecentLocations();
+}
+
+function removeRecentLocation(lat, lng) {
+  try {
+    let recent = getRecentLocations();
+    recent = recent.filter(function(loc) {
+      return !(loc.lat === lat && loc.lng === lng);
+    });
+    localStorage.setItem(RECENT_LOCATIONS_KEY, JSON.stringify(recent));
+    renderRecentLocations();
+  } catch (e) {
+    console.log("Remove recent location error:", e);
+  }
+}
+
+function renderRecentLocations() {
+  const section = document.getElementById("recentLocationsSection");
+  const list = document.getElementById("recentLocationsList");
+
+  if (!section || !list) return;
+
+  const recent = getRecentLocations();
+
+  if (recent.length === 0) {
+    section.style.display = "none";
+    return;
+  }
+
+  section.style.display = "block";
+
+  let html = "";
+  recent.forEach(function(loc) {
+    html += '<div class="locationSelectorSectionItem" onclick="selectRecentLocation(' + loc.lat + ', ' + loc.lng + ', \'' + loc.name.replace(/'/g, "") + '\')">';
+    html += '<div class="locationSelectorSectionItemIcon"><i class="material-icons">history</i></div>';
+    html += '<div class="locationSelectorSectionItemContent">';
+    html += '<div class="locationSelectorSectionItemTitle">' + loc.name + '</div>';
+    html += '<div class="locationSelectorSectionItemSubtitle">' + loc.lat.toFixed(4) + ', ' + loc.lng.toFixed(4) + '</div>';
+    html += '</div>';
+    html += '<button class="locationSelectorSectionItemRemove" onclick="event.stopPropagation();removeRecentLocation(' + loc.lat + ', ' + loc.lng + ')" title="Remove">&times;</button>';
+    html += '</div>';
+  });
+
+  list.innerHTML = html;
+}
+
+function selectRecentLocation(lat, lng, name) {
+  saveSearchCenter(lat, lng, name);
+  addLocationToRecent(lat, lng, name);
+  closeLocationSelector();
+  showLocationToast(name);
+}
+
+
+/*
+SAVED LOCATIONS (Stage 2 - localStorage)
+*/
+
+const SAVED_LOCATIONS_KEY = "ekka1km_saved_locations";
+
+function getSavedLocations() {
+  try {
+    const stored = localStorage.getItem(SAVED_LOCATIONS_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.log("Get saved locations error:", e);
+  }
+  return [];
+}
+
+function saveLocationToSaved(lat, lng, name) {
+  try {
+    let saved = getSavedLocations();
+
+    // Check if already exists
+    const exists = saved.some(function(loc) {
+      return loc.lat === lat && loc.lng === lng;
+    });
+
+    if (!exists) {
+      saved.push({
+        lat: lat,
+        lng: lng,
+        name: name,
+        timestamp: Date.now()
+      });
+
+      localStorage.setItem(SAVED_LOCATIONS_KEY, JSON.stringify(saved));
+    }
+  } catch (e) {
+    console.log("Save location error:", e);
+  }
+}
+
+function removeSavedLocation(lat, lng) {
+  try {
+    let saved = getSavedLocations();
+    saved = saved.filter(function(loc) {
+      return !(loc.lat === lat && loc.lng === lng);
+    });
+    localStorage.setItem(SAVED_LOCATIONS_KEY, JSON.stringify(saved));
+    renderSavedLocations();
+  } catch (e) {
+    console.log("Remove saved location error:", e);
+  }
+}
+
+function renderSavedLocations() {
+  const section = document.getElementById("savedLocationsSection");
+  const list = document.getElementById("savedLocationsList");
+
+  if (!section || !list) return;
+
+  const saved = getSavedLocations();
+
+  if (saved.length === 0) {
+    section.style.display = "none";
+    return;
+  }
+
+  section.style.display = "block";
+
+  let html = "";
+  saved.forEach(function(loc) {
+    html += '<div class="locationSelectorSectionItem" onclick="selectSavedLocation(' + loc.lat + ', ' + loc.lng + ', \'' + loc.name.replace(/'/g, "") + '\')">';
+    html += '<div class="locationSelectorSectionItemIcon"><i class="material-icons">star</i></div>';
+    html += '<div class="locationSelectorSectionItemContent">';
+    html += '<div class="locationSelectorSectionItemTitle">' + loc.name + '</div>';
+    html += '<div class="locationSelectorSectionItemSubtitle">' + loc.lat.toFixed(4) + ', ' + loc.lng.toFixed(4) + '</div>';
+    html += '</div>';
+    html += '<button class="locationSelectorSectionItemRemove" onclick="event.stopPropagation();removeSavedLocation(' + loc.lat + ', ' + loc.lng + ')" title="Remove">&times;</button>';
+    html += '</div>';
+  });
+
+  list.innerHTML = html;
+}
+
+function selectSavedLocation(lat, lng, name) {
+  saveSearchCenter(lat, lng, name);
+  closeLocationSelector();
+  showLocationToast(name);
+}
+
+
+/*
+ENHANCED SEARCH LOCATION FUNCTIONS (Stage 2)
+*/
+
+// Override selectSearchResult to also save to recent locations
+var originalSelectSearchResult = window.selectSearchResult;
+
+window.selectSearchResult = function(el, name) {
+  var lat = parseFloat(el.getAttribute("data-lat"));
+  var lng = parseFloat(el.getAttribute("data-lng"));
+
+  if (isNaN(lat) || isNaN(lng)) {
+    return;
+  }
+
+  // Use provided name, fallback to element text
+  if (!name) {
+    name = el.textContent.trim().substring(0, 100);
+  }
+
+  // Save and apply
+  saveSearchCenter(lat, lng, name);
+
+  // Add to recent locations
+  addLocationToRecent(lat, lng, name);
+
+  // Add to saved locations
+  saveLocationToSaved(lat, lng, name);
+
+  // Close modal
+  closeSearchModal();
+
+  // Show confirmation toast
+  showLocationToast(name);
+};
+
+
+/*
+APP INITIALIZATION (Stage 2)
+*/
+
+function initStage2() {
+  // Update discovery card with current location
+  updateDiscoveryCard();
+
+  // Render recent and saved locations
+  renderRecentLocations();
+  renderSavedLocations();
+
+  // Update notification badge
+  updateNotificationBadge();
+
+  // Show header elements on mobile
+  const menuBtn = document.querySelector(".header-menu-btn");
+  const notifBtn = document.querySelector(".header-notif-btn");
+
+  if (menuBtn) menuBtn.style.display = "flex";
+  if (notifBtn) notifBtn.style.display = "flex";
+
+  // Listen for search center changes to update discovery card
+  window.addEventListener("searchCenterUpdated", function() {
+    updateDiscoveryCard();
+    updateSelectorGpsStatus();
+  });
+}
+
+// Override saveSearchCenter to trigger event
+var originalSaveSearchCenter = window.saveSearchCenter;
+window.saveSearchCenter = function(latitude, longitude, name) {
+  originalSaveSearchCenter(latitude, longitude, name);
+  window.dispatchEvent(new Event("searchCenterUpdated"));
+};
+
+// Override clearSearchCenter to trigger event
+var originalClearSearchCenter = window.clearSearchCenter;
+window.clearSearchCenter = function() {
+  originalClearSearchCenter();
+  window.dispatchEvent(new Event("searchCenterUpdated"));
+};

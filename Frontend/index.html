@@ -2,82 +2,621 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta
-  name="viewport"
-  content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 
 <title>Ekka1km Trial App</title>
 
-<link
-rel="icon"
-href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
+<link rel="icon" href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
-<link
-  href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-  rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-<link
-  href="https://fonts.googleapis.com/icon?family=Material+Icons"
-  rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
-<link
-  rel="stylesheet"
-  href="Style.css">
+<link rel="stylesheet" href="Style.css">
 </head>
 
 <body>
 
+<!-- ===================================================== -->
+<!-- HEADER -->
+<!-- ===================================================== -->
+
 <header id="appHeader">
 
-  <div class="logo">
+  <!-- LEFT: Hamburger Menu -->
+  <button class="header-menu-btn" onclick="openSideDrawer()" aria-label="Open menu">
+    <i class="material-icons">menu</i>
+  </button>
 
-    <img
-  src="https://dummyimage.com/100x100/0f9d58/ffffff.png&text=E">
-
-    <div>
-      <h2 style="color:#0f9d58">
-        Ekka1km
-      </h2>
-
-      <small>
-        Where Local Life Comes Together.
-      </small>
-    </div>
-
+  <!-- CENTER: Branding -->
+  <div class="header-brand">
+    <span class="header-brand-name">Ekka1km</span>
+    <span class="header-brand-tagline">Where Local Life Comes Together.</span>
   </div>
 
-  <div class="locationBox">
-
-    <select id="searchLocation">
-
-      <option value="gps">📍 Current Location</option>
-      <option value="search">🔍 Search Another Place</option>
-      <option value="clear">✕ Clear Manual Location</option>
-
-    </select>
-
-  </div>
-
-  <div class="radiusBox">
-
-    <select id="radius">
-
-      <option value="1">1 KM</option>
-      <option value="5">5 KM</option>
-      <option value="10">10 KM</option>
-      <option value="25">25 KM</option>
-      <option value="51" selected>51 KM</option>
-      <option value="100">100 KM</option>
-      <option value="All India">All India</option>
-
-    </select>
-
-  </div>
+  <!-- RIGHT: Notifications -->
+  <button class="header-notif-btn" onclick="openPage('notifications')" aria-label="Notifications">
+    <i class="material-icons">notifications</i>
+    <span id="headerNotifDot" class="header-notif-dot" style="display:none;"></span>
+  </button>
 
 </header>
 
 <!-- ===================================================== -->
-<!-- SEARCH LOCATION MODAL -->
+<!-- LOCATION DISCOVERY CARD -->
+<!-- ===================================================== -->
+
+<div class="locationDiscoveryCard">
+
+  <!-- Location Row (Clickable) -->
+  <div class="locationRow" onclick="openLocationSelector()">
+
+    <div class="locationIcon">
+      <i class="material-icons">location_on</i>
+    </div>
+
+    <div class="locationInfo">
+      <div class="locationName" id="discoveryLocationName">Current Location</div>
+      <div class="locationSubtitle" id="discoveryLocationSubtitle">Detecting GPS...</div>
+    </div>
+
+    <div class="locationChevron">
+      <i class="material-icons">expand_more</i>
+    </div>
+
+  </div>
+
+  <!-- Search + Radius Row -->
+  <div class="searchRadiusRow">
+
+    <div class="discoverySearchBox">
+      <i class="material-icons">search</i>
+      <input
+        type="text"
+        id="discoverySearchInput"
+        placeholder="Search Ekka1km (products, businesses, news...)"
+        onkeydown="if(event.key==='Enter')handleDiscoverySearch()"
+      >
+    </div>
+
+    <div class="radiusSelector" onclick="event.stopPropagation()">
+      <select id="radius" onchange="handleRadiusChange()">
+
+        <option value="1">1 KM</option>
+        <option value="5">5 KM</option>
+        <option value="10">10 KM</option>
+        <option value="25">25 KM</option>
+        <option value="51" selected>51 KM</option>
+        <option value="100">100 KM</option>
+        <option value="All India">All India</option>
+
+      </select>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Hidden legacy elements for JS compatibility -->
+<div style="display:none;">
+  <select id="searchLocation">
+    <option value="gps">📍 Current Location</option>
+    <option value="search">🔍 Search Another Place</option>
+    <option value="clear">✕ Clear Manual Location</option>
+  </select>
+  <div id="gpsText"></div>
+</div>
+
+<!-- ===================================================== -->
+<!-- SIDE DRAWER OVERLAY + DRAWER (Stage 1 shell) -->
+<!-- ===================================================== -->
+
+<div id="drawerOverlay" class="drawer-overlay" onclick="closeSideDrawer()"></div>
+
+<div id="sideDrawer" class="drawer">
+
+  <div style="padding:20px;border-bottom:1px solid var(--border-light);">
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+
+      <div id="drawerUserAvatar" style="width:48px;height:48px;border-radius:50%;background:var(--ekka-green-light);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--ekka-green);font-weight:600;">
+        👤
+      </div>
+
+      <div>
+        <div id="drawerUserName" style="font-weight:600;font-size:15px;">Guest User</div>
+        <div id="drawerUserMeta" style="font-size:12px;color:var(--text-tertiary);">Tap to login</div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div style="padding:8px 0;">
+
+    <div class="drawer-item" onclick="openPage('home');closeSideDrawer();" style="padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s;">
+      <i class="material-icons" style="color:var(--ekka-green);">home</i>
+      <span style="font-size:14px;font-weight:500;">Home</span>
+    </div>
+
+    <div class="drawer-item" onclick="openPage('dashboard');closeSideDrawer();" style="padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s;">
+      <i class="material-icons" style="color:var(--ekka-green);">dashboard</i>
+      <span style="font-size:14px;font-weight:500;">My Dashboard</span>
+    </div>
+
+    <div class="drawer-item" onclick="openPage('profile');closeSideDrawer();" style="padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s;">
+      <i class="material-icons" style="color:var(--ekka-green);">person</i>
+      <span style="font-size:14px;font-weight:500;">My Profile</span>
+    </div>
+
+    <div class="drawer-item" onclick="openPage('wallet');closeSideDrawer();" style="padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s;">
+      <i class="material-icons" style="color:var(--ekka-green);">account_balance_wallet</i>
+      <span style="font-size:14px;font-weight:500;">My Wallet</span>
+    </div>
+
+    <div class="drawer-item" onclick="openPage('notifications');closeSideDrawer();" style="padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s;">
+      <i class="material-icons" style="color:var(--ekka-green);">notifications</i>
+      <span style="font-size:14px;font-weight:500;">Notifications</span>
+    </div>
+
+    <div class="drawer-item" onclick="openPage('interests');closeSideDrawer();" style="padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s;">
+      <i class="material-icons" style="color:var(--ekka-green);">favorite</i>
+      <span style="font-size:14px;font-weight:500;">My Interests</span>
+    </div>
+
+    <div class="drawer-item" onclick="openPage('promotions');closeSideDrawer();" style="padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s;">
+      <i class="material-icons" style="color:var(--ekka-green);">trending_up</i>
+      <span style="font-size:14px;font-weight:500;">My Promotions</span>
+    </div>
+
+    <div class="drawer-item" onclick="openPage('adcenter');closeSideDrawer();" style="padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s;">
+      <i class="material-icons" style="color:var(--ekka-green);">campaign</i>
+      <span style="font-size:14px;font-weight:500;">Reward Ads</span>
+    </div>
+
+    <div style="border-top:1px solid var(--border-light);margin:8px 0;"></div>
+
+    <div class="drawer-item" onclick="openPage('login');closeSideDrawer();" style="padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s;">
+      <i class="material-icons" style="color:var(--text-tertiary);">login</i>
+      <span style="font-size:14px;font-weight:500;color:var(--text-secondary);">Login / Register</span>
+    </div>
+
+    <div class="drawer-item" onclick="if(confirm('Do you want to logout?')){logoutUser();closeSideDrawer();}" style="padding:14px 20px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background 0.15s;">
+      <i class="material-icons" style="color:var(--color-error);">logout</i>
+      <span style="font-size:14px;font-weight:500;color:var(--color-error);">Logout</span>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ===================================================== -->
+<!-- MAIN CONTENT -->
+<!-- ===================================================== -->
+
+<main>
+
+  <!-- LOGIN -->
+
+  <div id="login" class="page">
+
+    <div class="sectionTitle">Login</div>
+
+    <div class="card">
+
+      <div id="mobileInputSection">
+
+        <p style="font-size:14px;color:#666;margin-bottom:12px;">Enter your mobile number to receive an OTP</p>
+
+        <input id="loginMobile" type="tel" maxlength="10" placeholder="Mobile Number" inputmode="numeric" pattern="[0-9]*" onkeydown="if(event.key==='Enter')sendLoginOTP()">
+
+        <button id="sendOtpBtn" onclick="sendLoginOTP()">Send OTP</button>
+
+      </div>
+
+      <div id="otpVerifySection" style="display:none;">
+
+        <p style="font-size:14px;color:#666;margin-bottom:12px;">Enter the 6-digit OTP sent to your mobile</p>
+
+        <input id="otpInput" type="text" maxlength="6" placeholder="Enter OTP" inputmode="numeric" pattern="[0-9]*" onkeydown="if(event.key==='Enter')verifyLoginOTP()" autocomplete="one-time-code">
+
+        <button id="verifyOtpBtn" onclick="verifyLoginOTP()">Verify OTP</button>
+
+        <button id="resendOtpBtn" class="btn-gray" onclick="resendOTP()" disabled style="font-size:13px;">Resend in 60s</button>
+
+        <button class="btn-gray" onclick="backToMobileInput()" style="font-size:13px;">&#8592; Change Mobile Number</button>
+
+        <div id="otpStatus" style="display:none;margin-top:10px;font-size:13px;color:var(--ekka-green);text-align:center;"></div>
+
+        <div id="devOtpDisplay" style="display:none;margin-top:12px;padding:12px;background:#fff3cd;border-radius:10px;text-align:center;font-size:16px;color:#856404;"></div>
+
+      </div>
+
+      <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
+
+      <button class="btn-gray" onclick="openPage('register')">Create Account</button>
+
+      <button class="btn-gray" onclick="openPage('home')">Continue As Guest</button>
+
+    </div>
+
+  </div>
+
+  <!-- REGISTER -->
+
+  <div id="register" class="page">
+
+    <div class="sectionTitle">Register</div>
+
+    <div class="card">
+
+      <input id="regName" placeholder="Full Name">
+
+      <input id="regMobile" placeholder="Mobile Number">
+
+      <input id="regEmail" placeholder="Email">
+
+      <input id="regPassword" type="password" placeholder="Password">
+
+      <button onclick="registerUser()">Register</button>
+
+      <button class="btn-gray" onclick="openPage('login')">Back To Login</button>
+
+    </div>
+
+  </div>
+
+  <!-- HOME -->
+
+  <div id="home" class="page">
+
+    <div class="searchBox">
+
+      <input placeholder="Search nearby products, news and businesses">
+
+    </div>
+
+    <div class="banner">
+
+      <h2>Welcome to Ekka1km</h2>
+
+      <p>Discover everything around your selected GPS radius.</p>
+
+      <p id="gpsText" style="margin-top:10px;">GPS: Detecting...</p>
+
+    </div>
+
+    <div class="community">
+
+      <div class="card login-only">
+
+        <h3>Wallet</h3>
+
+        <h1 id="walletHome">0</h1>
+
+      </div>
+
+      <div class="card login-only">
+
+        <h3>Coins</h3>
+
+        <h1 id="coinsHome">0</h1>
+
+      </div>
+
+      <div class="card guest-only">
+
+        <h3>Guest User</h3>
+
+        <h1>👤</h1>
+
+      </div>
+
+    </div>
+
+    <div class="sectionTitle">Explore</div>
+
+    <div class="grid">
+
+      <div class="menuCard" onclick="openPage('products')">
+        <i class="material-icons">shopping_bag</i>
+        <h4>Products</h4>
+      </div>
+
+      <div class="menuCard" onclick="openPage('businesses')">
+        <i class="material-icons">store</i>
+        <h4>Businesses</h4>
+      </div>
+
+      <div class="menuCard" onclick="openPage('properties')">
+        <i class="material-icons">real_estate_agent</i>
+        <h4>Properties</h4>
+      </div>
+
+      <div class="menuCard" onclick="openPage('news')">
+        <i class="material-icons">newspaper</i>
+        <h4>News</h4>
+      </div>
+
+      <div class="menuCard" onclick="openPage('live')">
+        <i class="material-icons">live_tv</i>
+        <h4>Live</h4>
+      </div>
+
+      <div class="menuCard" onclick="openPage('wallet')">
+        <i class="material-icons">account_balance_wallet</i>
+        <h4>Wallet</h4>
+      </div>
+
+      <div class="menuCard" onclick="openPage('notifications')">
+        <i class="material-icons">notifications</i>
+        <h4>Notifications</h4>
+      </div>
+
+      <div class="menuCard" onclick="openPage('profile')">
+        <i class="material-icons">person</i>
+        <h4>Profile</h4>
+      </div>
+
+      <div class="menuCard" onclick="openPage('adcenter')" style="background:#fff3e0;">
+        <i class="material-icons" style="color:#ff6f00;">campaign</i>
+        <h4>Reward Ads</h4>
+      </div>
+
+      <div class="menuCard" onclick="openPage('announcements')" style="background:#e8f5e9;">
+        <i class="material-icons" style="color:#0f9d58;">campaign</i>
+        <h4>Announcements</h4>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ANNOUNCEMENTS -->
+
+  <div id="announcements" class="page">
+    <div class="sectionTitle">Announcements</div>
+    <div id="announcementList"></div>
+  </div>
+
+  <!-- ANNOUNCER PANEL -->
+
+  <div id="announcerPanel" class="page">
+    <div class="sectionTitle">Official Announcer</div>
+    <div id="announcerContent"></div>
+  </div>
+
+  <!-- PRODUCTS -->
+
+  <div id="products" class="page">
+    <div class="sectionTitle">Products</div>
+    <div id="productList"></div>
+  </div>
+
+  <!-- BUSINESSES -->
+
+  <div id="businesses" class="page">
+    <div class="sectionTitle">Businesses</div>
+    <div id="businessList"></div>
+  </div>
+
+  <!-- PROPERTIES -->
+
+  <div id="properties" class="page">
+    <div class="sectionTitle">Properties</div>
+    <div id="propertyList"></div>
+  </div>
+
+  <!-- NEWS -->
+
+  <div id="news" class="page">
+    <div class="sectionTitle">News</div>
+    <div id="newsList"></div>
+  </div>
+
+  <!-- LIVE -->
+
+  <div id="live" class="page">
+    <div class="sectionTitle">Live TV</div>
+    <div id="liveList">
+      <div class="card">Live module ready.</div>
+    </div>
+  </div>
+
+  <!-- WALLET -->
+
+  <div id="wallet" class="page">
+    <div class="sectionTitle">Wallet</div>
+    <div id="walletCard"></div>
+  </div>
+
+  <!-- DASHBOARD -->
+
+  <div id="dashboard" class="page">
+    <div class="sectionTitle">Dashboard</div>
+    <div id="dashboardContent">
+      <div class="card" style="text-align:center;padding:30px;">
+        <p>Loading dashboard...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+
+  <div id="profile" class="page">
+    <div class="sectionTitle">Profile</div>
+    <div id="profileCard"></div>
+  </div>
+
+  <!-- NOTIFICATIONS -->
+
+  <div id="notifications" class="page">
+    <div class="sectionTitle">Notifications</div>
+    <div id="notificationList"></div>
+  </div>
+
+  <!-- STORE -->
+
+  <div id="store" class="page">
+    <div id="storeContent"></div>
+  </div>
+
+  <!-- MEDIA LIBRARY -->
+
+  <div id="mediaLibrary" class="page">
+    <div class="sectionTitle">My Uploads</div>
+    <div id="mediaLibraryContent"></div>
+    <button onclick="openPage('home')" class="btn-gray" style="margin-top:15px;">Back to Home</button>
+  </div>
+
+  <!-- UPLOAD TEST -->
+
+  <div id="uploadTest" class="page">
+    <div class="sectionTitle">Media Upload Test</div>
+    <div class="card">
+      <p>Test the ImageKit upload system. Choose an image or video to upload.</p>
+      <div id="uploadTestWidget"></div>
+      <button onclick="openPage('home')" class="btn-gray" style="margin-top:15px;">Back to Home</button>
+    </div>
+  </div>
+
+  <!-- ADVERTISEMENTS -->
+
+  <div id="advertisements" class="page">
+    <div class="sectionTitle">Advertisements</div>
+    <div id="advertisementList"></div>
+  </div>
+
+  <!-- INTERESTS -->
+
+  <div id="interests" class="page">
+    <div class="sectionTitle">My Interests</div>
+    <div id="interestsList">
+      <div class="card" style="text-align:center;padding:30px;">
+        <p>Loading interests...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROMOTIONS -->
+
+  <div id="promotions" class="page">
+    <div class="sectionTitle">Promotions</div>
+    <div id="promotionsContent">
+      <div class="card" style="text-align:center;padding:30px;">
+        <p>Loading promotion wizard...</p>
+      </div>
+    </div>
+    <div class="card" style="margin-top:15px;">
+      <h3>My Promotions</h3>
+      <div id="myPromotionsList">
+        <div class="dashboardEmpty">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADVERTISEMENT CENTER -->
+
+  <div id="adcenter" class="page">
+    <div class="sectionTitle">Reward Ads</div>
+    <div id="adCenterTabs" style="margin-bottom:15px;"></div>
+    <div id="adCenterList"></div>
+  </div>
+
+</main>
+
+<!-- ===================================================== -->
+<!-- FLOATING OVERLAY -->
+<!-- ===================================================== -->
+
+<div id="floatingOverlay" class="floatingOverlay" onclick="closeFloatingMenu()"></div>
+
+<!-- ===================================================== -->
+<!-- FLOATING POST BUTTON + MENU -->
+<!-- ===================================================== -->
+
+<div class="fabContainer">
+
+  <div id="floatingMenu" class="floatingMenu">
+
+    <div class="fabMenuItem" onclick="openPostFormWithLogin('product')">
+      <i class="material-icons">shopping_bag</i>
+      <span>Sell Product</span>
+    </div>
+
+    <div class="fabMenuItem" onclick="openPostFormWithLogin('property')">
+      <i class="material-icons">real_estate_agent</i>
+      <span>Sell/Rent Property</span>
+    </div>
+
+    <div class="fabMenuItem" onclick="openPostFormWithLogin('business')">
+      <i class="material-icons">store</i>
+      <span>Create Business</span>
+    </div>
+
+    <div class="fabMenuItem" onclick="openPostFormWithLogin('news')">
+      <i class="material-icons">newspaper</i>
+      <span>Send News</span>
+    </div>
+
+    <div class="fabMenuItem" onclick="openPostFormWithLogin('advertisement')">
+      <i class="material-icons">campaign</i>
+      <span>Create Ad</span>
+    </div>
+
+    <div class="fabMenuItem" onclick="openPostFormWithLogin('promotion')">
+      <i class="material-icons">trending_up</i>
+      <span>Promote</span>
+    </div>
+
+    <div class="fabMenuItem" onclick="openPostAnnouncementForm()">
+      <i class="material-icons">campaign</i>
+      <span>Post Announcement</span>
+    </div>
+
+  </div>
+
+  <button id="fabButton" class="fabButton" onclick="toggleFloatingMenu()">
+    <i class="material-icons">add</i>
+  </button>
+
+</div>
+
+<!-- ===================================================== -->
+<!-- BOTTOM NAVIGATION -->
+<!-- ===================================================== -->
+
+<div class="bottomNav" id="bottomNav">
+
+  <div onclick="openPage('home')">
+    <i class="material-icons">home</i>
+    <span>Home</span>
+  </div>
+
+  <div onclick="openPage('products')">
+    <i class="material-icons">shopping_bag</i>
+    <span>Products</span>
+  </div>
+
+  <div onclick="openPage('news')">
+    <i class="material-icons">newspaper</i>
+    <span>News</span>
+  </div>
+
+  <div onclick="openPage('live')">
+    <i class="material-icons">live_tv</i>
+    <span>Live</span>
+  </div>
+
+  <div onclick="openPage('profile')">
+    <i class="material-icons">person</i>
+    <span>Profile</span>
+  </div>
+
+</div>
+
+<!-- ===================================================== -->
+<!-- SEARCH LOCATION MODAL (Legacy - preserved) -->
 <!-- ===================================================== -->
 
 <div id="searchLocationModal" class="modal" style="display:none;">
@@ -88,706 +627,89 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
       <h2>Search Location</h2>
 
-      <span
-        class="modalClose"
-        onclick="closeSearchModal()"
-        title="Close">
-        &times;
-      </span>
+      <span class="modalClose" onclick="closeSearchModal()" title="Close">&times;</span>
 
     </div>
 
-    <p style="font-size:13px;color:#888;margin-bottom:12px;">
-      Enter city, area, village or landmark in India.
-    </p>
+    <p style="font-size:13px;color:#888;margin-bottom:12px;">Enter city, area, village or landmark in India.</p>
 
     <div class="modalInputGroup">
 
-      <input
-        id="searchLocationInput"
-        type="text"
-        placeholder="e.g. Indore, Vijay Nagar, Delhi, Kota..."
-        onkeydown="searchLocationOnEnter(event)">
+      <input id="searchLocationInput" type="text" placeholder="e.g. Indore, Vijay Nagar, Delhi, Kota..." onkeydown="searchLocationOnEnter(event)">
 
-      <button
-        onclick="searchLocation()"
-        class="btnSearch">
-        Search
-      </button>
+      <button onclick="searchLocation()" class="btnSearch">Search</button>
 
     </div>
 
-    <div
-      id="searchLocationError"
-      class="modalError"
-      style="display:none;">
-    </div>
+    <div id="searchLocationError" class="modalError" style="display:none;"></div>
 
-    <div
-      id="searchLocationResults"
-      class="modalResults">
-    </div>
+    <div id="searchLocationResults" class="modalResults"></div>
 
-    <button
-      onclick="closeSearchModal()"
-      class="btn-gray"
-      style="margin-top:10px;width:100%;">
-      Cancel
-    </button>
+    <button onclick="closeSearchModal()" class="btn-gray" style="margin-top:10px;width:100%;">Cancel</button>
 
   </div>
 
 </div>
 
-<main>
-
 <!-- ===================================================== -->
-<!-- LOGIN (OTP Based - WhatsApp Style) -->
+<!-- LOCATION SELECTOR BOTTOM SHEET -->
 <!-- ===================================================== -->
 
-<div id="login" class="page">
+<div id="locationSelector" class="locationSelector" style="display:none;">
 
-  <div class="sectionTitle">
-    Login
-  </div>
+  <div class="locationSelectorOverlay" onclick="closeLocationSelector()"></div>
 
-  <div class="card">
+  <div class="locationSelectorSheet">
 
-    <!-- Step 1: Mobile Number Input -->
-    <div id="mobileInputSection">
+    <div class="locationSelectorHeader">
 
-      <p style="font-size:14px;color:#666;margin-bottom:12px;">
-        Enter your mobile number to receive an OTP
-      </p>
+      <h3>Choose Location</h3>
 
-      <input
-        id="loginMobile"
-        type="tel"
-        maxlength="10"
-        placeholder="Mobile Number"
-        inputmode="numeric"
-        pattern="[0-9]*"
-        onkeydown="if(event.key==='Enter')sendLoginOTP()">
-
-      <button
-        id="sendOtpBtn"
-        onclick="sendLoginOTP()">
-        Send OTP
-      </button>
+      <span class="locationSelectorClose" onclick="closeLocationSelector()">&times;</span>
 
     </div>
 
-    <!-- Step 2: OTP Verification -->
-    <div
-      id="otpVerifySection"
-      style="display:none;">
+    <div class="locationSelectorBody">
 
-      <p style="font-size:14px;color:#666;margin-bottom:12px;">
-        Enter the 6-digit OTP sent to your mobile
-      </p>
-
-      <input
-        id="otpInput"
-        type="text"
-        maxlength="6"
-        placeholder="Enter OTP"
-        inputmode="numeric"
-        pattern="[0-9]*"
-        onkeydown="if(event.key==='Enter')verifyLoginOTP()"
-        autocomplete="one-time-code">
-
-      <button
-        id="verifyOtpBtn"
-        onclick="verifyLoginOTP()">
-        Verify OTP
-      </button>
-
-      <!-- Resend OTP -->
-      <button
-        id="resendOtpBtn"
-        class="btn-gray"
-        onclick="resendOTP()"
-        disabled
-        style="font-size:13px;">
-        Resend in 60s
-      </button>
-
-      <!-- Change Number -->
-      <button
-        class="btn-gray"
-        onclick="backToMobileInput()"
-        style="font-size:13px;">
-        &#8592; Change Mobile Number
-      </button>
-
-      <!-- OTP Status -->
-      <div
-        id="otpStatus"
-        style="display:none;margin-top:10px;font-size:13px;color:#0f9d58;text-align:center;">
+      <!-- Use Current Location -->
+      <div class="locationSelectorItem" onclick="useCurrentLocation()">
+        <div class="locationSelectorItemIcon">
+          <i class="material-icons">my_location</i>
+        </div>
+        <div class="locationSelectorItemContent">
+          <div class="locationSelectorItemTitle">Use Current Location</div>
+          <div class="locationSelectorItemSubtitle" id="selectorGpsStatus">Detecting GPS...</div>
+        </div>
+        <i class="material-icons locationSelectorItemArrow">chevron_right</i>
       </div>
 
-      <!-- Developer OTP Display (DEV_MODE only) -->
-      <div
-        id="devOtpDisplay"
-        style="display:none;margin-top:12px;padding:12px;background:#fff3cd;border-radius:10px;text-align:center;font-size:16px;color:#856404;">
+      <!-- Search Another Area -->
+      <div class="locationSelectorItem" onclick="openSearchFromSelector()">
+        <div class="locationSelectorItemIcon">
+          <i class="material-icons">search</i>
+        </div>
+        <div class="locationSelectorItemContent">
+          <div class="locationSelectorItemTitle">Search Another Area</div>
+          <div class="locationSelectorItemSubtitle">City, area, village or landmark</div>
+        </div>
+        <i class="material-icons locationSelectorItemArrow">chevron_right</i>
+      </div>
+
+      <!-- Recent Locations -->
+      <div class="locationSelectorSection" id="recentLocationsSection" style="display:none;">
+        <div class="locationSelectorSectionTitle">Recent Locations</div>
+        <div id="recentLocationsList"></div>
+      </div>
+
+      <!-- Saved Locations -->
+      <div class="locationSelectorSection" id="savedLocationsSection" style="display:none;">
+        <div class="locationSelectorSectionTitle">Saved Locations</div>
+        <div id="savedLocationsList"></div>
       </div>
 
     </div>
 
-    <hr style="margin:15px 0;border:none;border-top:1px solid #eee;">
-
-    <!-- Guest / Register Options -->
-    <button
-      class="btn-gray"
-      onclick="openPage('register')">
-      Create Account
-    </button>
-
-    <button
-      class="btn-gray"
-      onclick="openPage('home')">
-      Continue As Guest
-    </button>
-
   </div>
-
-</div>
-
-<!-- ===================================================== -->
-<!-- REGISTER -->
-<!-- ===================================================== -->
-
-<div id="register" class="page">
-
-  <div class="sectionTitle">
-    Register
-  </div>
-
-  <div class="card">
-
-    <input
-      id="regName"
-      placeholder="Full Name">
-
-    <input
-      id="regMobile"
-      placeholder="Mobile Number">
-
-    <input
-      id="regEmail"
-      placeholder="Email">
-
-    <input
-      id="regPassword"
-      type="password"
-      placeholder="Password">
-
-    <button
-      onclick="registerUser()">
-      Register
-    </button>
-
-    <button
-      class="btn-gray"
-      onclick="openPage('login')">
-      Back To Login
-    </button>
-
-  </div>
-
-</div>
-
-<!-- ===================================================== -->
-<!-- HOME -->
-<!-- ===================================================== -->
-
-<div id="home" class="page">
-
-  <div class="searchBox">
-
-    <input
-      placeholder="Search nearby products, news and businesses">
-
-  </div>
-
-  <div class="banner">
-
-    <h2>
-      Welcome to Ekka1km
-    </h2>
-
-    <p>
-      Discover everything around your selected GPS radius.
-    </p>
-
-    <p
-      id="gpsText"
-      style="margin-top:10px">
-
-      GPS: Detecting...
-
-    </p>
-
-  </div>
-
-  <div class="community">
-
-    <div
-      class="card login-only">
-
-      <h3>Wallet</h3>
-
-      <h1 id="walletHome">
-        0
-      </h1>
-
-    </div>
-
-    <div
-      class="card login-only">
-
-      <h3>Coins</h3>
-
-      <h1 id="coinsHome">
-        0
-      </h1>
-
-    </div>
-
-    <div
-      class="card guest-only">
-
-      <h3>
-        Guest User
-      </h3>
-
-      <h1>
-        👤
-      </h1>
-
-    </div>
-
-  </div>
-
-  <div class="sectionTitle">
-    Explore
-  </div>
-
-  <div class="grid">
-
-    <div
-      class="menuCard"
-      onclick="openPage('products')">
-
-      <i class="material-icons">
-        shopping_bag
-      </i>
-
-      <h4>
-        Products
-      </h4>
-
-    </div>
-
-    <div
-      class="menuCard"
-      onclick="openPage('businesses')">
-
-      <i class="material-icons">
-        store
-      </i>
-
-      <h4>
-        Businesses
-      </h4>
-
-    </div>
-
-    <div
-      class="menuCard"
-      onclick="openPage('properties')">
-
-      <i class="material-icons">
-        real_estate_agent
-      </i>
-
-      <h4>
-        Properties
-      </h4>
-
-    </div>
-
-    <div
-      class="menuCard"
-      onclick="openPage('news')">
-
-      <i class="material-icons">
-        newspaper
-      </i>
-
-      <h4>
-        News
-      </h4>
-
-    </div>
-
-    <div
-      class="menuCard"
-      onclick="openPage('live')">
-
-      <i class="material-icons">
-        live_tv
-      </i>
-
-      <h4>
-        Live
-      </h4>
-
-    </div>
-
-    <div
-      class="menuCard"
-      onclick="openPage('wallet')">
-
-      <i class="material-icons">
-        account_balance_wallet
-      </i>
-
-      <h4>
-        Wallet
-      </h4>
-
-    </div>
-
-    <div
-      class="menuCard"
-      onclick="openPage('notifications')">
-
-      <i class="material-icons">
-        notifications
-      </i>
-
-      <h4>
-        Notifications
-      </h4>
-
-    </div>
-
-    <div
-      class="menuCard"
-      onclick="openPage('profile')">
-
-      <i class="material-icons">
-        person
-      </i>
-
-      <h4>
-        Profile
-      </h4>
-
-    </div>
-
-    <div
-      class="menuCard"
-      onclick="openPage('adcenter')"
-      style="background:#fff3e0;">
-
-      <i class="material-icons" style="color:#ff6f00;">
-        campaign
-      </i>
-
-      <h4>
-        Reward Ads
-      </h4>
-
-    </div>
-
-    <div
-      class="menuCard"
-      onclick="openPage('announcements')"
-      style="background:#e8f5e9;">
-
-      <i class="material-icons" style="color:#0f9d58;">
-        campaign
-      </i>
-
-      <h4>
-        Announcements
-      </h4>
-
-    </div>
-
-  </div>
-
-</div>
-
-<!-- ANNOUNCEMENTS -->
-
-<div id="announcements" class="page">
-  <div class="sectionTitle">Announcements</div>
-  <div id="announcementList"></div>
-</div>
-
-<!-- ANNOUNCER PANEL -->
-
-<div id="announcerPanel" class="page">
-  <div class="sectionTitle">Official Announcer</div>
-  <div id="announcerContent"></div>
-</div>
-
-<!-- PRODUCTS -->
-
-<div id="products" class="page">
-  <div class="sectionTitle">Products</div>
-  <div id="productList"></div>
-</div>
-
-<!-- BUSINESSES -->
-
-<div id="businesses" class="page">
-  <div class="sectionTitle">Businesses</div>
-  <div id="businessList"></div>
-</div>
-
-<!-- PROPERTIES -->
-
-<div id="properties" class="page">
-  <div class="sectionTitle">Properties</div>
-  <div id="propertyList"></div>
-</div>
-
-<!-- NEWS -->
-
-<div id="news" class="page">
-  <div class="sectionTitle">News</div>
-  <div id="newsList"></div>
-</div>
-
-<!-- LIVE -->
-
-<div id="live" class="page">
-  <div class="sectionTitle">Live TV</div>
-  <div id="liveList">
-    <div class="card">
-      Live module ready.
-    </div>
-  </div>
-</div>
-
-<!-- WALLET -->
-
-<div id="wallet" class="page">
-  <div class="sectionTitle">Wallet</div>
-  <div id="walletCard"></div>
-</div>
-
-<!-- DASHBOARD -->
-
-<div id="dashboard" class="page">
-  <div class="sectionTitle">Dashboard</div>
-  <div id="dashboardContent">
-    <div class="card" style="text-align:center;padding:30px;">
-      <p>Loading dashboard...</p>
-    </div>
-  </div>
-</div>
-
-<!-- PROFILE -->
-
-<div id="profile" class="page">
-  <div class="sectionTitle">Profile</div>
-  <div id="profileCard"></div>
-</div>
-
-<!-- NOTIFICATIONS -->
-
-<div id="notifications" class="page">
-  <div class="sectionTitle">Notifications</div>
-  <div id="notificationList"></div>
-</div>
-
-<!-- STORE -->
-
-<div id="store" class="page">
-  <div id="storeContent"></div>
-</div>
-
-<!-- MEDIA LIBRARY -->
-
-<div id="mediaLibrary" class="page">
-  <div class="sectionTitle">My Uploads</div>
-  <div id="mediaLibraryContent"></div>
-  <button onclick="openPage('home')" class="btn-gray" style="margin-top:15px;">Back to Home</button>
-</div>
-
-<!-- UPLOAD TEST -->
-
-<div id="uploadTest" class="page">
-  <div class="sectionTitle">Media Upload Test</div>
-  <div class="card">
-    <p>Test the ImageKit upload system. Choose an image or video to upload.</p>
-    <div id="uploadTestWidget"></div>
-    <button onclick="openPage('home')" class="btn-gray" style="margin-top:15px;">Back to Home</button>
-  </div>
-</div>
-
-<!-- ADVERTISEMENTS -->
-
-<div id="advertisements" class="page">
-  <div class="sectionTitle">Advertisements</div>
-  <div id="advertisementList"></div>
-</div>
-
-<!-- INTERESTS -->
-
-<div id="interests" class="page">
-  <div class="sectionTitle">My Interests</div>
-  <div id="interestsList">
-    <div class="card" style="text-align:center;padding:30px;">
-      <p>Loading interests...</p>
-    </div>
-  </div>
-</div>
-
-<!-- PROMOTIONS -->
-
-<div id="promotions" class="page">
-  <div class="sectionTitle">Promotions</div>
-  <div id="promotionsContent">
-    <div class="card" style="text-align:center;padding:30px;">
-      <p>Loading promotion wizard...</p>
-    </div>
-  </div>
-  <div class="card" style="margin-top:15px;">
-    <h3>My Promotions</h3>
-    <div id="myPromotionsList">
-      <div class="dashboardEmpty">Loading...</div>
-    </div>
-  </div>
-</div>
-
-<!-- ADVERTISEMENT CENTER (Phase 4 - Reward Ads) -->
-
-<div id="adcenter" class="page">
-  <div class="sectionTitle">Reward Ads</div>
-  <div id="adCenterTabs" style="margin-bottom:15px;"></div>
-  <div id="adCenterList"></div>
-</div>
-
-<!-- ===================================================== -->
-<!-- FLOATING OVERLAY -->
-<!-- ===================================================== -->
-
-<div
-  id="floatingOverlay"
-  class="floatingOverlay"
-  onclick="closeFloatingMenu()">
-</div>
-
-<!-- ===================================================== -->
-<!-- FLOATING POST BUTTON + MENU -->
-<!-- ===================================================== -->
-
-<div class="fabContainer">
-
-  <div id="floatingMenu" class="floatingMenu">
-
-    <div
-      class="fabMenuItem"
-      onclick="openPostFormWithLogin('product')">
-
-      <i class="material-icons">
-        shopping_bag
-      </i>
-
-      <span>Sell Product</span>
-
-    </div>
-
-    <div
-      class="fabMenuItem"
-      onclick="openPostFormWithLogin('property')">
-
-      <i class="material-icons">
-        real_estate_agent
-      </i>
-
-      <span>Sell/Rent Property</span>
-
-    </div>
-
-    <div
-      class="fabMenuItem"
-      onclick="openPostFormWithLogin('business')">
-
-      <i class="material-icons">
-        store
-      </i>
-
-      <span>Create Business</span>
-
-    </div>
-
-    <div
-      class="fabMenuItem"
-      onclick="openPostFormWithLogin('news')">
-
-      <i class="material-icons">
-        newspaper
-      </i>
-
-      <span>Send News</span>
-
-    </div>
-
-    <div
-      class="fabMenuItem"
-      onclick="openPostFormWithLogin('advertisement')">
-
-      <i class="material-icons">
-        campaign
-      </i>
-
-      <span>Create Ad</span>
-
-    </div>
-
-    <div
-      class="fabMenuItem"
-      onclick="openPostFormWithLogin('promotion')">
-
-      <i class="material-icons">
-        trending_up
-      </i>
-
-      <span>Promote</span>
-
-    </div>
-
-    <div
-      class="fabMenuItem"
-      onclick="openPostAnnouncementForm()">
-
-      <i class="material-icons">
-        campaign
-      </i>
-
-      <span>Post Announcement</span>
-
-    </div>
-
-  </div>
-
-  <button
-    id="fabButton"
-    class="fabButton"
-    onclick="toggleFloatingMenu()">
-
-    <i class="material-icons">
-      add
-    </i>
-
-  </button>
 
 </div>
 
@@ -797,29 +719,17 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
 <div id="postProduct" class="page">
 
-  <div class="sectionTitle">
-    Sell Product
-  </div>
+  <div class="sectionTitle">Sell Product</div>
 
   <div class="card">
 
-    <input
-      id="prodTitle"
-      placeholder="Product Title *">
+    <input id="prodTitle" placeholder="Product Title *">
 
-    <textarea
-      id="prodDesc"
-      placeholder="Description">
-    </textarea>
+    <textarea id="prodDesc" placeholder="Description"></textarea>
 
-    <input
-      id="prodPrice"
-      placeholder="Price *"
-      type="number">
+    <input id="prodPrice" placeholder="Price *" type="number">
 
-    <input
-      id="prodCategory"
-      placeholder="Category">
+    <input id="prodCategory" placeholder="Category">
 
     <select id="prodCondition">
       <option value="New">New</option>
@@ -830,38 +740,25 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       <option value="Used">Used</option>
     </select>
 
-    <input
-      id="annCity"
-      placeholder="City">
+    <input id="annCity" placeholder="City">
 
     <div id="prodImageUrls" style="display:none;">
-        <input id="prodImage" placeholder="Image URL">
-        <input id="prodImage2" placeholder="Image 2 URL">
-        <input id="prodImage3" placeholder="Image 3 URL">
-        <input id="prodImage4" placeholder="Image 4 URL">
-        <input id="prodImage5" placeholder="Image 5 URL">
-      </div>
+      <input id="prodImage" placeholder="Image URL">
+      <input id="prodImage2" placeholder="Image 2 URL">
+      <input id="prodImage3" placeholder="Image 3 URL">
+      <input id="prodImage4" placeholder="Image 4 URL">
+      <input id="prodImage5" placeholder="Image 5 URL">
     </div>
 
-    <input
-      id="prodCity"
-      placeholder="City">
+    <input id="prodCity" placeholder="City">
 
-    <input
-      id="prodState"
-      placeholder="State">
+    <input id="prodState" placeholder="State">
 
-    <input
-      id="prodPincode"
-      placeholder="Pincode">
+    <input id="prodPincode" placeholder="Pincode">
 
-    <input
-      id="prodPhone"
-      placeholder="Phone">
+    <input id="prodPhone" placeholder="Phone">
 
-    <input
-      id="prodWhatsapp"
-      placeholder="WhatsApp">
+    <input id="prodWhatsapp" placeholder="WhatsApp">
 
     <select id="prodDelivery">
       <option value="No">Delivery Not Available</option>
@@ -878,16 +775,9 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       <option value="Yes">Negotiable</option>
     </select>
 
-    <button
-      onclick="submitProduct()">
-      Post Product
-    </button>
+    <button onclick="submitProduct()">Post Product</button>
 
-    <button
-      class="btn-gray"
-      onclick="openPage('products')">
-      Cancel
-    </button>
+    <button class="btn-gray" onclick="openPage('products')">Cancel</button>
 
   </div>
 
@@ -899,9 +789,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
 <div id="postProperty" class="page">
 
-  <div class="sectionTitle">
-    Sell/Rent Property
-  </div>
+  <div class="sectionTitle">Sell/Rent Property</div>
 
   <div class="card">
 
@@ -920,65 +808,31 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       <option value="Rent">For Rent</option>
     </select>
 
-    <input
-      id="propTitle"
-      placeholder="Property Title *">
+    <input id="propTitle" placeholder="Property Title *">
 
-    <textarea
-      id="propDesc"
-      placeholder="Description">
-    </textarea>
+    <textarea id="propDesc" placeholder="Description"></textarea>
 
-    <input
-      id="propPrice"
-      placeholder="Price *"
-      type="number">
+    <input id="propPrice" placeholder="Price *" type="number">
 
-    <input
-      id="propBedrooms"
-      placeholder="Bedrooms"
-      type="number">
+    <input id="propBedrooms" placeholder="Bedrooms" type="number">
 
-    <input
-      id="propBathrooms"
-      placeholder="Bathrooms"
-      type="number">
+    <input id="propBathrooms" placeholder="Bathrooms" type="number">
 
-    <input
-      id="propArea"
-      placeholder="Area (sq ft)">
+    <input id="propArea" placeholder="Area (sq ft)">
 
-    <input
-      id="propImages"
-      placeholder="Image URLs (comma separated)">
+    <input id="propImages" placeholder="Image URLs (comma separated)">
 
-    <textarea
-      id="propAddress"
-      placeholder="Address">
-    </textarea>
+    <textarea id="propAddress" placeholder="Address"></textarea>
 
-    <input
-      id="propCity"
-      placeholder="City">
+    <input id="propCity" placeholder="City">
 
-    <input
-      id="propDistrict"
-      placeholder="District">
+    <input id="propDistrict" placeholder="District">
 
-    <input
-      id="propState"
-      placeholder="State">
+    <input id="propState" placeholder="State">
 
-    <button
-      onclick="submitProperty()">
-      Post Property
-    </button>
+    <button onclick="submitProperty()">Post Property</button>
 
-    <button
-      class="btn-gray"
-      onclick="openPage('home')">
-      Cancel
-    </button>
+    <button class="btn-gray" onclick="openPage('home')">Cancel</button>
 
   </div>
 
@@ -990,26 +844,16 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
 <div id="postBusiness" class="page">
 
-  <div class="sectionTitle">
-    Create Business
-  </div>
+  <div class="sectionTitle">Create Business</div>
 
   <div class="card">
 
-    <input
-      id="bizName"
-      placeholder="Business Name *">
+    <input id="bizName" placeholder="Business Name *">
 
-    <input
-      id="bizCategory"
-      placeholder="Category">
+    <input id="bizCategory" placeholder="Category">
 
-    <textarea
-      id="bizDesc"
-      placeholder="Description">
-    </textarea>
+    <textarea id="bizDesc" placeholder="Description"></textarea>
 
-    <!-- Business Media Uploads -->
     <div style="margin:15px 0;">
       <label style="font-weight:600;font-size:14px;display:block;margin-bottom:8px;">Business Logo</label>
       <div id="bizLogoUpload" style="margin-bottom:10px;">
@@ -1030,53 +874,27 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       <input id="bizCoverImage" style="display:none;">
     </div>
 
-    <input
-      id="bizPhone"
-      placeholder="Phone">
+    <input id="bizPhone" placeholder="Phone">
 
-    <input
-      id="bizWhatsapp"
-      placeholder="WhatsApp">
+    <input id="bizWhatsapp" placeholder="WhatsApp">
 
-    <input
-      id="bizEmail"
-      placeholder="Email">
+    <input id="bizEmail" placeholder="Email">
 
-    <textarea
-      id="bizAddress"
-      placeholder="Address">
-    </textarea>
+    <textarea id="bizAddress" placeholder="Address"></textarea>
 
-    <input
-      id="bizCity"
-      placeholder="City">
+    <input id="bizCity" placeholder="City">
 
-    <input
-      id="bizState"
-      placeholder="State">
+    <input id="bizState" placeholder="State">
 
-    <input
-      id="bizPincode"
-      placeholder="Pincode">
+    <input id="bizPincode" placeholder="Pincode">
 
-    <input
-      id="bizOpen"
-      placeholder="Opening Time (e.g. 09:00 AM)">
+    <input id="bizOpen" placeholder="Opening Time (e.g. 09:00 AM)">
 
-    <input
-      id="bizClose"
-      placeholder="Closing Time (e.g. 09:00 PM)">
+    <input id="bizClose" placeholder="Closing Time (e.g. 09:00 PM)">
 
-    <button
-      onclick="submitBusiness()">
-      Create Business
-    </button>
+    <button onclick="submitBusiness()">Create Business</button>
 
-    <button
-      class="btn-gray"
-      onclick="openPage('businesses')">
-      Cancel
-    </button>
+    <button class="btn-gray" onclick="openPage('businesses')">Cancel</button>
 
   </div>
 
@@ -1088,24 +906,15 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
 <div id="postNews" class="page">
 
-  <div class="sectionTitle">
-    Send News
-  </div>
+  <div class="sectionTitle">Send News</div>
 
   <div class="card">
 
-    <input
-      id="newsTitle"
-      placeholder="News Title *">
+    <input id="newsTitle" placeholder="News Title *">
 
-    <textarea
-      id="newsContent"
-      placeholder="News Content *">
-    </textarea>
+    <textarea id="newsContent" placeholder="News Content *"></textarea>
 
-    <input
-      id="newsCategory"
-      placeholder="Category">
+    <input id="newsCategory" placeholder="Category">
 
     <div style="margin:15px 0;">
       <label style="font-weight:600;font-size:14px;display:block;margin-bottom:8px;">News Image</label>
@@ -1127,20 +936,11 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       <input id="newsVideoURL" style="display:none;">
     </div>
 
-    <input
-      id="newsCity"
-      placeholder="City">
+    <input id="newsCity" placeholder="City">
 
-    <button
-      onclick="submitNews()">
-      Submit News
-    </button>
+    <button onclick="submitNews()">Submit News</button>
 
-    <button
-      class="btn-gray"
-      onclick="openPage('news')">
-      Cancel
-    </button>
+    <button class="btn-gray" onclick="openPage('news')">Cancel</button>
 
   </div>
 
@@ -1152,28 +952,17 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
 <div id="postAdvertisement" class="page">
 
-  <div class="sectionTitle">
-    Create Advertisement
-  </div>
+  <div class="sectionTitle">Create Advertisement</div>
 
   <div class="card">
 
-    <input
-      id="adTitle"
-      placeholder="Ad Title *">
+    <input id="adTitle" placeholder="Ad Title *">
 
-    <textarea
-      id="adDesc"
-      placeholder="Description">
-    </textarea>
+    <textarea id="adDesc" placeholder="Description"></textarea>
 
-    <input
-      id="adImage"
-      placeholder="Image URL">
+    <input id="adImage" placeholder="Image URL">
 
-    <input
-      id="adExternal"
-      placeholder="External Link URL">
+    <input id="adExternal" placeholder="External Link URL">
 
     <select id="adType">
       <option value="Banner">Banner</option>
@@ -1181,20 +970,11 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       <option value="PIP">PIP</option>
     </select>
 
-    <input
-      id="adCity"
-      placeholder="City">
+    <input id="adCity" placeholder="City">
 
-    <button
-      onclick="submitAdvertisement()">
-      Submit Ad
-    </button>
+    <button onclick="submitAdvertisement()">Submit Ad</button>
 
-    <button
-      class="btn-gray"
-      onclick="openPage('home')">
-      Cancel
-    </button>
+    <button class="btn-gray" onclick="openPage('home')">Cancel</button>
 
   </div>
 
@@ -1206,9 +986,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
 <div id="postPromotion" class="page">
 
-  <div class="sectionTitle">
-    Create Promotion Campaign
-  </div>
+  <div class="sectionTitle">Create Promotion Campaign</div>
 
   <div class="card">
 
@@ -1225,14 +1003,9 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       <option value="Property">Property</option>
     </select>
 
-    <input
-      id="promoTargetId"
-      placeholder="Target ID (Product/Business/Property ID)">
+    <input id="promoTargetId" placeholder="Target ID (Product/Business/Property ID)">
 
-    <input
-      id="promoCoins"
-      placeholder="Coins to Spend *"
-      type="number">
+    <input id="promoCoins" placeholder="Coins to Spend *" type="number">
 
     <select id="promoRadius">
       <option value="1">1 KM</option>
@@ -1244,51 +1017,33 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       <option value="All India">All India</option>
     </select>
 
-    <input
-      id="promoCity"
-      placeholder="City">
+    <input id="promoCity" placeholder="City">
 
-    <input
-      id="promoStart"
-      placeholder="Start Date (YYYY-MM-DD) *">
+    <input id="promoStart" placeholder="Start Date (YYYY-MM-DD) *">
 
-    <input
-      id="promoEnd"
-      placeholder="End Date (YYYY-MM-DD) *">
+    <input id="promoEnd" placeholder="End Date (YYYY-MM-DD) *">
 
-    <button
-      onclick="submitPromotion()">
-      Create Campaign
-    </button>
+    <button onclick="submitPromotion()">Create Campaign</button>
 
-    <button
-      class="btn-gray"
-      onclick="openPage('home')">
-      Cancel
-    </button>
+    <button class="btn-gray" onclick="openPage('home')">Cancel</button>
 
   </div>
 
 </div>
 
+<!-- ===================================================== -->
 <!-- POST ANNOUNCEMENT -->
+<!-- ===================================================== -->
 
 <div id="postAnnouncement" class="page">
 
-  <div class="sectionTitle">
-    Post Announcement
-  </div>
+  <div class="sectionTitle">Post Announcement</div>
 
   <div class="card">
 
-    <input
-      id="annTitle"
-      placeholder="Announcement Title *">
+    <input id="annTitle" placeholder="Announcement Title *">
 
-    <textarea
-      id="annDescription"
-      placeholder="Announcement Description *">
-    </textarea>
+    <textarea id="annDescription" placeholder="Announcement Description *"></textarea>
 
     <select id="annCategory">
       <option value="General">General</option>
@@ -1300,32 +1055,18 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       <option value="Emergency / Important">Emergency / Important</option>
     </select>
 
-    <input
-      id="annImage"
-      placeholder="Image URL (optional)">
+    <input id="annImage" placeholder="Image URL (optional)">
 
-    <input
-      id="annAddress"
-      placeholder="Address (optional)">
+    <input id="annAddress" placeholder="Address (optional)">
 
-    <input
-      id="annCity"
-      placeholder="City">
+    <input id="annCity" placeholder="City">
 
-    <!-- Hidden Announcer ID field (for V2 Announcer-authorized posts) -->
-    <input
-      id="announcerIdField"
-      type="hidden"
-      value="">
+    <input id="announcerIdField" type="hidden" value="">
 
-    <!-- Announcer Official Jurisdiction Context (shown when active Announcer) -->
     <div id="announcerPostContext"></div>
 
-    <!-- Announcement Coverage / Radius (shown for Announcer-authorized posts) -->
     <div id="annRadiusContainer" style="display:none;">
-      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;margin-top:8px;">
-        Announcement Coverage / Radius
-      </label>
+      <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;margin-top:8px;">Announcement Coverage / Radius</label>
       <select id="annRadius" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;">
         <option value="1">1 KM</option>
         <option value="5">5 KM</option>
@@ -1337,26 +1078,13 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       </select>
     </div>
 
-    <input
-      id="annStartDate"
-      type="date"
-      placeholder="Start Date (optional)">
+    <input id="annStartDate" type="date" placeholder="Start Date (optional)">
 
-    <input
-      id="annEndDate"
-      type="date"
-      placeholder="End Date (optional)">
+    <input id="annEndDate" type="date" placeholder="End Date (optional)">
 
-    <button
-      onclick="submitAnnouncement()">
-      Post Announcement
-    </button>
+    <button onclick="submitAnnouncement()">Post Announcement</button>
 
-    <button
-      class="btn-gray"
-      onclick="openPage('announcements')">
-      Cancel
-    </button>
+    <button class="btn-gray" onclick="openPage('announcements')">Cancel</button>
 
   </div>
 
@@ -1401,68 +1129,9 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   <div id="draftsList"></div>
 </div>
 
-</main>
-
-<div
-  class="bottomNav"
-  id="bottomNav">
-
-  <div
-    onclick="openPage('home')">
-
-    <i class="material-icons">
-      home
-    </i>
-
-    <span>Home</span>
-
-  </div>
-
-  <div
-    onclick="openPage('products')">
-
-    <i class="material-icons">
-      shopping_bag
-    </i>
-
-    <span>Products</span>
-
-  </div>
-
-  <div
-    onclick="openPage('news')">
-
-    <i class="material-icons">
-      newspaper
-    </i>
-
-    <span>News</span>
-
-  </div>
-
-  <div
-    onclick="openPage('live')">
-
-    <i class="material-icons">
-      live_tv
-    </i>
-
-    <span>Live</span>
-
-  </div>
-
-  <div
-    onclick="openPage('profile')">
-
-    <i class="material-icons">
-      person
-    </i>
-
-    <span>Profile</span>
-
-  </div>
-
-</div>
+<!-- ===================================================== -->
+<!-- SCRIPTS -->
+<!-- ===================================================== -->
 
 <script src="Config.js"></script>
 <script src="SearchLocation.js"></script>
@@ -1491,6 +1160,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 <script src="Drafts.js"></script>
 <script src="Announcements.js"></script>
 <script src="Announcers.js"></script>
+<script src="ui-design-system.js"></script>
 
 </body>
 </html>
