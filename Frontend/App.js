@@ -88,6 +88,28 @@ function openPage(pageId) {
       "bottomNav"
     );
 
+  // Toggle global discovery bar mode
+  const disco =
+    document.getElementById(
+      "globalDisco"
+    );
+
+  if (disco) {
+    const discoPages = ["home"];
+    const compactPages = ["products","businesses","properties","news","live"];
+
+    if (discoPages.includes(pageId)) {
+      disco.classList.remove("disco-compact");
+      disco.classList.add("disco-full");
+    } else if (compactPages.includes(pageId)) {
+      disco.classList.remove("disco-full");
+      disco.classList.add("disco-compact");
+    } else {
+      disco.classList.remove("disco-full","disco-compact");
+      disco.style.display = "none";
+    }
+  }
+
   if (
     pageId === "login" ||
     pageId === "register"
@@ -231,6 +253,39 @@ function getRadius() {
 }
 
 
+function syncDiscoCompact() {
+  const radius = document.getElementById("radius");
+  const label = document.getElementById("discoCompactRadiusLabel");
+  if (radius && label) {
+    label.textContent = radius.options[radius.selectedIndex].text;
+  }
+  const gpsText = document.getElementById("gpsText");
+  const compactText = document.getElementById("discoCompactText");
+  if (gpsText && compactText) {
+    compactText.textContent = gpsText.textContent.replace("GPS: ","");
+  }
+}
+
+function toggleDiscoRadiusPicker(forceClose) {
+  const picker = document.getElementById("discoRadiusPicker");
+  if (!picker) return;
+  if (forceClose === true) {
+    picker.classList.remove("open");
+    return;
+  }
+  picker.classList.toggle("open");
+}
+
+function pickDiscoRadius(value) {
+  const radius = document.getElementById("radius");
+  if (!radius) return;
+  radius.value = value;
+  const event = new Event("change");
+  radius.dispatchEvent(event);
+  toggleDiscoRadiusPicker(true);
+  syncDiscoCompact();
+}
+
 function initRadius() {
 
   const radius =
@@ -251,6 +306,8 @@ function initRadius() {
       saveRadius(
         radius.value
       );
+
+      syncDiscoCompact();
 
       loadAll();
     }
