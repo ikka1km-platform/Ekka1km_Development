@@ -1866,6 +1866,29 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
   margin-top: 2px;
 }
 
+.homeSectionCard-top {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.homeSectionCard-badge {
+  display: inline-block;
+  background: #e8f5e9;
+  color: var(--primary);
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.homeSectionCard-badgeBreaking {
+  background: #d32f2f;
+  color: #fff;
+}
+
 @media(min-width:768px) {
   .homePreviewGrid {
     grid-template-columns: repeat(4, 1fr);

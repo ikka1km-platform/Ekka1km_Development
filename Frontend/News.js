@@ -58,6 +58,9 @@ async function loadNews() {
 
     if (allNews.length === 0) {
       container.innerHTML = "<div class='card'>No News Found.</div>";
+      if (typeof renderHomeNewsPreview === "function") {
+        renderHomeNewsPreview(allNews);
+      }
       return;
     }
 
@@ -156,10 +159,77 @@ async function loadNews() {
     });
 
     container.innerHTML = html;
+
+    // Also render Home Local News preview from the same dataset
+    if (typeof renderHomeNewsPreview === "function") {
+      renderHomeNewsPreview(allNews);
+    }
   } catch (err) {
     console.log(err);
     container.innerHTML = "<div class='card'>Unable to load news.</div>";
+    // Update Home preview on error
+    const homeContainer = document.getElementById("homeLocalNewsContent");
+    if (homeContainer) {
+      homeContainer.innerHTML = '<div class="homeSection-empty">Unable to load news.</div>';
+    }
   }
+}
+
+
+/*
+HOME PREVIEW — LOCAL NEWS
+*/
+
+function renderHomeNewsPreview(news) {
+  const container = document.getElementById("homeLocalNewsContent");
+  if (!container) return;
+
+  if (!news || news.length === 0) {
+    container.innerHTML = '<div class="homeSection-empty">No local news found.</div>';
+    return;
+  }
+
+  const preview = news.slice(0, 4);
+  let html = '<div class="homePreviewGrid">';
+
+  preview.forEach(item => {
+    const hasImage = item.Image && item.Image.trim();
+    const isBreaking = (item.Category || "").toLowerCase() === "breaking";
+    const categoryBadge = item.Category && !isBreaking ? item.Category : "";
+
+    html += `
+      <div class="homePreviewCard" onclick='showNewsDetailsFromHome(${JSON.stringify(item).replace(/'/g, "\\'")})'>
+        ${hasImage
+          ? `<div class="homePreviewCard-img"><img src="${item.Image}" alt="${item.Title || ""}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>newspaper</span></div>'"></div>`
+          : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">newspaper</span></div>`
+        }
+        <div class="homePreviewCard-body">
+          <div class="homeSectionCard-top">
+            ${isBreaking ? `<span class="homeSectionCard-badge homeSectionCard-badgeBreaking">BREAKING</span>` : ""}
+            ${categoryBadge ? `<span class="homeSectionCard-badge">${categoryBadge}</span>` : ""}
+          </div>
+          <div class="homePreviewCard-title">${item.Title || "-"}</div>
+          <div class="homePreviewCard-meta">${timeAgo(item.CreatedDate)}${item.City ? ` · ${item.City}` : ""}</div>
+        </div>
+      </div>`;
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+
+/*
+HOME NEWS CARD CLICK — navigate to News page then show detail
+*/
+
+function showNewsDetailsFromHome(item) {
+  // First navigate to the news page, then show detail
+  openPage("news");
+  // Use setTimeout to ensure the page is active before rendering detail
+  setTimeout(() => {
+    showNewsDetails(item);
+  }, 50);
 }
 
 

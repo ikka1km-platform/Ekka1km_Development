@@ -60,6 +60,9 @@ async function loadProperties() {
 
     if (properties.length === 0) {
       container.innerHTML = "<div class='card'>No Properties Found.</div>";
+      if (typeof renderHomePropertiesPreview === "function") {
+        renderHomePropertiesPreview(properties);
+      }
       return;
     }
 
@@ -117,10 +120,80 @@ async function loadProperties() {
     });
 
     container.innerHTML = html;
+
+    // Also render Home Properties preview from the same dataset
+    if (typeof renderHomePropertiesPreview === "function") {
+      renderHomePropertiesPreview(properties);
+    }
   } catch (err) {
     console.log(err);
     container.innerHTML = "<div class='card'>Unable to load properties.</div>";
+    // Update Home preview on error
+    const homeContainer = document.getElementById("homePropertiesNearYouContent");
+    if (homeContainer) {
+      homeContainer.innerHTML = '<div class="homeSection-empty">Unable to load properties.</div>';
+    }
   }
+}
+
+
+/*
+HOME PREVIEW — PROPERTIES NEAR YOU
+*/
+
+function renderHomePropertiesPreview(properties) {
+  const container = document.getElementById("homePropertiesNearYouContent");
+  if (!container) return;
+
+  if (!properties || properties.length === 0) {
+    container.innerHTML = '<div class="homeSection-empty">No properties found nearby.</div>';
+    return;
+  }
+
+  const preview = properties.slice(0, 4);
+  let html = '<div class="homePreviewGrid">';
+
+  preview.forEach(prop => {
+    const imgUrl = prop.Images ? prop.Images.split(",")[0].trim() : "";
+    const purposeLabel = prop.Purpose === "Rent" ? "For Rent" : "For Sale";
+
+    html += `
+      <div class="homePreviewCard" onclick='showPropertyDetailsFromHome(${JSON.stringify(prop).replace(/'/g, "\\'")})'>
+        ${imgUrl
+          ? `<div class="homePreviewCard-img"><img src="${imgUrl}" alt="${prop.Title || ""}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>real_estate_agent</span></div>'"></div>`
+          : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">real_estate_agent</span></div>`
+        }
+        <div class="homePreviewCard-body">
+          <div class="homePreviewCard-title">${prop.Title || "-"}</div>
+          <div class="homePreviewCard-price">₹ ${(prop.Price || 0).toLocaleString()}</div>
+          <div class="homeSectionCard-top" style="margin-top:4px;">
+            <span class="homeSectionCard-badge">${purposeLabel}</span>
+            ${prop.Bedrooms ? `<span class="homeSectionCard-badge">${prop.Bedrooms} BHK</span>` : ""}
+            ${prop.Type ? `<span class="homeSectionCard-badge">${prop.Type}</span>` : ""}
+          </div>
+          <div class="homePreviewCard-meta">
+            ${prop.DistanceKm ? `${prop.DistanceKm} KM away` : prop.City ? prop.City : ""}
+          </div>
+        </div>
+      </div>`;
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+
+/*
+HOME PROPERTY CARD CLICK — navigate to Properties page then show detail
+*/
+
+function showPropertyDetailsFromHome(property) {
+  // First navigate to the properties page, then show detail
+  openPage("properties");
+  // Use setTimeout to ensure the page is active before rendering detail
+  setTimeout(() => {
+    showPropertyDetails(property);
+  }, 50);
 }
 
 
