@@ -1070,6 +1070,9 @@ case "onboarding":
   case "debugpip":
     return debugPip(e);
 
+  case "promotednearby":
+    return getPromotedNearYou(e);
+
       default:
         return error(
           "Invalid action : " + action

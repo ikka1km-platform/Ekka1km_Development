@@ -2415,3 +2415,115 @@ function getWeekStart() {
   monday.setHours(0, 0, 0, 0);
   return monday;
 }
+
+
+/**
+ * ============================================================
+ * PUBLIC DISCOVERY: GET PROMOTED NEAR YOU
+ * ?action=promotednearby&lat=26.91&lng=75.78&radius=51
+ * Read-only public endpoint for Home promoted listings.
+ * Returns only active campaigns with safe public fields.
+ * Reuses canonical location/radius filtering.
+ * ============================================================
+ */
+function getPromotedNearYou(e) {
+  try {
+    ensurePromotionSheets();
+
+    var location = getLocationContext(e);
+    var userLat = Number(location.lat) || 0;
+    var userLng = Number(location.lng) || 0;
+    var radius = location.radius || "";
+
+    var campaigns = getSheetData("PromotionCampaigns");
+    var now = new Date();
+    var result = [];
+    var targetTypes = ["Product", "Business", "Property"];
+
+    campaigns.forEach(function(c) {
+      try {
+        var status = String(c.Status || "").toLowerCase();
+        var campaignType = String(c.CampaignType || "").toUpperCase();
+        var targetType = String(c.TargetType || "").trim();
+        var start = c.StartDate ? new Date(c.StartDate) : null;
+        var end = c.EndDate ? new Date(c.EndDate) : null;
+
+        // Active status filter
+        if (status !== "active") return;
+
+        // Date range filter (normalize to start of day)
+        if (start) {
+          start = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        }
+        if (end) {
+          end = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        }
+        var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        if (start && start > today) return;
+        if (end && end < today) return;
+
+        // Only include campaigns targeting real internal entities
+        if (targetTypes.indexOf(targetType) === -1) return;
+
+        // Distance / radius filtering
+        var campLat = Number(c.Latitude || c.latitude || 0);
+        var campLng = Number(c.Longitude || c.longitude || 0);
+
+        if (userLat && userLng && campLat && campLng) {
+          if (String(radius).toLowerCase() !== "all india") {
+            var radiusNum = Number(radius);
+            if (!isNaN(radiusNum) && radiusNum > 0) {
+              var distance = calculateDistance(userLat, userLng, campLat, campLng);
+              if (distance > radiusNum) return;
+              c.DistanceKm = Number(distance.toFixed(2));
+            }
+          }
+        }
+
+        // Build safe public response with only required fields
+        var publicCampaign = {
+          CampaignID: c.CampaignID || "",
+          TargetType: targetType,
+          TargetID: c.TargetID || "",
+          Title: c.Title || c.CampaignType || "Promotion",
+          Description: c.Description || "",
+          ImageURL: c.ImageURL || "",
+          City: c.City || "",
+          DistanceKm: c.DistanceKm || "",
+          Featured: c.Featured || "No",
+          CampaignType: campaignType
+        };
+
+        result.push(publicCampaign);
+      } catch (campErr) {
+        console.log("Phase3D-B: Campaign filter error:", campErr.toString());
+      }
+    });
+
+    // Sort: featured first, then by distance if available
+    result.sort(function(a, b) {
+      var aF = String(a.Featured || "").toLowerCase() === "yes" ? 1 : 0;
+      var bF = String(b.Featured || "").toLowerCase() === "yes" ? 1 : 0;
+      if (aF !== bF) return bF - aF;
+      var aD = a.DistanceKm ? Number(a.DistanceKm) : 9999;
+      var bD = b.DistanceKm ? Number(b.DistanceKm) : 9999;
+      return aD - bD;
+    });
+
+    var limit = Math.min(result.length, 4);
+    var final = result.slice(0, limit);
+
+    return success({
+      count: final.length,
+      data: final
+    }, "Promoted Near You Loaded");
+
+  } catch (err) {
+    console.log("Phase3D-B: getPromotedNearYou error:", err.toString());
+    return success({
+      count: 0,
+      data: []
+    }, "Promoted Near You Loaded (empty)");
+  }
+}

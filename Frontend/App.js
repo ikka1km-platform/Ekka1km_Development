@@ -403,6 +403,13 @@ function loadAll() {
     loadDashboard();
   }
 
+  if (
+    typeof loadPromotedNearYou ===
+    "function"
+  ) {
+    loadPromotedNearYou();
+  }
+
   // Phase 4: Load PIP Queue after a short delay
   if (typeof loadPipQueue === "function") {
     setTimeout(function() {

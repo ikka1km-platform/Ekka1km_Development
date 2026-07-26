@@ -166,6 +166,79 @@ function openInternalDestination(targetType, targetId) {
 
 /*
 ============================================================
+PROMOTED NEAR YOU — PUBLIC DISCOVERY (Stage 3D-B)
+============================================================
+*/
+
+async function loadPromotedNearYou() {
+  const container = document.getElementById("homePromotedNearYouContent");
+  if (!container) return;
+  container.innerHTML = "<div class='homeSection-empty'>Loading promoted listings...</div>";
+
+  try {
+    let url = getApiUrl() + "?action=promotednearby&lat=" + CURRENT_LAT + "&lng=" + CURRENT_LNG + "&radius=" + getRadius();
+    const response = await fetch(url);
+    const json = await response.json();
+    const campaigns = (json.data && json.data.data) || [];
+    renderPromotedNearYou(campaigns);
+  } catch (err) {
+    console.log("Promoted Near You load error:", err);
+    container.innerHTML = "<div class='homeSection-empty'>Unable to load promoted listings.</div>";
+  }
+}
+
+function renderPromotedNearYou(campaigns) {
+  const container = document.getElementById("homePromotedNearYouContent");
+  if (!container) return;
+
+  if (!campaigns || campaigns.length === 0) {
+    container.innerHTML = "<div class='homeSection-empty'>No promoted listings nearby.</div>";
+    return;
+  }
+
+  let html = '<div class="homePreviewGrid">';
+  campaigns.forEach(function(c) {
+    const targetType = String(c.TargetType || "").toLowerCase();
+    const title = escapeHtml(c.Title || "Promoted Listing");
+    const desc = escapeHtml(c.Description || "");
+    const imageUrl = c.ImageURL || "";
+    const distance = c.DistanceKm ? c.DistanceKm + " km" : "";
+    const city = escapeHtml(c.City || "");
+    const isFeatured = String(c.Featured || "").toLowerCase() === "yes";
+
+    html += '<div class="homePreviewCard" onclick="openInternalDestination(\'' + targetType + '\', \'' + (c.TargetID || "") + '\')">';
+
+    if (imageUrl && isValidImageUrl(imageUrl)) {
+      html += '<div class="homePreviewCard-img"><img src="' + imageUrl + '" onerror="this.parentElement.style.display=\'none\'"></div>';
+    }
+
+    html += '<div class="homePreviewCard-body">';
+    html += '<div class="homeSectionCard-top">';
+    if (isFeatured) {
+      html += '<span class="homeSectionCard-badge" style="background:#ff6f00;color:#fff;">&#11088; Promoted</span>';
+    } else {
+      html += '<span class="homeSectionCard-badge">Promoted</span>';
+    }
+    html += '</div>';
+
+    html += '<div class="homePreviewCard-title" title="' + title + '">' + title + '</div>';
+    if (desc) {
+      html += '<div class="homePreviewCard-meta" title="' + desc + '">' + desc + '</div>';
+    }
+    html += '<div class="homePreviewCard-meta">';
+    if (city) html += city + ' &middot; ';
+    if (distance) html += distance;
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+/*
+============================================================
 HANDLE PIP ADVERTISEMENT CLICK (Pre-5.6)
 ============================================================
 */
