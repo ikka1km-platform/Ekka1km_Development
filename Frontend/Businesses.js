@@ -52,6 +52,9 @@ async function loadBusinesses() {
       container.innerHTML =
         "<div class='card'>No Businesses Found.</div>";
 
+      if (typeof renderHomeBusinessesPreview === "function") {
+        renderHomeBusinessesPreview(businesses);
+      }
       return;
     }
 
@@ -97,9 +100,12 @@ async function loadBusinesses() {
       }
     );
 
-    container.innerHTML =
-      html;
+    container.innerHTML = html;
 
+    // Also render Home preview from the same dataset
+    if (typeof renderHomeBusinessesPreview === "function") {
+      renderHomeBusinessesPreview(businesses);
+    }
   }
   catch (err) {
 
@@ -108,6 +114,49 @@ async function loadBusinesses() {
     container.innerHTML =
       "<div class='card'>Unable to load businesses.</div>";
   }
+}
+
+
+/*
+HOME PREVIEW — BUSINESSES NEAR YOU
+*/
+
+function renderHomeBusinessesPreview(businesses) {
+  const container = document.getElementById("homeBusinessesNearYouContent");
+  if (!container) return;
+
+  if (!businesses || businesses.length === 0) {
+    container.innerHTML = '<div class="homeSection-empty">No businesses found nearby.</div>';
+    return;
+  }
+
+  const preview = businesses.slice(0, 4);
+  let html = '<div class="homePreviewGrid">';
+
+  preview.forEach(business => {
+    html += `
+      <div class="homePreviewCard" onclick='showBusinessDetails(${JSON.stringify(business).replace(/'/g, "\\'")})'>
+        <div class="homePreviewCard-img homePreviewCard-imgPlaceholder" style="background:#e8f5e9;">
+          <span class="material-icons" style="color:var(--primary);font-size:32px;">store</span>
+        </div>
+        <div class="homePreviewCard-body">
+          <div class="homePreviewCard-title">${business.BusinessName || "-"}</div>
+          ${business.Category
+            ? `<div class="homePreviewCard-meta">${business.Category}</div>`
+            : ""
+          }
+          ${business.DistanceKm
+            ? `<div class="homePreviewCard-meta">${business.DistanceKm} KM away</div>`
+            : business.City
+              ? `<div class="homePreviewCard-meta">${business.City}</div>`
+              : ""
+          }
+        </div>
+      </div>`;
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
 }
 
 

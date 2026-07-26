@@ -58,6 +58,9 @@ async function loadProducts() {
 
     if (products.length === 0) {
       container.innerHTML = "<div class='card'>No Products Found.</div>";
+      if (typeof renderHomeProductsPreview === "function") {
+        renderHomeProductsPreview(products);
+      }
       return;
     }
 
@@ -119,10 +122,59 @@ async function loadProducts() {
     });
 
     container.innerHTML = html;
+
+    // Also render Home preview from the same dataset
+    if (typeof renderHomeProductsPreview === "function") {
+      renderHomeProductsPreview(products);
+    }
   } catch (err) {
     console.log(err);
     container.innerHTML = "<div class='card'>Unable to load products.</div>";
   }
+}
+
+
+/*
+HOME PREVIEW — NEARBY PRODUCTS
+*/
+
+function renderHomeProductsPreview(products) {
+  const container = document.getElementById("homeNearbyProductsContent");
+  if (!container) return;
+
+  if (!products || products.length === 0) {
+    container.innerHTML = '<div class="homeSection-empty">No products found nearby.</div>';
+    return;
+  }
+
+  const preview = products.slice(0, 4);
+  let html = '<div class="homePreviewGrid">';
+
+  preview.forEach(product => {
+    const images = getProductImages(product);
+    const firstImage = images.length > 0 ? images[0] : "";
+
+    html += `
+      <div class="homePreviewCard" onclick='showProductDetails(${JSON.stringify(product).replace(/'/g, "\\'")})'>
+        ${firstImage
+          ? `<div class="homePreviewCard-img"><img src="${firstImage}" alt="${product.Title || ""}" loading="lazy"></div>`
+          : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">shopping_bag</span></div>`
+        }
+        <div class="homePreviewCard-body">
+          <div class="homePreviewCard-title">${product.Title || "-"}</div>
+          <div class="homePreviewCard-price">₹ ${(product.Price || 0).toLocaleString()}</div>
+          ${product.DistanceKm
+            ? `<div class="homePreviewCard-meta">${product.DistanceKm} KM away</div>`
+            : product.City
+              ? `<div class="homePreviewCard-meta">${product.City}</div>`
+              : ""
+          }
+        </div>
+      </div>`;
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
 }
 
 

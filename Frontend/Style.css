@@ -1754,6 +1754,130 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
    MOBILE
 ========================================================== */
 
+/* ==========================================================
+   HOME PREVIEW SECTIONS (Stage 3B)
+========================================================== */
+
+.homeSection {
+  padding: 0 15px 20px;
+}
+
+.homeSection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-top: 10px;
+}
+
+.homeSection-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.homeSection-viewAll {
+  font-size: 13px;
+  color: var(--primary);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: #e8f5e9;
+  transition: background 0.2s;
+}
+
+.homeSection-viewAll:hover {
+  background: #c8e6c9;
+}
+
+.homeSection-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+  background: #fff;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+}
+
+.homePreviewGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.homePreviewCard {
+  background: #fff;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.homePreviewCard:active {
+  transform: scale(0.97);
+}
+
+.homePreviewCard-img {
+  width: 100%;
+  height: 120px;
+  overflow: hidden;
+}
+
+.homePreviewCard-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.homePreviewCard-imgPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  color: #bbb;
+}
+
+.homePreviewCard-body {
+  padding: 8px 10px 10px;
+}
+
+.homePreviewCard-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.homePreviewCard-price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-top: 2px;
+}
+
+.homePreviewCard-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+@media(min-width:768px) {
+  .homePreviewGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .homeSection {
+    padding: 0 20px 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+}
+
 @media(max-width:600px){
 
   header{
