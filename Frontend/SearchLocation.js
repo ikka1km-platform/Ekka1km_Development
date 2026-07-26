@@ -746,6 +746,14 @@ function onSearchLocationChange() {
     // Clear manual location
     clearSearchCenter();
   }
+  else if (value === "gps") {
+
+    // Reset dropdown back to current
+    updateSearchLocationDisplay();
+
+    // Clear manual location and restore GPS
+    clearSearchCenter();
+  }
 }
 
 
