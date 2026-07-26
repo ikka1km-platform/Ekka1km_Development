@@ -33,7 +33,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
     <span
       class="header-menu-icon material-icons"
-      onclick=""
+      onclick="openSideDrawer()"
       title="Menu">
       menu
     </span>
@@ -501,135 +501,10 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
 <div id="home" class="page">
 
-  <div class="banner">
-
-    <h2>
-      Welcome to Ekka1km
-    </h2>
-
-    <p>
-      Discover everything around your selected GPS radius.
-    </p>
-
-  </div>
-
-  <div class="community">
-
-    <div
-      class="card login-only">
-
-      <h3>Wallet</h3>
-
-      <h1 id="walletHome">
-        0
-      </h1>
-
-    </div>
-
-    <div
-      class="card login-only">
-
-      <h3>Coins</h3>
-
-      <h1 id="coinsHome">
-        0
-      </h1>
-
-    </div>
-
-    <div
-      class="card guest-only">
-
-      <h3>
-        Guest User
-      </h3>
-
-      <h1>
-        👤
-      </h1>
-
-    </div>
-
-  </div>
-
-  <div class="sectionTitle">
-    Explore
-  </div>
-
-  <div class="grid">
-
-    <div
-      class="menuCard"
-      onclick="openPage('wallet')">
-
-      <i class="material-icons">
-        account_balance_wallet
-      </i>
-
-      <h4>
-        Wallet
-      </h4>
-
-    </div>
-
-    <div
-      class="menuCard"
-      onclick="openPage('notifications')">
-
-      <i class="material-icons">
-        notifications
-      </i>
-
-      <h4>
-        Notifications
-      </h4>
-
-    </div>
-
-    <div
-      class="menuCard"
-      onclick="openPage('profile')">
-
-      <i class="material-icons">
-        person
-      </i>
-
-      <h4>
-        Profile
-      </h4>
-
-    </div>
-
-    <div
-      class="menuCard"
-      onclick="openPage('adcenter')"
-      style="background:#fff3e0;">
-
-      <i class="material-icons" style="color:#ff6f00;">
-        campaign
-      </i>
-
-      <h4>
-        Reward Ads
-      </h4>
-
-    </div>
-
-    <div
-      class="menuCard"
-      onclick="openPage('announcements')"
-      style="background:#e8f5e9;">
-
-      <i class="material-icons" style="color:#0f9d58;">
-        campaign
-      </i>
-
-      <h4>
-        Announcements
-      </h4>
-
-    </div>
-
+  <!-- Compact Welcome Strip -->
+  <div class="welcomeStrip">
+    <span class="welcomeStrip-brand">Ekka1km</span>
+    <span class="welcomeStrip-text">Discover everything around your selected location.</span>
   </div>
 
   <!-- ===================================================== -->
@@ -1004,6 +879,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   </button>
 
 </div>
+
 
 <!-- ===================================================== -->
 <!-- POST PRODUCT -->
@@ -1614,6 +1490,122 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   <div class="sectionTitle">My Drafts</div>
   <div id="draftsList"></div>
 </div>
+
+<!-- SIDE DRAWER (moved outside main so it stays fixed overlay) -->
+
+<div id="sideDrawer" class="sideDrawer">
+
+  <div class="sideDrawer-header">
+
+    <div class="sideDrawer-identity">
+
+      <div class="sideDrawer-logo">
+        <span class="material-icons">public</span>
+      </div>
+
+      <div class="sideDrawer-userInfo">
+        <div class="sideDrawer-brand">Ekka1km</div>
+        <div class="sideDrawer-userName" id="drawerUserName">Guest User</div>
+        <div class="sideDrawer-balance" id="drawerBalance"></div>
+      </div>
+
+    </div>
+
+    <span
+      class="sideDrawer-close material-icons"
+      onclick="closeSideDrawer()"
+      title="Close">
+      close
+    </span>
+
+  </div>
+
+  <div class="sideDrawer-body">
+
+    <div
+      class="sideDrawer-item"
+      onclick="navigateFromDrawer('home')">
+      <i class="material-icons">home</i>
+      <span>Dashboard / Home</span>
+    </div>
+
+    <div
+      class="sideDrawer-item"
+      onclick="navigateFromDrawer('profile')">
+      <i class="material-icons">person</i>
+      <span>Profile</span>
+    </div>
+
+    <div
+      class="sideDrawer-item"
+      onclick="navigateFromDrawer('wallet')">
+      <i class="material-icons">account_balance_wallet</i>
+      <span>Wallet</span>
+    </div>
+
+    <div
+      class="sideDrawer-item"
+      onclick="navigateFromDrawer('notifications')">
+      <i class="material-icons">notifications</i>
+      <span>Notifications</span>
+    </div>
+
+    <div
+      class="sideDrawer-item"
+      onclick="navigateFromDrawer('adcenter')">
+      <i class="material-icons">campaign</i>
+      <span>Reward Ads</span>
+    </div>
+
+    <div
+      class="sideDrawer-item"
+      onclick="navigateFromDrawer('announcements')">
+      <i class="material-icons">campaign</i>
+      <span>Announcements</span>
+    </div>
+
+    <div class="sideDrawer-divider"></div>
+
+    <div
+      class="sideDrawer-item"
+      onclick="navigateFromDrawer('products')">
+      <i class="material-icons">shopping_bag</i>
+      <span>Products</span>
+    </div>
+
+    <div
+      class="sideDrawer-item"
+      onclick="navigateFromDrawer('businesses')">
+      <i class="material-icons">store</i>
+      <span>Businesses</span>
+    </div>
+
+    <div
+      class="sideDrawer-item"
+      onclick="navigateFromDrawer('properties')">
+      <i class="material-icons">real_estate_agent</i>
+      <span>Properties</span>
+    </div>
+
+    <div
+      class="sideDrawer-item"
+      onclick="navigateFromDrawer('news')">
+      <i class="material-icons">newspaper</i>
+      <span>News</span>
+    </div>
+
+    <div
+      class="sideDrawer-item"
+      onclick="navigateFromDrawer('live')">
+      <i class="material-icons">live_tv</i>
+      <span>Live</span>
+    </div>
+
+  </div>
+
+</div>
+
+<div id="drawerBackdrop" class="drawerBackdrop" onclick="closeSideDrawer()"></div>
 
 </main>
 

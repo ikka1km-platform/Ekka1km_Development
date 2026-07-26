@@ -50,6 +50,64 @@ function refreshLoginUI() {
 
 /*
 ============================================================
+SIDE DRAWER (Stage 3E)
+============================================================
+*/
+
+function openSideDrawer() {
+  const drawer = document.getElementById("sideDrawer");
+  const backdrop = document.getElementById("drawerBackdrop");
+  if (!drawer || !backdrop) return;
+
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeSideDrawer() {
+  const drawer = document.getElementById("sideDrawer");
+  const backdrop = document.getElementById("drawerBackdrop");
+  if (!drawer || !backdrop) return;
+
+  drawer.classList.remove("open");
+  backdrop.classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function navigateFromDrawer(pageId) {
+  closeSideDrawer();
+  setTimeout(() => openPage(pageId), 180);
+}
+
+function refreshDrawerIdentity() {
+  const nameEl = document.getElementById("drawerUserName");
+  const balanceEl = document.getElementById("drawerBalance");
+  if (!nameEl && !balanceEl) return;
+
+  const userData = localStorage.getItem(CONFIG.STORAGE_KEYS.USER_NEW);
+  const sessionData = localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION);
+  let user = null;
+  if (userData) {
+    try { user = JSON.parse(userData); } catch (e) { /* silent */ }
+  } else if (sessionData) {
+    try { user = JSON.parse(sessionData); } catch (e) { /* silent */ }
+  }
+
+  if (nameEl) {
+    nameEl.textContent = user && user.name ? user.name : "Guest User";
+  }
+
+  if (balanceEl && user) {
+    const wallet = user.walletBalance || 0;
+    const coins = user.coins || 0;
+    balanceEl.textContent = "₹" + wallet + " | " + coins + " coins";
+    balanceEl.style.display = (wallet || coins) ? "block" : "none";
+  }
+}
+
+
+/*
+============================================================
 PAGE NAVIGATION
 ============================================================
 */
@@ -88,7 +146,6 @@ function openPage(pageId) {
       "bottomNav"
     );
 
-  // Toggle global discovery bar mode
   const disco =
     document.getElementById(
       "globalDisco"
@@ -194,7 +251,7 @@ function loadLocation() {
 
         if (gpsText) {
           gpsText.innerText =
-            `GPS: ${CURRENT_LAT.toFixed(4)}, ${CURRENT_LNG.toFixed(4)}`;
+            "GPS: " + CURRENT_LAT.toFixed(4) + ", " + CURRENT_LNG.toFixed(4);
         }
 
         loadAll();
@@ -325,6 +382,7 @@ LOAD EVERYTHING
 function loadAll() {
 
   refreshLoginUI();
+  refreshDrawerIdentity();
 
   if (
     typeof loadProducts ===
@@ -410,7 +468,6 @@ function loadAll() {
     loadPromotedNearYou();
   }
 
-  // Phase 4: Load PIP Queue after a short delay
   if (typeof loadPipQueue === "function") {
     setTimeout(function() {
       console.log("Phase4: PIP initialization started");
@@ -474,7 +531,6 @@ function renderDashboard(data) {
 
   var html = '';
 
-  // Profile Card
   html += '<div class="dashboardProfileCard">';
   html += '<div class="dashboardProfileHeader">';
   html += profilePhotoHtml;
@@ -487,7 +543,6 @@ function renderDashboard(data) {
   html += '<div class="dashboardStatItem"><h2>' + (profile.coins || 0) + '</h2><p>Coins</p></div>';
   html += '</div></div>';
 
-  // Quick Actions
   html += '<div class="dashboardSection"><h3>Quick Actions</h3>';
   html += '<div class="dashboardQuickActions">';
   html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'product\')"><i class="material-icons">shopping_bag</i><span>Post Product</span></div>';
@@ -498,7 +553,6 @@ function renderDashboard(data) {
   html += '<div class="dashboardQuickAction" onclick="openPage(\'notifications\')"><i class="material-icons">notifications</i><span>Notifications</span></div>';
   html += '</div></div>';
 
-  // Activity Cards
   html += '<div class="dashboardSection"><h3>My Activity</h3>';
   html += '<div class="dashboardGrid">';
   html += '<div class="dashboardStatItem"><h2>' + (activity.productsPosted || 0) + '</h2><p>Products</p></div>';
@@ -509,7 +563,6 @@ function renderDashboard(data) {
   html += '<div class="dashboardStatItem"><h2>' + (activity.promotionsCount || 0) + '</h2><p>Promotions</p></div>';
   html += '</div></div>';
 
-  // Analytics Cards
   html += '<div class="dashboardSection"><h3>Analytics</h3>';
   html += '<div class="dashboardGrid">';
   html += '<div class="dashboardStatItem"><h2>' + (analytics.totalViews || 0) + '</h2><p>Views</p></div>';
@@ -518,10 +571,8 @@ function renderDashboard(data) {
   html += '<div class="dashboardStatItem"><h2>' + (analytics.productInterestedCount || 0) + '</h2><p>Interested</p></div>';
   html += '</div></div>';
 
-  // Recent Activity
   html += '<div class="dashboardSection"><h3>Recent Activity</h3>';
 
-  // Latest Products
   html += '<div class="dashboardActivityCard"><h4>Latest Products</h4>';
   if (recent.latestProducts && recent.latestProducts.length > 0) {
     recent.latestProducts.forEach(function(p) {
@@ -535,7 +586,6 @@ function renderDashboard(data) {
   }
   html += '</div>';
 
-  // Latest Notifications
   html += '<div class="dashboardActivityCard"><h4>Latest Notifications</h4>';
   if (recent.latestNotifications && recent.latestNotifications.length > 0) {
     recent.latestNotifications.forEach(function(n) {
@@ -549,7 +599,6 @@ function renderDashboard(data) {
   }
   html += '</div>';
 
-  // Latest Interests
   html += '<div class="dashboardActivityCard"><h4>Latest Interests</h4>';
   if (recent.latestInterests && recent.latestInterests.length > 0) {
     recent.latestInterests.forEach(function(i) {
@@ -563,7 +612,6 @@ function renderDashboard(data) {
   }
   html += '</div>';
 
-  // Quick Stats
   html += '<div class="dashboardSection"><h3>Quick Stats</h3>';
   html += '<div class="dashboardGrid">';
   html += '<div class="dashboardStatItem"><h2>' + (quickStats.activeProducts || 0) + '</h2><p>Active Products</p></div>';
@@ -632,6 +680,8 @@ window.addEventListener(
     initSearchLocationUI();
 
     refreshLoginUI();
+
+    refreshDrawerIdentity();
 
     openPage("home");
 
