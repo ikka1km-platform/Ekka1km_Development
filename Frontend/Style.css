@@ -111,9 +111,17 @@ header{
 ========================================================== */
 
 main{
-  padding-top:90px;
+  padding-top:70px;
   padding-bottom:90px;
   min-height:100vh;
+}
+
+/* When globalDisco is visible (full or compact), it already clears the fixed header,
+   so main does not need padding-top. When globalDisco is hidden (Wallet/Profile etc.),
+   main's padding-top:70px still provides header clearance. */
+#globalDisco.disco-full ~ main,
+#globalDisco.disco-compact ~ main{
+  padding-top:0;
 }
 
 .page{
@@ -1549,6 +1557,7 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
   position:relative;
   z-index:99;
   background:var(--page-bg);
+  padding-top:70px;
 }
 
 .disco-full-content{

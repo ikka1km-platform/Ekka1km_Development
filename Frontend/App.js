@@ -104,6 +104,7 @@ function openPage(pageId) {
     } else if (compactPages.includes(pageId)) {
       disco.classList.remove("disco-full");
       disco.classList.add("disco-compact");
+      syncDiscoCompact();
     } else {
       disco.classList.remove("disco-full","disco-compact");
       disco.style.display = "none";
