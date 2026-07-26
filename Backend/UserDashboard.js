@@ -45,7 +45,8 @@ function getUserDashboard(e) {
       activity: activity,
       analytics: analytics,
       recentActivity: recent,
-      quickStats: quickStats
+      quickStats: quickStats,
+      realCounts: getRealContentCounts(userId)
     };
 
     // Cache for 60 seconds
@@ -295,6 +296,58 @@ function getUserAnalyticsSummary(userId) {
  * GET RECENT DASHBOARD ACTIVITY
  * ============================================================
  */
+/**
+ * ============================================================
+ * GET REAL CONTENT COUNTS
+ * ============================================================
+ */
+function getRealContentCounts(userId) {
+  try {
+    var products = getSheetData("Products");
+    var businesses = getSheetData("Businesses");
+    var properties = getSheetData("Properties");
+    var news = getSheetData("News");
+
+    var productsCount = 0;
+    var businessesCount = 0;
+    var propertiesCount = 0;
+    var newsCount = 0;
+
+    products.forEach(function(p) {
+      if (String(p.UserID) === String(userId)) productsCount++;
+    });
+
+    businesses.forEach(function(b) {
+      if (String(b.UserID) === String(userId)) businessesCount++;
+    });
+
+    properties.forEach(function(p) {
+      if (String(p.OwnerUserID) === String(userId)) propertiesCount++;
+    });
+
+    news.forEach(function(n) {
+      if (String(n.UserID) === String(userId)) newsCount++;
+    });
+
+    return {
+      products: productsCount,
+      businesses: businessesCount,
+      properties: propertiesCount,
+      news: newsCount
+    };
+
+  } catch (err) {
+    Logger.log("getRealContentCounts error: " + err.toString());
+    return { products: 0, businesses: 0, properties: 0, news: 0 };
+  }
+}
+
+
+/**
+ * ============================================================
+ * GET RECENT DASHBOARD ACTIVITY
+ * ============================================================
+ */
 function getRecentDashboardActivity(userId) {
   try {
     var result = {
@@ -306,6 +359,9 @@ function getRecentDashboardActivity(userId) {
 
     // Batch read
     var products = getSheetData("Products");
+    var businesses = getSheetData("Businesses");
+    var properties = getSheetData("Properties");
+    var news = getSheetData("News");
     var notifications = getSheetData("Notifications") || [];
     var interests = getSheetData("UserInterests") || [];
     var events = getSheetData("AnalyticsEvents") || [];
@@ -319,6 +375,53 @@ function getRecentDashboardActivity(userId) {
     });
     userProducts.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
     result.latestProducts = userProducts.slice(0, 5);
+
+    // Latest Businesses by user
+    var userBusinesses = [];
+    businesses.forEach(function(b) {
+      if (String(b.UserID) === String(userId)) {
+        userBusinesses.push({ id: b.BusinessID, title: b.BusinessName || b.Name, status: b.Status, date: b.CreatedDate });
+      }
+    });
+    userBusinesses.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+    result.latestBusinesses = userBusinesses.slice(0, 5);
+
+    // Latest Properties by user
+    var userProperties = [];
+    properties.forEach(function(p) {
+      if (String(p.OwnerUserID) === String(userId)) {
+        userProperties.push({ id: p.PropertyID, title: p.Title || p.PropertyName, price: p.Price, status: p.Status, date: p.CreatedDate });
+      }
+    });
+    userProperties.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+    result.latestProperties = userProperties.slice(0, 5);
+
+    // Latest News by user
+    var userNews = [];
+    news.forEach(function(n) {
+      if (String(n.UserID) === String(userId)) {
+        userNews.push({ id: n.NewsID, title: n.Title, status: n.Status, date: n.CreatedDate });
+      }
+    });
+    userNews.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+    result.latestNews = userNews.slice(0, 5);
+
+    // Unified recent content across types
+    var unified = [];
+    userProducts.forEach(function(item) {
+      unified.push({ type: "Product", title: item.title, status: item.status, price: item.price, date: item.date });
+    });
+    userBusinesses.forEach(function(item) {
+      unified.push({ type: "Business", title: item.title, status: item.status, price: null, date: item.date });
+    });
+    userProperties.forEach(function(item) {
+      unified.push({ type: "Property", title: item.title, status: item.status, price: item.price, date: item.date });
+    });
+    userNews.forEach(function(item) {
+      unified.push({ type: "News", title: item.title, status: item.status, price: null, date: item.date });
+    });
+    unified.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+    result.unified = unified.slice(0, 5);
 
     // Latest Notifications
     var userNotifications = [];

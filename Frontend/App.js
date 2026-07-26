@@ -538,11 +538,13 @@ function renderDashboard(data) {
   var activity = data.activity || {};
   var quickStats = data.quickStats || {};
 
-  // My Posts aggregate from real content counts
-  var myPosts = (activity.productsPosted || 0) +
-                (activity.businessesCreated || 0) +
-                (activity.propertiesPosted || 0) +
-                (activity.newsPosted || 0);
+  // My Posts aggregate from canonical realCounts
+  var realCounts = data.realCounts || {};
+  var myPosts =
+    Number(realCounts.products || 0) +
+    Number(realCounts.businesses || 0) +
+    Number(realCounts.properties || 0) +
+    Number(realCounts.news || 0);
 
   var profilePhotoHtml = profile.profilePhoto
     ? '<img class="dashboardProfilePhoto" src="' + profile.profilePhoto + '" alt="Profile">'
@@ -578,6 +580,61 @@ function renderDashboard(data) {
   html += '<div class="dashboardQuickAction" onclick="openPage(\'promotions\')"><i class="material-icons">trending_up</i><span>Promotions</span></div>';
   html += '<div class="dashboardQuickAction" onclick="openPage(\'notifications\')"><i class="material-icons">notifications</i><span>Notifications</span></div>';
   html += '</div></div>';
+
+  // My Content
+  var realCounts = data.realCounts || {};
+  var productsCount = realCounts.products || 0;
+  var businessesCount = realCounts.businesses || 0;
+  var propertiesCount = realCounts.properties || 0;
+  var newsCount = realCounts.news || 0;
+  var totalContent = productsCount + businessesCount + propertiesCount + newsCount;
+
+  html += '<div class="dashboardSection"><h3>My Content</h3>';
+  if (totalContent === 0) {
+    html += '<div class="dashboardEmpty">You haven\'t posted anything yet.</div>';
+  } else {
+    html += '<div class="myContentGrid">';
+    html += '<div class="myContentCard"><div class="myContentLabel">Products</div><div class="myContentCount">' + productsCount + '</div></div>';
+    html += '<div class="myContentCard"><div class="myContentLabel">Businesses</div><div class="myContentCount">' + businessesCount + '</div></div>';
+    html += '<div class="myContentCard"><div class="myContentLabel">Properties</div><div class="myContentCount">' + propertiesCount + '</div></div>';
+    html += '<div class="myContentCard"><div class="myContentLabel">News</div><div class="myContentCount">' + newsCount + '</div></div>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // Recent Activity
+  var recentActivity = (data.recentActivity && data.recentActivity.unified) || [];
+  if (recentActivity.length > 0) {
+    html += '<div class="dashboardSection"><h3>Recent Activity</h3>';
+    html += '<div class="recentActivityList">';
+    recentActivity.forEach(function(item) {
+      var meta = '';
+      if (item.price) {
+        var priceVal = Number(item.price);
+        var priceStr = String(item.price);
+        var hasReasonableDecimals = !priceStr.includes('.') || (priceStr.split('.')[1] && priceStr.split('.')[1].length <= 2);
+        if (isFinite(priceVal) && priceVal > 0 && priceVal < 1e9 && hasReasonableDecimals) {
+          meta += '<span class="recentPrice">' + item.price + '</span>';
+        }
+      }
+      if (item.status) {
+        var statusStr = String(item.status).trim();
+        var isValidStatus = statusStr.length > 0 && statusStr.length <= 20 && isNaN(Number(statusStr));
+        if (isValidStatus) {
+          meta += '<span class="recentStatus">' + statusStr + '</span>';
+        }
+      }
+      html += '<div class="recentActivityItem">';
+      html += '<div class="recentType">' + item.type + '</div>';
+      html += '<div class="recentBody">';
+      html += '<div class="recentTitle">' + item.title + '</div>';
+      html += '<div class="recentMeta">' + meta + '</div>';
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    html += '</div>';
+  }
 
   container.innerHTML = html;
 }
