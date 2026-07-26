@@ -2413,3 +2413,484 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
     grid-template-columns:repeat(4,1fr);
   }
 }
+
+/* ==========================================================
+   PROFILE - STAGE 4E
+   Profile & Account Experience
+   Sections: Identity Card, Account Info, Location,
+   Personal Navigation, Account Actions
+   ========================================================== */
+
+.profileSection {
+  margin-bottom: 16px;
+}
+
+/* Identity Card */
+.profileIdentityCard {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  padding: 24px 20px 20px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.profileAvatarWrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.profileAvatarImage {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--primary);
+}
+
+.profileAvatarInitial {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #e8f5e9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 600;
+  color: var(--primary);
+  border: 3px solid var(--primary);
+}
+
+.profileName {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.profileMobile {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.profileVerifRow {
+  margin-top: 4px;
+}
+
+.profileVerifBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.profileVerifBadge.verified {
+  background: #e8f5e9;
+  color: #0f9d58;
+}
+
+.profileVerifBadge.pending {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+/* Section Headers */
+.profileSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--card);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  box-shadow: var(--shadow);
+  margin-bottom: 1px;
+}
+
+.profileSectionIcon {
+  font-size: 20px;
+  color: var(--primary);
+}
+
+.profileSectionTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.profileEditLink {
+  font-size: 13px;
+  color: var(--primary);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.profileEditLink:hover {
+  background: #e8f5e9;
+}
+
+/* Account Info Grid */
+.profileInfoGrid {
+  background: var(--card);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  box-shadow: var(--shadow);
+  padding: 4px 16px;
+}
+
+.profileInfoItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.profileInfoItem:last-child {
+  border-bottom: none;
+}
+
+.profileInfoLabel {
+  font-size: 13px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.profileInfoValue {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: right;
+  word-break: break-word;
+  max-width: 60%;
+}
+
+.profileInfoReadonly {
+  color: var(--text-muted);
+}
+
+/* Location Card */
+.profileLocationCard {
+  background: var(--card);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.profileLocationCard:hover {
+  background: #f5f5f5;
+}
+
+.profileLocationInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.profileLocationLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.profileLocationValue {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profileLocationSub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: block;
+  margin-top: 2px;
+}
+
+.profileLocationAction {
+  font-size: 22px;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+/* Navigation Section (Personal Nav + Account) */
+.profileNavSection {
+  background: var(--card);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.profileNavRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.profileNavRow:last-child {
+  border-bottom: none;
+}
+
+.profileNavRow:hover {
+  background: #f5f5f5;
+}
+
+.profileNavIcon {
+  font-size: 22px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+}
+
+.profileNavText {
+  flex: 1;
+  min-width: 0;
+}
+
+.profileNavLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: block;
+}
+
+.profileNavDesc {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: block;
+  margin-top: 1px;
+}
+
+.profileNavChevron {
+  font-size: 20px;
+  color: #ccc;
+  flex-shrink: 0;
+}
+
+/* Logout row special styling */
+.profileLogoutRow {
+  border-bottom: none;
+}
+
+.profileLogoutIcon {
+  color: var(--danger);
+}
+
+.profileLogoutLabel {
+  color: var(--danger);
+}
+
+/* Guest Profile Card */
+.guestProfileCard {
+  text-align: center;
+  padding: 24px 20px 20px;
+}
+
+.profileAvatarLarge {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.profileLabel {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.profileMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+/* Edit Profile Card */
+.editProfileCard {
+  padding: 0;
+  overflow: hidden;
+}
+
+.editProfileHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.editProfileBackIcon {
+  font-size: 24px;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.editProfileBackIcon:hover {
+  background: #f0f0f0;
+}
+
+.editProfileTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.editProfilePhotoSection {
+  padding: 20px 16px;
+  text-align: center;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.editProfilePhotoPreview {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--primary);
+  margin-bottom: 10px;
+}
+
+.editProfilePhotoPlaceholder {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: #e8f5e9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px;
+  font-size: 36px;
+  font-weight: 600;
+  color: var(--primary);
+  border: 3px solid var(--primary);
+}
+
+.editProfilePhotoUploadRow {
+  display: flex;
+  justify-content: center;
+}
+
+.editProfilePhotoBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--primary);
+  background: #fff;
+  color: var(--primary);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.editProfilePhotoBtn:hover {
+  background: #e8f5e9;
+}
+
+.editProfileFields {
+  padding: 8px 16px;
+}
+
+.editProfileFieldGroup {
+  margin-bottom: 12px;
+}
+
+.editProfileFieldLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.editProfileInput {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: #fff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.editProfileInput:focus {
+  border-color: var(--primary);
+}
+
+.editProfileInputReadonly {
+  background: #f9f9f9;
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.editProfileActions {
+  padding: 16px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editProfileSaveBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.editProfileSaveBtn:hover {
+  background: var(--primary-dark);
+}
+
+.editProfileCancelBtn {
+  width: 100%;
+  padding: 10px;
+  background: #f0f0f0;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.editProfileCancelBtn:hover {
+  background: #e0e0e0;
+}
