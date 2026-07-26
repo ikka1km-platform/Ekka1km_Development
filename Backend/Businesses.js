@@ -20,29 +20,40 @@ function getBusinesses(e) {
   let data =
     getSheetData("Businesses");
 
-  const location =
-    getLocationContext(e);
+  // Filter by userId if provided (Businesses use OwnerUserID)
+  const userId = e && e.parameter ? e.parameter.userId || "" : "";
+  if (userId) {
+    data = data.filter(function(b) {
+      return String(b.OwnerUserID) === String(userId);
+    });
+  }
 
-  const lat =
-    location.lat;
+  // Skip location/radius filtering when userId is provided (personal content)
+  if (!userId) {
+    const location =
+      getLocationContext(e);
 
-  const lng =
-    location.lng;
+    const lat =
+      location.lat;
 
-  const radius =
-    location.radius;
+    const lng =
+      location.lng;
 
-  if (
-    lat &&
-    lng &&
-    radius
-  ) {
-    data = filterByRadius(
-      data,
-      lat,
-      lng,
+    const radius =
+      location.radius;
+
+    if (
+      lat &&
+      lng &&
       radius
-    );
+    ) {
+      data = filterByRadius(
+        data,
+        lat,
+        lng,
+        radius
+      );
+    }
   }
 
   return success({

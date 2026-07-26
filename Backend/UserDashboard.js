@@ -144,11 +144,11 @@ function getUserActivitySummary(userId) {
     });
 
     businesses.forEach(function(b) {
-      if (String(b.UserID) === String(userId)) businessesCount++;
+      if (String(b.OwnerUserID) === String(userId)) businessesCount++;
     });
 
     properties.forEach(function(p) {
-      if (String(p.UserID) === String(userId)) propertiesCount++;
+      if (String(p.OwnerUserID) === String(userId)) propertiesCount++;
     });
 
     news.forEach(function(n) {
@@ -212,11 +212,11 @@ function getUserAnalyticsSummary(userId) {
     });
     
     businesses.forEach(function(b) {
-      if (String(b.UserID) === String(userId)) userBusinessIds[b.BusinessID] = true;
+      if (String(b.OwnerUserID) === String(userId)) userBusinessIds[b.BusinessID] = true;
     });
 
     properties.forEach(function(p) {
-      if (String(p.UserID) === String(userId)) userPropertyIds[p.PropertyID] = true;
+      if (String(p.OwnerUserID) === String(userId)) userPropertyIds[p.PropertyID] = true;
     });
 
     // Single pass through events
@@ -265,7 +265,7 @@ function getUserAnalyticsSummary(userId) {
     var followersData = getSheetData("BusinessFollowers") || [];
     followersData.forEach(function(f) {
       if (String(f.Status || "Active") === "Active" && String(f.BusinessID) && 
-          businesses.some(function(b) { return String(b.BusinessID) === String(f.BusinessID) && String(b.UserID) === String(userId); })) {
+          businesses.some(function(b) { return String(b.BusinessID) === String(f.BusinessID) && String(b.OwnerUserID) === String(userId); })) {
         followers++;
       }
     });
@@ -318,7 +318,7 @@ function getRealContentCounts(userId) {
     });
 
     businesses.forEach(function(b) {
-      if (String(b.UserID) === String(userId)) businessesCount++;
+      if (String(b.OwnerUserID) === String(userId)) businessesCount++;
     });
 
     properties.forEach(function(p) {
@@ -379,7 +379,7 @@ function getRecentDashboardActivity(userId) {
     // Latest Businesses by user
     var userBusinesses = [];
     businesses.forEach(function(b) {
-      if (String(b.UserID) === String(userId)) {
+      if (String(b.OwnerUserID) === String(userId)) {
         userBusinesses.push({ id: b.BusinessID, title: b.BusinessName || b.Name, status: b.Status, date: b.CreatedDate });
       }
     });

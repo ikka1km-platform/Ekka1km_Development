@@ -207,6 +207,12 @@ function openPage(pageId) {
     loadDashboard();
   }
 
+  if (pageId === "myContent") {
+    if (typeof loadMyContent === "function") {
+      loadMyContent();
+    }
+  }
+
   window.scrollTo(0, 0);
 }
 
@@ -581,26 +587,26 @@ function renderDashboard(data) {
   html += '<div class="dashboardQuickAction" onclick="openPage(\'notifications\')"><i class="material-icons">notifications</i><span>Notifications</span></div>';
   html += '</div></div>';
 
-  // My Content
-  var realCounts = data.realCounts || {};
-  var productsCount = realCounts.products || 0;
-  var businessesCount = realCounts.businesses || 0;
-  var propertiesCount = realCounts.properties || 0;
-  var newsCount = realCounts.news || 0;
-  var totalContent = productsCount + businessesCount + propertiesCount + newsCount;
+   // My Content
+   var realCounts = data.realCounts || {};
+   var productsCount = realCounts.products || 0;
+   var businessesCount = realCounts.businesses || 0;
+   var propertiesCount = realCounts.properties || 0;
+   var newsCount = realCounts.news || 0;
+   var totalContent = productsCount + businessesCount + propertiesCount + newsCount;
 
-  html += '<div class="dashboardSection"><h3>My Content</h3>';
-  if (totalContent === 0) {
-    html += '<div class="dashboardEmpty">You haven\'t posted anything yet.</div>';
-  } else {
-    html += '<div class="myContentGrid">';
-    html += '<div class="myContentCard"><div class="myContentLabel">Products</div><div class="myContentCount">' + productsCount + '</div></div>';
-    html += '<div class="myContentCard"><div class="myContentLabel">Businesses</div><div class="myContentCount">' + businessesCount + '</div></div>';
-    html += '<div class="myContentCard"><div class="myContentLabel">Properties</div><div class="myContentCount">' + propertiesCount + '</div></div>';
-    html += '<div class="myContentCard"><div class="myContentLabel">News</div><div class="myContentCount">' + newsCount + '</div></div>';
-    html += '</div>';
-  }
-  html += '</div>';
+   html += '<div class="dashboardSection"><h3>My Content</h3>';
+   if (totalContent === 0) {
+     html += '<div class="dashboardEmpty">You haven\'t posted anything yet.</div>';
+   } else {
+     html += '<div class="myContentGrid">';
+     html += '<div class="myContentCard" onclick="openMyContent(\'products\')"><div class="myContentLabel">Products</div><div class="myContentCount">' + productsCount + '</div></div>';
+     html += '<div class="myContentCard" onclick="openMyContent(\'businesses\')"><div class="myContentLabel">Businesses</div><div class="myContentCount">' + businessesCount + '</div></div>';
+     html += '<div class="myContentCard" onclick="openMyContent(\'properties\')"><div class="myContentLabel">Properties</div><div class="myContentCount">' + propertiesCount + '</div></div>';
+     html += '<div class="myContentCard" onclick="openMyContent(\'news\')"><div class="myContentLabel">News</div><div class="myContentCount">' + newsCount + '</div></div>';
+     html += '</div>';
+   }
+   html += '</div>';
 
   // Recent Activity
   var recentActivity = (data.recentActivity && data.recentActivity.unified) || [];

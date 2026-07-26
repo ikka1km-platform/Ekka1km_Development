@@ -20,52 +20,43 @@ function getProperties(e) {
   let properties =
     getSheetData("Properties");
 
-  const location =
-    getLocationContext(e);
-
-  const lat =
-    location.lat;
-
-  const lng =
-    location.lng;
-
-  const radius =
-    location.radius;
-
-  // Debug logging
-  console.log("=== getProperties DEBUG ===");
-  console.log("Requested lat:", lat, "lng:", lng, "radius:", radius);
-  console.log("Total properties before filter:", properties.length);
-
-  if (
-    lat &&
-    lng &&
-    radius
-  ) {
-
-    // Log each property's coordinates before filtering
-    properties.forEach(function(p) {
-      const propLat = Number(p.Latitude || p.latitude);
-      const propLng = Number(p.Longitude || p.longitude);
-      console.log("Property:", p.PropertyID || p.Title || "unknown",
-        "| Latitude:", p.Latitude, "(" + typeof p.Latitude + ")",
-        "| Longitude:", p.Longitude, "(" + typeof p.Longitude + ")",
-        "| Parsed lat:", propLat, "lng:", propLng);
+  // Filter by userId/OwnerUserID if provided
+  // Properties use OwnerUserID for ownership
+  const userId = e && e.parameter ? e.parameter.userId || "" : "";
+  if (userId) {
+    properties = properties.filter(function(p) {
+      return String(p.OwnerUserID) === String(userId);
     });
-
-    properties = filterByRadius(
-      properties,
-      lat,
-      lng,
-      radius
-    );
-
-    console.log("Properties after filter:", properties.length);
-  } else {
-    console.log("SKIPPING radius filter - lat:", lat, "lng:", lng, "radius:", radius);
   }
 
-  console.log("=== END getProperties DEBUG ===");
+  // Skip location/radius filtering when userId is provided (personal content)
+  if (!userId) {
+    const location =
+      getLocationContext(e);
+
+    const lat =
+      location.lat;
+
+    const lng =
+      location.lng;
+
+    const radius =
+      location.radius;
+
+    if (
+      lat &&
+      lng &&
+      radius
+    ) {
+
+      properties = filterByRadius(
+        properties,
+        lat,
+        lng,
+        radius
+      );
+    }
+  }
 
   return success({
     sheet: "Properties",

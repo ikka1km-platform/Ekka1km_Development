@@ -18,8 +18,6 @@
 function getNews(e) {
   try {
 
-    let news = [];
-
     const sheet =
       getSheet("News");
 
@@ -33,6 +31,8 @@ function getNews(e) {
 
     const headers =
       data[0];
+
+    let news = [];
 
     for (
       let i = 1;
@@ -55,29 +55,40 @@ function getNews(e) {
       news.push(row);
     }
 
-    const location =
-      getLocationContext(e);
+    // Filter by userId if provided (News use UserID)
+    const userId = e && e.parameter ? e.parameter.userId || "" : "";
+    if (userId) {
+      news = news.filter(function(n) {
+        return String(n.UserID) === String(userId);
+      });
+    }
 
-    const lat =
-      location.lat;
+    // Skip location/radius filtering when userId is provided (personal content)
+    if (!userId) {
+      const location =
+        getLocationContext(e);
 
-    const lng =
-      location.lng;
+      const lat =
+        location.lat;
 
-    const radius =
-      location.radius;
+      const lng =
+        location.lng;
 
-    if (
-      lat &&
-      lng &&
-      radius
-    ) {
-      news = filterByRadius(
-        news,
-        lat,
-        lng,
+      const radius =
+        location.radius;
+
+      if (
+        lat &&
+        lng &&
         radius
-      );
+      ) {
+        news = filterByRadius(
+          news,
+          lat,
+          lng,
+          radius
+        );
+      }
     }
 
     return success(

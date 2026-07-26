@@ -20,19 +20,30 @@ function getProducts(e) {
 
   let data = getSheetData("Products");
 
-  const location = getLocationContext(e);
+  // Filter by userId if provided (Products use UserID)
+  const userId = e && e.parameter ? e.parameter.userId || "" : "";
+  if (userId) {
+    data = data.filter(function(p) {
+      return String(p.UserID) === String(userId);
+    });
+  }
 
-  const lat = location.lat;
-  const lng = location.lng;
-  const radius = location.radius;
+  // Skip location/radius filtering when userId is provided (personal content)
+  if (!userId) {
+    const location = getLocationContext(e);
 
-  if (lat && lng && radius) {
-    data = filterByRadius(
-      data,
-      lat,
-      lng,
-      radius
-    );
+    const lat = location.lat;
+    const lng = location.lng;
+    const radius = location.radius;
+
+    if (lat && lng && radius) {
+      data = filterByRadius(
+        data,
+        lat,
+        lng,
+        radius
+      );
+    }
   }
 
   return success(
