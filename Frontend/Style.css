@@ -26,7 +26,33 @@ body{
 }
 
 /* ==========================================================
-   ROOT
+   LIVE AROUND YOU (Stage 3D-C)
+========================================================== */
+
+.livePageGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 600px) {
+  .livePageGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.liveBadge {
+  background: #d32f2f;
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* ==========================================================
+   COMPACT HEADER (Stage 2)
 ========================================================== */
 
 :root{
