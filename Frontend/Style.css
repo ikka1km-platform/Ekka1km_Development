@@ -941,6 +941,505 @@ li{
 }
 
 /* ==========================================================
+   WALLET (Stage 4F)
+========================================================== */
+
+.walletSummaryCard {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 20px;
+  margin-bottom: 15px;
+}
+
+.walletBalanceRow {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 15px;
+}
+
+.walletBalanceIcon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f9d58, #1db954);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.walletBalanceIcon i {
+  font-size: 32px;
+  color: #fff;
+}
+
+.walletBalanceInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.walletBalanceLabel {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.walletBalanceAmount {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.2;
+}
+
+.walletStatsRow {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.walletStatItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f9f9f9;
+}
+
+.walletStatIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.walletStatIcon i {
+  font-size: 20px;
+  color: #fff;
+}
+
+.walletStatEarned .walletStatIcon {
+  background: #0f9d58;
+}
+
+.walletStatSpent .walletStatIcon {
+  background: #d32f2f;
+}
+
+.walletStatInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.walletStatValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.walletStatLabel {
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+}
+
+.walletActions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.walletActionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f0f0f0;
+  color: var(--text-primary);
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.walletActionBtn i {
+  font-size: 20px;
+  color: var(--primary);
+}
+
+.walletActionBtn:hover {
+  background: #e8f5e9;
+}
+
+.walletActionBtn:active {
+  transform: scale(0.98);
+}
+
+.walletFilterTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.walletFilterTab {
+  flex: 1;
+  min-width: 80px;
+  padding: 8px 12px;
+  border-radius: 20px;
+  background: #f0f0f0;
+  color: #555;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.walletFilterTab.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.walletFilterTab:hover {
+  background: #e0e0e0;
+}
+
+.walletFilterTab.active:hover {
+  background: var(--primary-dark);
+}
+
+.walletEmptyState {
+  text-align: center;
+  padding: 30px 20px;
+  color: #888;
+}
+
+.walletEmptyState p {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.transactionCard {
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.transactionCard.transactionCredit {
+  border-left: 3px solid #0f9d58;
+}
+
+.transactionCard.transactionDebit {
+  border-left: 3px solid #d32f2f;
+}
+
+.transactionHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.transactionIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.transactionIcon i {
+  font-size: 20px;
+  color: #fff;
+}
+
+.transactionIcon.iconCredit {
+  background: #0f9d58;
+}
+
+.transactionIcon.iconDebit {
+  background: #d32f2f;
+}
+
+.transactionIcon.iconNeutral {
+  background: #888;
+}
+
+.transactionInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.transactionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.transactionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.transactionDate {
+  font-size: 11px;
+  color: #888;
+}
+
+.transactionStatus {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: #e8f5e9;
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.transactionAmount {
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.transactionAmount.amountCredit {
+  color: #0f9d58;
+}
+
+.transactionAmount.amountDebit {
+  color: #d32f2f;
+}
+
+/* ==========================================================
+   NOTIFICATIONS (Stage 4G)
+========================================================== */
+
+.notificationBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #d32f2f;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 10px;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,.2);
+}
+
+.header-notif-icon {
+  position: relative;
+}
+
+/* ==========================================================
+   NOTIFICATION/WALLET STATES (Stage 4FG - Namespaced)
+   ========================================================== */
+
+.notificationGuestState,
+.walletGuestState {
+  text-align: center;
+  padding: 30px 20px;
+}
+
+.notificationGuestStateIcon,
+.walletGuestStateIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 15px;
+}
+
+.notificationGuestStateIcon i,
+.walletGuestStateIcon i {
+  font-size: 32px;
+  color: #ccc;
+}
+
+.notificationLoadingState,
+.walletLoadingState {
+  text-align: center;
+  padding: 20px;
+  color: #888;
+}
+
+.notificationErrorState,
+.walletErrorState {
+  text-align: center;
+  padding: 20px;
+  color: #d32f2f;
+}
+
+.notificationEmptyState,
+.walletEmptyState {
+  text-align: center;
+  padding: 40px 20px;
+  color: #888;
+}
+
+.notificationEmptyStateIcon,
+.walletEmptyStateIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 15px;
+}
+
+.notificationEmptyStateIcon i,
+.walletEmptyStateIcon i {
+  font-size: 32px;
+  color: #ccc;
+}
+
+.notificationEmptyState p,
+.walletEmptyState p {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.notificationCard {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 10px;
+}
+
+.notificationCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+}
+
+.notificationCard:active {
+  transform: scale(0.98);
+}
+
+.notificationCard.notificationUnread {
+  background: #f9f9f9;
+  border-left: 3px solid var(--primary);
+}
+
+.notificationCard.notificationRead {
+  opacity: 0.75;
+}
+
+.notificationHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.notificationIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notificationIcon i {
+  font-size: 20px;
+}
+
+.notificationInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.notificationTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+  line-height: 1.3;
+}
+
+.notificationUnread .notificationTitle {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.notificationMessage {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 4px;
+  word-wrap: break-word;
+}
+
+.notificationMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  color: #888;
+}
+
+.notificationDate {
+  color: #888;
+}
+
+.notificationType {
+  padding: 2px 6px;
+  background: #e8f5e9;
+  color: var(--primary);
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.notificationUnreadDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+  margin-top: 6px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ==========================================================
    UPLOAD PROGRESS BAR
 ========================================================== */
 
@@ -1689,6 +2188,7 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
   padding:6px;
   border-radius:50%;
   transition:background .2s;
+  position:relative;
 }
 
 .header-notif-icon:hover{

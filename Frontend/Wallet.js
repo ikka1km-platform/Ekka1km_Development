@@ -11,6 +11,173 @@ Guest Mode Supported
 let CURRENT_WALLET = {};
 let CURRENT_TRANSACTIONS = [];
 let CURRENT_REWARDS = [];
+let WALLET_FILTER = 'all'; // all, earned, spent
+
+
+/*
+SAFE RENDER HELPER (WALLET NAMESPACE)
+Prevents undefined/null/NaN/Invalid Date from displaying.
+*/
+
+function walletSafeRender(val) {
+  if (val === undefined || val === null) return "";
+  if (typeof val === "number" && isNaN(val)) return "";
+  if (val instanceof Date && isNaN(val.getTime())) return "";
+  var s = String(val).trim();
+  if (s === "undefined" || s === "null" || s === "NaN" || s === "Invalid Date") return "";
+  return s;
+}
+
+
+/*
+TIME AGO HELPER (WALLET NAMESPACE)
+*/
+
+function walletTimeAgo(dateStr) {
+  if (!dateStr) return "";
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "";
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    if (seconds < 60) return "Just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return minutes + "m ago";
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return hours + "h ago";
+    const days = Math.floor(hours / 24);
+    if (days < 7) return days + "d ago";
+    return date.toLocaleDateString();
+  } catch (e) {
+    return "";
+  }
+}
+
+
+/*
+TRANSACTION TYPE LABEL MAPPING
+Maps raw backend values to user-friendly labels.
+*/
+
+function getTransactionLabel(type, reason) {
+  if (!type) return "Transaction";
+  
+  const typeUpper = String(type).toUpperCase();
+  
+  // Map common transaction types
+  const typeMap = {
+    "ADVERTISEMENT": "Ad Reward",
+    "AD_REWARD": "Ad Reward",
+    "REWARD": "Reward",
+    "PROMOTION": "Promotion",
+    "REDEMPTION": "Redemption",
+    "PURCHASE": "Purchase",
+    "REFUND": "Refund",
+    "BONUS": "Bonus",
+    "REFERRAL": "Referral",
+    "ADMIN": "Admin Credit",
+    "SYSTEM": "System"
+  };
+  
+  // Use mapped label if available, otherwise use reason or original type
+  if (typeMap[typeUpper]) {
+    return typeMap[typeUpper];
+  }
+  
+  // Fallback to reason if it exists and is meaningful
+  if (reason && String(reason).trim().length > 0) {
+    return String(reason).trim();
+  }
+  
+  return type;
+}
+
+
+/*
+SET WALLET FILTER
+*/
+
+function setWalletFilter(filter) {
+  WALLET_FILTER = filter;
+  if (CURRENT_TRANSACTIONS.length > 0) {
+    renderFilteredTransactions();
+  }
+}
+
+
+/*
+RENDER FILTERED TRANSACTIONS
+*/
+
+function renderFilteredTransactions() {
+  const container = document.getElementById("walletCard");
+  if (!container) return;
+  
+  let filtered = CURRENT_TRANSACTIONS;
+  
+  if (WALLET_FILTER === 'earned') {
+    filtered = CURRENT_TRANSACTIONS.filter(t => Number(t.Amount || 0) > 0);
+  } else if (WALLET_FILTER === 'spent') {
+    filtered = CURRENT_TRANSACTIONS.filter(t => Number(t.Amount || 0) < 0);
+  }
+  
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="card">
+        <div class="sectionTitle">Transactions</div>
+        <div class="walletEmptyState">
+          <i class="material-icons" style="font-size:48px;color:#ccc;">receipt_long</i>
+          <p>No ${WALLET_FILTER === 'all' ? '' : WALLET_FILTER + ' '}transactions found.</p>
+        </div>
+        <button onclick="loadWallet()" style="background:#666;">Back</button>
+      </div>
+    `;
+    return;
+  }
+  
+  let html = `
+    <div class="sectionTitle">Transactions</div>
+    <div class="walletFilterTabs">
+      <button class="walletFilterTab ${WALLET_FILTER === 'all' ? 'active' : ''}" onclick="setWalletFilter('all')">All</button>
+      <button class="walletFilterTab ${WALLET_FILTER === 'earned' ? 'active' : ''}" onclick="setWalletFilter('earned')">Earned</button>
+      <button class="walletFilterTab ${WALLET_FILTER === 'spent' ? 'active' : ''}" onclick="setWalletFilter('spent')">Spent</button>
+    </div>
+  `;
+  
+  filtered.forEach(item => {
+    const amount = Number(item.Amount || 0);
+    const isCredit = amount > 0;
+    const isDebit = amount < 0;
+    const absAmount = Math.abs(amount);
+    const label = getTransactionLabel(item.Type, item.Reason);
+    const date = walletTimeAgo(item.CreatedDate);
+    const status = walletSafeRender(item.Status);
+    
+    html += `
+      <div class="card transactionCard ${isCredit ? 'transactionCredit' : ''} ${isDebit ? 'transactionDebit' : ''}">
+        <div class="transactionHeader">
+          <div class="transactionIcon ${isCredit ? 'iconCredit' : ''} ${isDebit ? 'iconDebit' : ''}">
+            <i class="material-icons">${isCredit ? 'arrow_downward' : isDebit ? 'arrow_upward' : 'swap_horiz'}</i>
+          </div>
+          <div class="transactionInfo">
+          <div class="transactionTitle">${walletSafeRender(label)}</div>
+            <div class="transactionMeta">
+              ${date ? `<span class="transactionDate">${date}</span>` : ''}
+              ${status ? `<span class="transactionStatus">${walletSafeRender(status)}</span>` : ''}
+            </div>
+          </div>
+          <div class="transactionAmount ${isCredit ? 'amountCredit' : ''} ${isDebit ? 'amountDebit' : ''}">
+            ${isCredit ? '+' : ''}${isDebit ? '-' : ''}${absAmount}
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  html += `<button onclick="loadWallet()" style="background:#666;">Back</button>`;
+  
+  container.innerHTML = html;
+}
 
 
 /*
@@ -47,7 +214,7 @@ async function loadWallet() {
 
     container.innerHTML =
       `
-      <div class="card">
+      <div class="card walletGuestState">
 
         <h2>
           🔒 Wallet Locked
@@ -102,7 +269,7 @@ async function loadWallet() {
   */
 
   container.innerHTML =
-    "<div class='card'>Loading Wallet...</div>";
+    "<div class='card'><div class='walletLoadingState'>Loading Wallet...</div></div>";
 
   try {
 
@@ -128,32 +295,49 @@ async function loadWallet() {
 
     container.innerHTML =
       `
-      <div class="card">
+      <div class="walletSummaryCard">
+        <div class="walletBalanceRow">
+          <div class="walletBalanceIcon">
+            <i class="material-icons">account_balance_wallet</i>
+          </div>
+          <div class="walletBalanceInfo">
+            <div class="walletBalanceLabel">Ekka1km Coins</div>
+            <div class="walletBalanceAmount">${walletSafeRender(balance)}</div>
+          </div>
+        </div>
 
-        <h2>
-          💰 ${balance} Coins
-        </h2>
+        <div class="walletStatsRow">
+          <div class="walletStatItem walletStatEarned">
+            <div class="walletStatIcon">
+              <i class="material-icons">arrow_downward</i>
+            </div>
+            <div class="walletStatInfo">
+              <div class="walletStatValue">${walletSafeRender(earned)}</div>
+              <div class="walletStatLabel">Total Earned</div>
+            </div>
+          </div>
 
-        <p>
-          Total Earned:
-          ${earned}
-        </p>
+          <div class="walletStatItem walletStatSpent">
+            <div class="walletStatIcon">
+              <i class="material-icons">arrow_upward</i>
+            </div>
+            <div class="walletStatInfo">
+              <div class="walletStatValue">${walletSafeRender(spent)}</div>
+              <div class="walletStatLabel">Total Spent</div>
+            </div>
+          </div>
+        </div>
 
-        <p>
-          Total Spent:
-          ${spent}
-        </p>
-
-        <button
-          onclick="loadTransactions()">
-          Transactions
-        </button>
-
-        <button
-          onclick="loadRewards()">
-          Rewards
-        </button>
-
+        <div class="walletActions">
+          <button onclick="loadTransactions()" class="walletActionBtn">
+            <i class="material-icons">receipt_long</i>
+            Transactions
+          </button>
+          <button onclick="loadRewards()" class="walletActionBtn">
+            <i class="material-icons">emoji_events</i>
+            Rewards
+          </button>
+        </div>
       </div>
       `;
 
@@ -173,7 +357,7 @@ async function loadWallet() {
     console.log(err);
 
     container.innerHTML =
-      "<div class='card'>Unable to load wallet.</div>";
+      "<div class='card walletErrorState'>Unable to load wallet.</div>";
   }
 }
 
@@ -222,62 +406,20 @@ async function loadTransactions() {
       container.innerHTML =
         `
         <div class="card">
-          No Transactions Found.
-
-          <br><br>
-
-          <button
-            onclick="loadWallet()"
-            style="background:#666;">
-            Back
-          </button>
+          <div class="sectionTitle">Transactions</div>
+        <div class="walletEmptyState">
+          <i class="material-icons" style="font-size:48px;color:#ccc;">receipt_long</i>
+          <p>No transactions yet.</p>
+        </div>
+          <button onclick="loadWallet()" style="background:#666;">Back</button>
         </div>
         `;
 
       return;
     }
 
-    let html =
-      `
-      <div class="sectionTitle">
-        Transactions
-      </div>
-      `;
-
-    CURRENT_TRANSACTIONS.forEach(
-      item => {
-
-        html += `
-        <div class="card">
-
-          <h3>
-            ${item.Type || "-"}
-          </h3>
-
-          <p>
-            Amount:
-            ${item.Amount || 0}
-          </p>
-
-          <p>
-            ${item.CreatedDate || ""}
-          </p>
-
-        </div>
-        `;
-      }
-    );
-
-    html += `
-    <button
-      onclick="loadWallet()"
-      style="background:#666;">
-      Back
-    </button>
-    `;
-
-    container.innerHTML =
-      html;
+    // Use the new filtered render function
+    renderFilteredTransactions();
 
   }
   catch (err) {
