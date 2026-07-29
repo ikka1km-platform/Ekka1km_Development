@@ -2,13 +2,48 @@
 ============================================================
 EKKA1KM FRONTEND
 Products.js
-Products + Product Details + Image Slider + Full Screen
-V1.2
-Phase 3 - Product Images System
+Stage 4HIJ - Products Browsing & Detail Experience
+V2.0
+Preserves all canonical functionality
 ============================================================
 */
 
 let CURRENT_PRODUCT = null;
+
+/*
+============================================================
+NAMESPACED HELPERS (Stage 4HIJ)
+============================================================
+*/
+
+function productSafeRender(val) {
+  if (val === undefined || val === null) return "";
+  if (typeof val === "number" && isNaN(val)) return "";
+  if (val instanceof Date && isNaN(val.getTime())) return "";
+  var s = String(val).trim();
+  if (s === "undefined" || s === "null" || s === "NaN" || s === "Invalid Date") return "";
+  return s;
+}
+
+function productTimeAgo(dateStr) {
+  if (!dateStr) return "";
+  try {
+    var now = new Date();
+    var date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "";
+    var seconds = Math.floor((now - date) / 1000);
+    if (seconds < 60) return "Just now";
+    var minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return minutes + "m ago";
+    var hours = Math.floor(minutes / 60);
+    if (hours < 24) return hours + "h ago";
+    var days = Math.floor(hours / 24);
+    if (days < 7) return days + "d ago";
+    return date.toLocaleDateString();
+  } catch (e) {
+    return "";
+  }
+}
 
 
 /*
@@ -39,7 +74,7 @@ function trackProductView() {
 
 /*
 ============================================================
-LOAD PRODUCTS
+LOAD PRODUCTS — Stage 4HIJ Redesign
 ============================================================
 */
 
@@ -47,7 +82,7 @@ async function loadProducts() {
   const container = document.getElementById("productList");
   if (!container) return;
 
-  container.innerHTML = "<div class='card'>Loading Products...</div>";
+  container.innerHTML = '<div class="hij-loading"><i class="material-icons">shopping_bag</i><p>Loading Products...</p></div>';
 
   try {
     const response = await fetch(
@@ -57,70 +92,58 @@ async function loadProducts() {
     const products = (json.data && json.data.data) || [];
 
     if (products.length === 0) {
-      container.innerHTML = "<div class='card'>No Products Found.</div>";
+      container.innerHTML = '<div class="hij-empty"><i class="material-icons">shopping_bag</i><p>No Products Found.</p></div>';
       if (typeof renderHomeProductsPreview === "function") {
         renderHomeProductsPreview(products);
       }
       return;
     }
 
-    let html = "";
+    let html = '<div class="product-listing">';
 
     products.forEach(product => {
       const images = getProductImages(product);
       const firstImage = images.length > 0 ? images[0] : "";
       const imageCount = images.length;
+      const title = productSafeRender(product.Title) || "-";
+      const price = (product.Price || 0).toLocaleString();
+      const category = productSafeRender(product.Category);
+      const city = productSafeRender(product.City);
+      const state = productSafeRender(product.State);
+      const desc = productSafeRender(product.Description);
+      const distance = productSafeRender(product.DistanceKm);
+      const condition = productSafeRender(product.Condition);
+      const negotiable = product.Negotiable === "Yes";
 
       html += `
-        <div class="product" onclick='showProductDetails(${JSON.stringify(product)})' style="cursor:pointer;">
-          ${productThumbnailHTML(product, { height: "180px" })}
-
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <h3>${product.Title || "-"}</h3>
-            <span style="font-weight:700;color:var(--primary);font-size:18px;">
-              ₹ ${(product.Price || 0).toLocaleString()}
-            </span>
-          </div>
-
-          <p style="margin-top:6px;">
-            ${product.Category || ""}
-          </p>
-
-          <p style="font-size:14px;color:#555;">
-            ${product.City || ""} ${product.State ? `, ${product.State}` : ""}
-          </p>
-
-          ${product.Description
-            ? `<p style="font-size:13px;color:#777;margin-top:4px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
-                ${product.Description}
-              </p>`
-            : ""
+        <div class="productCard" onclick='showProductDetails(${JSON.stringify(product)})'>
+          ${firstImage
+            ? `<div class="productCard-img"><img src="${firstImage}" alt="${title}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'productCard-img productCard-imgPlaceholder\\'><i class=\\'material-icons\\'>broken_image</i></div>'"></div>`
+            : `<div class="productCard-img productCard-imgPlaceholder"><i class="material-icons">shopping_bag</i></div>`
           }
-
-          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-            ${product.DistanceKm
-              ? `<span class="badge">${product.DistanceKm} KM Away</span>`
-              : ""
-            }
-            ${product.Condition
-              ? `<span class="badge">${product.Condition}</span>`
-              : ""
-            }
-            ${product.Negotiable === "Yes"
-              ? `<span class="badge">Negotiable</span>`
-              : ""
-            }
+          <div class="productCard-body">
+            <div class="productCard-title">${title}</div>
+            <div class="productCard-price">₹ ${price}</div>
+            <div class="productCard-meta">
+              ${category ? `<span>${category}</span>` : ""}
+              ${city ? `<span>${city}${state ? ", " + state : ""}</span>` : ""}
+            </div>
+            ${desc ? `<div class="productCard-desc">${desc}</div>` : ""}
+            <div class="productCard-badges">
+              ${distance ? `<span class="productCard-badge distance">${distance} KM</span>` : ""}
+              ${condition ? `<span class="productCard-badge condition">${condition}</span>` : ""}
+              ${negotiable ? `<span class="productCard-badge negotiable">Negotiable</span>` : ""}
+              ${imageCount > 1 ? `<span class="productCard-badge">+${imageCount - 1} photos</span>` : ""}
+            </div>
+            <div class="productCard-actions">
+              <button class="productCard-btnPrimary" onclick='event.stopPropagation();showProductDetails(${JSON.stringify(product)})'>View Details</button>
+            </div>
           </div>
-
-          <button
-            onclick='event.stopPropagation();showProductDetails(${JSON.stringify(product)})'
-            style="margin-top:10px;">
-            View Details
-          </button>
         </div>
       `;
     });
 
+    html += '</div>';
     container.innerHTML = html;
 
     // Also render Home preview from the same dataset
@@ -129,13 +152,13 @@ async function loadProducts() {
     }
   } catch (err) {
     console.log(err);
-    container.innerHTML = "<div class='card'>Unable to load products.</div>";
+    container.innerHTML = '<div class="hij-error"><i class="material-icons">error_outline</i><p>Unable to load products.</p></div>';
   }
 }
 
 
 /*
-HOME PREVIEW — NEARBY PRODUCTS
+HOME PREVIEW — NEARBY PRODUCTS (Preserved)
 */
 
 function renderHomeProductsPreview(products) {
@@ -180,7 +203,7 @@ function renderHomeProductsPreview(products) {
 
 /*
 ============================================================
-PRODUCT DETAILS
+PRODUCT DETAILS — Stage 4HIJ Redesign
 ============================================================
 */
 
@@ -201,70 +224,82 @@ function showProductDetails(product) {
     console.log("Seller self-view skipped for product:", product.ProductID);
   }
 
-  let html = `
-  <div class="card">
+  const title = productSafeRender(product.Title) || "-";
+  const price = (product.Price || 0).toLocaleString();
+  const desc = productSafeRender(product.Description);
+  const category = productSafeRender(product.Category);
+  const city = productSafeRender(product.City);
+  const state = productSafeRender(product.State);
+  const pincode = productSafeRender(product.Pincode);
+  const condition = productSafeRender(product.Condition);
+  const brand = productSafeRender(product.Brand);
+  const model = productSafeRender(product.Model);
+  const sellerName = productSafeRender(product.SellerName);
+  const phone = productSafeRender(product.Phone);
+  const whatsapp = productSafeRender(product.WhatsApp);
+  const delivery = product.Delivery === "Yes";
+  const cod = product.COD === "Yes";
+  const negotiable = product.Negotiable === "Yes";
+  const distance = productSafeRender(product.DistanceKm);
+  const views = product.Views !== undefined ? product.Views : null;
 
-    <!-- Image Slider -->
-    ${productImageSliderHTML(product)}
+  let html = '<div class="hij-detail">';
 
-    <h2 style="margin-top:15px;">
-      ${product.Title || "-"}
-    </h2>
+  // Back button
+  html += `<button class="hij-backBtn" onclick="loadProducts()"><i class="material-icons">arrow_back</i> Back to Products</button>`;
 
-    <p style="font-size:24px;font-weight:700;color:var(--primary);margin-top:8px;">
-      ₹ ${(product.Price || 0).toLocaleString()}
-    </p>
+  // Image section
+  if (images.length > 0) {
+    html += productImageSliderHTML(product);
+  } else {
+    html += `
+      <div class="hij-detail-image">
+        <i class="material-icons">shopping_bag</i>
+      </div>
+    `;
+  }
 
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-      ${product.Condition
-        ? `<span class="badge">${product.Condition}</span>`
-        : ""
-      }
-      ${product.Negotiable === "Yes"
-        ? `<span class="badge">Negotiable</span>`
-        : ""
-      }
-      ${product.Delivery === "Yes"
-        ? `<span class="badge">Delivery Available</span>`
-        : ""
-      }
-      ${product.COD === "Yes"
-        ? `<span class="badge">COD Available</span>`
-        : ""
-      }
-      ${product.DistanceKm
-        ? `<span class="badge">${product.DistanceKm} KM Away</span>`
-        : ""
-      }
-    </div>
-
-    <p style="margin-top:12px;">
-      ${product.Description || ""}
-    </p>
-
-    <!-- Details Grid -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px;padding:15px;background:#f9f9f9;border-radius:12px;">
-      ${product.Category ? `<div><strong>Category:</strong> ${product.Category}</div>` : ""}
-      ${product.Brand ? `<div><strong>Brand:</strong> ${product.Brand}</div>` : ""}
-      ${product.Model ? `<div><strong>Model:</strong> ${product.Model}</div>` : ""}
-      ${product.City ? `<div><strong>City:</strong> ${product.City}</div>` : ""}
-      ${product.State ? `<div><strong>State:</strong> ${product.State}</div>` : ""}
-      ${product.Pincode ? `<div><strong>Pincode:</strong> ${product.Pincode}</div>` : ""}
-      ${product.SellerName ? `<div><strong>Seller:</strong> ${product.SellerName}</div>` : ""}
-      ${product.Views !== undefined ? `<div><strong>Views:</strong> ${product.Views}</div>` : ""}
-    </div>
-
-    <!-- Price Details -->
-    <div style="margin-top:15px;padding:15px;background:#fff3e0;border-radius:12px;">
-      <p style="font-size:14px;">
-        <strong>Price:</strong> ₹ ${(product.Price || 0).toLocaleString()}
-      </p>
-      ${product.Negotiable === "Yes"
-        ? `<p style="font-size:14px;color:var(--primary);">Price is negotiable</p>`
-        : `<p style="font-size:14px;color:#666;">Fixed price</p>`
-      }
-    </div>
+  // Title & Price
+  html += `
+    <div class="hij-detail-title">${title}</div>
+    <div class="hij-detail-price">₹ ${price}</div>
   `;
+
+  // Badges
+  html += '<div class="hij-detail-badges">';
+  if (condition) html += `<span class="hij-detail-badge">${condition}</span>`;
+  if (negotiable) html += `<span class="hij-detail-badge">Negotiable</span>`;
+  if (delivery) html += `<span class="hij-detail-badge">Delivery Available</span>`;
+  if (cod) html += `<span class="hij-detail-badge">COD Available</span>`;
+  if (distance) html += `<span class="hij-detail-badge">${distance} KM Away</span>`;
+  html += '</div>';
+
+  // Description
+  if (desc) {
+    html += `<div class="hij-detail-desc">${desc}</div>`;
+  }
+
+  // Details Grid
+  html += '<div class="hij-detail-grid">';
+  if (category) html += `<div class="hij-detail-gridItem"><strong>Category</strong>${category}</div>`;
+  if (brand) html += `<div class="hij-detail-gridItem"><strong>Brand</strong>${brand}</div>`;
+  if (model) html += `<div class="hij-detail-gridItem"><strong>Model</strong>${model}</div>`;
+  if (city) html += `<div class="hij-detail-gridItem"><strong>City</strong>${city}</div>`;
+  if (state) html += `<div class="hij-detail-gridItem"><strong>State</strong>${state}</div>`;
+  if (pincode) html += `<div class="hij-detail-gridItem"><strong>Pincode</strong>${pincode}</div>`;
+  if (sellerName) html += `<div class="hij-detail-gridItem"><strong>Seller</strong>${sellerName}</div>`;
+  if (views !== null) html += `<div class="hij-detail-gridItem"><strong>Views</strong>${views}</div>`;
+  html += '</div>';
+
+  // Price Box
+  html += '<div class="hij-detail-priceBox">';
+  html += `<p style="font-size:14px;"><strong>Price:</strong> ₹ ${price}</p>`;
+  if (negotiable) {
+    html += `<p style="font-size:14px;color:var(--primary);">Price is negotiable</p>`;
+  } else {
+    html += `<p style="font-size:14px;color:#666;">Fixed price</p>`;
+  }
+  html += '</div>';
 
   /*
   ============================================================
@@ -272,60 +307,55 @@ function showProductDetails(product) {
   ============================================================
   */
 
+  html += '<div class="hij-detail-actions">';
+
   if (isLogin) {
     if (isOwner) {
       html += `
-        <!-- Owner view: Hide Interested & Contact Seller, show "This is your product" -->
-        <div style="margin-top:15px;padding:15px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:10px;color:#2e7d32;text-align:center;font-weight:600;font-size:16px;">
-          <i class="material-icons" style="font-size:20px;vertical-align:middle;">check_circle</i> This is your product
+        <div style="padding:12px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:10px;color:#2e7d32;text-align:center;font-weight:600;font-size:14px;">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">check_circle</i> This is your product
         </div>
-
-        ${product.Phone
-          ? `<button onclick="callSeller('${product.Phone}')" style="margin-top:15px;background:#25D366;">
-              <i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Seller
-            </button>`
-          : ""
-        }
-
-        ${product.WhatsApp
-          ? `<button onclick="whatsappSeller('${product.WhatsApp}')" style="background:#25D366;">
-              <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> WhatsApp
-            </button>`
-          : ""
-        }
-
-        <button onclick="getProductDirections()">
-          <i class="material-icons" style="font-size:18px;vertical-align:middle;">directions</i> Get Directions
-        </button>
       `;
+
+      if (phone) {
+        html += `<button onclick="callSeller('${phone}')" style="background:#25D366;">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Seller
+        </button>`;
+      }
+
+      if (whatsapp) {
+        html += `<button onclick="whatsappSeller('${whatsapp}')" style="background:#25D366;">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> WhatsApp
+        </button>`;
+      }
+
+      html += `<button onclick="getProductDirections()">
+        <i class="material-icons" style="font-size:18px;vertical-align:middle;">directions</i> Get Directions
+      </button>`;
     } else {
-      html += `
-        <button onclick="sendInterest()" style="margin-top:15px;">
-          <i class="material-icons" style="font-size:18px;vertical-align:middle;">favorite</i> I'm Interested
-        </button>
+      html += `<button onclick="sendInterest()">
+        <i class="material-icons" style="font-size:18px;vertical-align:middle;">favorite</i> I'm Interested
+      </button>`;
 
-        <button onclick="contactSeller()">
-          <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> Contact Seller
-        </button>
+      html += `<button onclick="contactSeller()">
+        <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> Contact Seller
+      </button>`;
 
-        ${product.Phone
-          ? `<button onclick="callSeller('${product.Phone}')" style="background:#25D366;">
-              <i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Seller
-            </button>`
-          : ""
-        }
+      if (phone) {
+        html += `<button onclick="callSeller('${phone}')" style="background:#25D366;">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Seller
+        </button>`;
+      }
 
-        ${product.WhatsApp
-          ? `<button onclick="whatsappSeller('${product.WhatsApp}')" style="background:#25D366;">
-              <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> WhatsApp
-            </button>`
-          : ""
-        }
+      if (whatsapp) {
+        html += `<button onclick="whatsappSeller('${whatsapp}')" style="background:#25D366;">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> WhatsApp
+        </button>`;
+      }
 
-        <button onclick="getProductDirections()">
-          <i class="material-icons" style="font-size:18px;vertical-align:middle;">directions</i> Get Directions
-        </button>
-      `;
+      html += `<button onclick="getProductDirections()">
+        <i class="material-icons" style="font-size:18px;vertical-align:middle;">directions</i> Get Directions
+      </button>`;
     }
   }
 
@@ -337,29 +367,26 @@ function showProductDetails(product) {
 
   else {
     html += `
-      <div style="margin-top:15px;padding:12px;border:1px solid #ddd;border-radius:10px;">
+      <div class="hij-detail-guest">
         <p>Login to contact seller or show your interest.</p>
-        <button onclick="openPage('login')">Login</button>
-        <button onclick="openPage('register')" style="background:#666;">Register</button>
+        <button class="btnLogin" onclick="openPage('login')">Login</button>
+        <button class="btnRegister" onclick="openPage('register')">Register</button>
       </div>
     `;
   }
 
   // Share button for everyone
-  html += `
-    <button onclick="shareProduct()">
-      <i class="material-icons" style="font-size:18px;vertical-align:middle;">share</i> Share
-    </button>
+  html += `<button onclick="shareProduct()" style="background:#666;">
+    <i class="material-icons" style="font-size:18px;vertical-align:middle;">share</i> Share
+  </button>`;
 
-    <button onclick="reportProduct()" class="btn-danger">
-      <i class="material-icons" style="font-size:18px;vertical-align:middle;">flag</i> Report Listing
-    </button>
+  // Report
+  html += `<button onclick="reportProduct()" class="btn-danger" style="background:var(--danger);">
+    <i class="material-icons" style="font-size:18px;vertical-align:middle;">flag</i> Report Listing
+  </button>`;
 
-    <button onclick="loadProducts()" style="background:#666;">
-      <i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back
-    </button>
-  </div>
-  `;
+  html += '</div>'; // actions
+  html += '</div>'; // hij-detail
 
   container.innerHTML = html;
   openPage("products");
@@ -368,7 +395,7 @@ function showProductDetails(product) {
 
 /*
 ============================================================
-SELLER ACTIONS
+SELLER ACTIONS (Preserved)
 ============================================================
 */
 

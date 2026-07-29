@@ -2,9 +2,9 @@
 ============================================================
 EKKA1KM FRONTEND
 Properties.js
-Properties + Property Details
-V1.0 Trial
-Guest Mode Supported
+Stage 4HIJ - Properties Browsing & Detail Experience
+V2.0
+Preserves all canonical functionality
 ============================================================
 */
 
@@ -12,7 +12,22 @@ let CURRENT_PROPERTY = null;
 
 /*
 ============================================================
-PROPERTY VIEW ANALYTICS
+NAMESPACED HELPERS (Stage 4HIJ)
+============================================================
+*/
+
+function propertySafeRender(val) {
+  if (val === undefined || val === null) return "";
+  if (typeof val === "number" && isNaN(val)) return "";
+  if (val instanceof Date && isNaN(val.getTime())) return "";
+  var s = String(val).trim();
+  if (s === "undefined" || s === "null" || s === "NaN" || s === "Invalid Date") return "";
+  return s;
+}
+
+/*
+============================================================
+PROPERTY VIEW ANALYTICS (Preserved)
 ============================================================
 */
 
@@ -29,7 +44,7 @@ function trackPropertyView() {
 
 /*
 ============================================================
-LOAD PROPERTIES
+LOAD PROPERTIES — Stage 4HIJ Redesign
 ============================================================
 */
 
@@ -38,20 +53,12 @@ async function loadProperties() {
   if (!container) return;
 
   // Use shared location helpers to get effective center
-  // (manual location if set, otherwise GPS)
   const lat = getCenterLat();
   const lng = getCenterLng();
   const radius = getRadius();
   const url = `${getApiUrl()}?action=properties&lat=${lat}&lng=${lng}&radius=${radius}`;
 
-  // Debug logging
-  console.log("Properties Location:");
-  console.log("Lat:", lat);
-  console.log("Lng:", lng);
-  console.log("Radius:", radius);
-  console.log("URL:", url);
-
-  container.innerHTML = "<div class='card'>Loading Properties...</div>";
+  container.innerHTML = '<div class="hij-loading"><i class="material-icons">real_estate_agent</i><p>Loading Properties...</p></div>';
 
   try {
     const response = await fetch(url);
@@ -59,66 +66,68 @@ async function loadProperties() {
     const properties = (json.data && json.data.data) || [];
 
     if (properties.length === 0) {
-      container.innerHTML = "<div class='card'>No Properties Found.</div>";
+      container.innerHTML = '<div class="hij-empty"><i class="material-icons">real_estate_agent</i><p>No Properties Found.</p></div>';
       if (typeof renderHomePropertiesPreview === "function") {
         renderHomePropertiesPreview(properties);
       }
       return;
     }
 
-    let html = "";
+    let html = '<div class="property-listing">';
 
     properties.forEach(function(prop) {
-      const purposeLabel = prop.Purpose === "Rent" ? "For Rent" : "For Sale";
+      const title = propertySafeRender(prop.Title) || "-";
+      const price = (prop.Price || 0).toLocaleString();
+      const purpose = prop.Purpose === "Rent" ? "For Rent" : "For Sale";
+      const purposeClass = prop.Purpose === "Rent" ? "rent" : "";
+      const type = propertySafeRender(prop.Type);
+      const bedrooms = propertySafeRender(prop.Bedrooms);
+      const bathrooms = propertySafeRender(prop.Bathrooms);
+      const area = propertySafeRender(prop.Area);
+      const city = propertySafeRender(prop.City);
+      const state = propertySafeRender(prop.State);
+      const desc = propertySafeRender(prop.Description);
+      const distance = propertySafeRender(prop.DistanceKm);
       const imgUrl = prop.Images ? prop.Images.split(",")[0].trim() : "";
 
-      html += '<div class="product" onclick=\'showPropertyDetails(' + JSON.stringify(prop).replace(/'/g, "\\'") + ')\' style="cursor:pointer;">';
+      html += '<div class="propertyCard" onclick=\'showPropertyDetails(' + JSON.stringify(prop).replace(/'/g, "\\'") + ')\'>';
 
       if (imgUrl) {
-        html += '<div style="width:100%;height:180px;overflow:hidden;border-radius:12px;margin-bottom:10px;">';
-        html += '<img src="' + imgUrl + '" alt="' + (prop.Title || "") + '" style="width:100%;height:100%;object-fit:cover;">';
-        html += '</div>';
+        html += '<div class="propertyCard-img"><img src="' + imgUrl + '" alt="' + title + '" loading="lazy" onerror="this.parentElement.innerHTML=\'<div class=\\\'propertyCard-img propertyCard-imgPlaceholder\\\'><i class=\\\'material-icons\\\'>real_estate_agent</i></div>\'"></div>';
+      } else {
+        html += '<div class="propertyCard-img propertyCard-imgPlaceholder"><i class="material-icons">real_estate_agent</i></div>';
       }
 
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
-      html += '<h3>' + (prop.Title || "-") + '</h3>';
-      html += '<span style="font-weight:700;color:var(--primary);font-size:18px;">';
-      html += '₹ ' + (prop.Price || 0).toLocaleString() + '</span>';
+      html += '<div class="propertyCard-body">';
+      html += '<div class="propertyCard-title">' + title + '</div>';
+      html += '<div class="propertyCard-price">₹ ' + price + '</div>';
+      html += '<span class="propertyCard-purpose ' + purposeClass + '">' + purpose + '</span>';
+
+      html += '<div class="propertyCard-badges">';
+      if (type) html += '<span class="propertyCard-badge">' + type + '</span>';
+      if (bedrooms) html += '<span class="propertyCard-badge">' + bedrooms + ' BHK</span>';
+      if (bathrooms) html += '<span class="propertyCard-badge">' + bathrooms + ' Bath</span>';
+      if (area) html += '<span class="propertyCard-badge">' + area + ' sq ft</span>';
+      if (distance) html += '<span class="propertyCard-badge">' + distance + ' KM</span>';
       html += '</div>';
 
-      html += '<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">';
-      html += '<span class="badge" style="background:#e8f5e9;color:#2e7d32;">' + purposeLabel + '</span>';
-      if (prop.Type) {
-        html += '<span class="badge">' + prop.Type + '</span>';
+      if (city) {
+        html += '<div class="propertyCard-location">' + city + (state ? ", " + state : "") + '</div>';
       }
-      if (prop.Bedrooms) {
-        html += '<span class="badge">' + prop.Bedrooms + ' BHK</span>';
+
+      if (desc) {
+        html += '<div class="propertyCard-desc">' + desc + '</div>';
       }
-      if (prop.Area) {
-        html += '<span class="badge">' + prop.Area + ' sq ft</span>';
-      }
-      if (prop.DistanceKm) {
-        html += '<span class="badge">' + prop.DistanceKm + ' KM Away</span>';
-      }
+
+      html += '<div class="propertyCard-actions">';
+      html += '<button onclick=\'event.stopPropagation();showPropertyDetails(' + JSON.stringify(prop).replace(/'/g, "\\'") + ')\'>View Details</button>';
       html += '</div>';
 
-      html += '<p style="font-size:14px;color:#555;margin-top:6px;">';
-      html += (prop.City || "") + (prop.State ? ", " + prop.State : "");
-      html += '</p>';
-
-      if (prop.Description) {
-        html += '<p style="font-size:13px;color:#777;margin-top:4px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">';
-        html += prop.Description;
-        html += '</p>';
-      }
-
-      html += '<button onclick=\'event.stopPropagation();showPropertyDetails(' + JSON.stringify(prop).replace(/'/g, "\\'") + ')\' style="margin-top:10px;">';
-      html += 'View Details';
-      html += '</button>';
-      html += '</div>';
-
+      html += '</div>'; // body
+      html += '</div>'; // propertyCard
     });
 
+    html += '</div>';
     container.innerHTML = html;
 
     // Also render Home Properties preview from the same dataset
@@ -127,8 +136,7 @@ async function loadProperties() {
     }
   } catch (err) {
     console.log(err);
-    container.innerHTML = "<div class='card'>Unable to load properties.</div>";
-    // Update Home preview on error
+    container.innerHTML = '<div class="hij-error"><i class="material-icons">error_outline</i><p>Unable to load properties.</p></div>';
     const homeContainer = document.getElementById("homePropertiesNearYouContent");
     if (homeContainer) {
       homeContainer.innerHTML = '<div class="homeSection-empty">Unable to load properties.</div>';
@@ -138,7 +146,7 @@ async function loadProperties() {
 
 
 /*
-HOME PREVIEW — PROPERTIES NEAR YOU
+HOME PREVIEW — PROPERTIES NEAR YOU (Preserved)
 */
 
 function renderHomePropertiesPreview(properties) {
@@ -184,13 +192,11 @@ function renderHomePropertiesPreview(properties) {
 
 
 /*
-HOME PROPERTY CARD CLICK — navigate to Properties page then show detail
+HOME PROPERTY CARD CLICK (Preserved)
 */
 
 function showPropertyDetailsFromHome(property) {
-  // First navigate to the properties page, then show detail
   openPage("properties");
-  // Use setTimeout to ensure the page is active before rendering detail
   setTimeout(() => {
     showPropertyDetails(property);
   }, 50);
@@ -199,7 +205,7 @@ function showPropertyDetailsFromHome(property) {
 
 /*
 ============================================================
-PROPERTY DETAILS
+PROPERTY DETAILS — Stage 4HIJ Redesign
 ============================================================
 */
 
@@ -211,88 +217,108 @@ function showPropertyDetails(property) {
   if (!container) return;
 
   const isLogin = !!getCurrentUser();
+  const title = propertySafeRender(property.Title) || "-";
+  const price = (property.Price || 0).toLocaleString();
+  const desc = propertySafeRender(property.Description);
+  const purpose = property.Purpose === "Rent" ? "For Rent" : "For Sale";
+  const purposeClass = property.Purpose === "Rent" ? "rent" : "";
+  const type = propertySafeRender(property.Type);
+  const category = propertySafeRender(property.Category);
+  const bedrooms = propertySafeRender(property.Bedrooms);
+  const bathrooms = propertySafeRender(property.Bathrooms);
+  const area = propertySafeRender(property.Area);
+  const city = propertySafeRender(property.City);
+  const state = propertySafeRender(property.State);
+  const pincode = propertySafeRender(property.Pincode);
+  const address = propertySafeRender(property.Address);
+  const distance = propertySafeRender(property.DistanceKm);
+  const facing = propertySafeRender(property.Facing);
+  const floor = propertySafeRender(property.Floor);
+  const totalFloors = propertySafeRender(property.TotalFloors);
+  const phone = propertySafeRender(property.Phone);
   const imgUrl = property.Images ? property.Images.split(",")[0].trim() : "";
-  const purposeLabel = property.Purpose === "Rent" ? "For Rent" : "For Sale";
 
-  let html = '<div class="card">';
+  let html = '<div class="hij-detail">';
 
+  // Back button
+  html += '<button class="hij-backBtn" onclick="loadProperties()"><i class="material-icons">arrow_back</i> Back to Properties</button>';
+
+  // Image
   if (imgUrl) {
-    html += '<div style="width:100%;height:250px;overflow:hidden;border-radius:12px;margin-bottom:15px;">';
-    html += '<img src="' + imgUrl + '" alt="' + (property.Title || "") + '" style="width:100%;height:100%;object-fit:cover;">';
-    html += '</div>';
+    html += '<div class="hij-detail-image"><img src="' + imgUrl + '" alt="' + title + '" onerror="this.parentElement.innerHTML=\'<i class=\\\'material-icons\\\'>real_estate_agent</i>\'"></div>';
+  } else {
+    html += '<div class="hij-detail-image"><i class="material-icons">real_estate_agent</i></div>';
   }
 
-  html += '<h2 style="margin-top:15px;">' + (property.Title || "-") + '</h2>';
-  html += '<p style="font-size:24px;font-weight:700;color:var(--primary);margin-top:8px;">';
-  html += '₹ ' + (property.Price || 0).toLocaleString() + '</p>';
+  // Title & Price
+  html += '<div class="hij-detail-title">' + title + '</div>';
+  html += '<div class="hij-detail-price">₹ ' + price + '</div>';
 
-  html += '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">';
-  html += '<span class="badge" style="background:#e8f5e9;color:#2e7d32;">' + purposeLabel + '</span>';
-  html += '<span class="badge">' + (property.Purpose || "") + '</span>';
-  if (property.Type) html += '<span class="badge">' + property.Type + '</span>';
-  if (property.Bedrooms) html += '<span class="badge">' + property.Bedrooms + ' BHK</span>';
-  if (property.Bathrooms) html += '<span class="badge">' + property.Bathrooms + ' Bath</span>';
-  if (property.Area) html += '<span class="badge">' + property.Area + ' sq ft</span>';
-  if (property.DistanceKm) html += '<span class="badge">' + property.DistanceKm + ' KM Away</span>';
+  // Badges
+  html += '<div class="hij-detail-badges">';
+  html += '<span class="hij-detail-badge">' + purpose + '</span>';
+  if (type) html += '<span class="hij-detail-badge">' + type + '</span>';
+  if (bedrooms) html += '<span class="hij-detail-badge">' + bedrooms + ' BHK</span>';
+  if (bathrooms) html += '<span class="hij-detail-badge">' + bathrooms + ' Bath</span>';
+  if (area) html += '<span class="hij-detail-badge">' + area + ' sq ft</span>';
+  if (distance) html += '<span class="hij-detail-badge">' + distance + ' KM Away</span>';
   html += '</div>';
 
-  html += '<p style="margin-top:12px;">' + (property.Description || "") + '</p>';
+  // Description
+  if (desc) {
+    html += '<div class="hij-detail-desc">' + desc + '</div>';
+  }
 
   // Details Grid
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px;padding:15px;background:#f9f9f9;border-radius:12px;">';
-  if (property.Category) html += '<div><strong>Category:</strong> ' + property.Category + '</div>';
-  if (property.Type) html += '<div><strong>Type:</strong> ' + property.Type + '</div>';
-  if (property.Purpose) html += '<div><strong>Purpose:</strong> ' + purposeLabel + '</div>';
-  if (property.Bedrooms) html += '<div><strong>Bedrooms:</strong> ' + property.Bedrooms + '</div>';
-  if (property.Bathrooms) html += '<div><strong>Bathrooms:</strong> ' + property.Bathrooms + '</div>';
-  if (property.Area) html += '<div><strong>Area:</strong> ' + property.Area + ' sq.ft</div>';
-  if (property.City) html += '<div><strong>City:</strong> ' + property.City + '</div>';
-  if (property.State) html += '<div><strong>State:</strong> ' + property.State + '</div>';
-  if (property.Pincode) html += '<div><strong>Pincode:</strong> ' + property.Pincode + '</div>';
-  if (property.Facing) html += '<div><strong>Facing:</strong> ' + property.Facing + '</div>';
-  if (property.Floor) html += '<div><strong>Floor:</strong> ' + property.Floor + '</div>';
-  if (property.TotalFloors) html += '<div><strong>Total Floors:</strong> ' + property.TotalFloors + '</div>';
-  if (property.Address) html += '<div style="grid-column:1/-1;"><strong>Address:</strong> ' + property.Address + '</div>';
+  html += '<div class="hij-detail-grid">';
+  if (category) html += '<div class="hij-detail-gridItem"><strong>Category</strong>' + category + '</div>';
+  if (type) html += '<div class="hij-detail-gridItem"><strong>Type</strong>' + type + '</div>';
+  if (purpose) html += '<div class="hij-detail-gridItem"><strong>Purpose</strong>' + purpose + '</div>';
+  if (bedrooms) html += '<div class="hij-detail-gridItem"><strong>Bedrooms</strong>' + bedrooms + '</div>';
+  if (bathrooms) html += '<div class="hij-detail-gridItem"><strong>Bathrooms</strong>' + bathrooms + '</div>';
+  if (area) html += '<div class="hij-detail-gridItem"><strong>Area</strong>' + area + ' sq.ft</div>';
+  if (city) html += '<div class="hij-detail-gridItem"><strong>City</strong>' + city + '</div>';
+  if (state) html += '<div class="hij-detail-gridItem"><strong>State</strong>' + state + '</div>';
+  if (pincode) html += '<div class="hij-detail-gridItem"><strong>Pincode</strong>' + pincode + '</div>';
+  if (facing) html += '<div class="hij-detail-gridItem"><strong>Facing</strong>' + facing + '</div>';
+  if (floor) html += '<div class="hij-detail-gridItem"><strong>Floor</strong>' + floor + '</div>';
+  if (totalFloors) html += '<div class="hij-detail-gridItem"><strong>Total Floors</strong>' + totalFloors + '</div>';
+  if (address) html += '<div class="hij-detail-gridItem" style="grid-column:1/-1;"><strong>Address</strong>' + address + '</div>';
   html += '</div>';
 
-  // Price Details
-  html += '<div style="margin-top:15px;padding:15px;background:#fff3e0;border-radius:12px;">';
-  html += '<p style="font-size:14px;"><strong>Price:</strong> ₹ ' + (property.Price || 0).toLocaleString() + '</p>';
+  // Price Box
+  html += '<div class="hij-detail-priceBox">';
+  html += '<p style="font-size:14px;"><strong>Price:</strong> ₹ ' + price + '</p>';
   if (property.Purpose === "Rent") {
     html += '<p style="font-size:14px;color:var(--primary);">Rental Property</p>';
-  } else if (property.Purpose === "Sell") {
+  } else {
     html += '<p style="font-size:14px;color:#666;">For Sale</p>';
   }
   html += '</div>';
 
-  // User actions
+  // Actions
+  html += '<div class="hij-detail-actions">';
+
   if (isLogin) {
-    html += '<button onclick="contactPropertySeller()" style="margin-top:15px;">';
-    html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> Contact Seller</button>';
+    html += '<button onclick="contactPropertySeller()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> Contact Seller</button>';
+    html += '<button onclick="getPropertyDirections()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">directions</i> Get Directions</button>';
 
-    html += '<button onclick="getPropertyDirections()" style="margin-top:15px;">';
-    html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">directions</i> Get Directions</button>';
-
-    if (property.Phone) {
-      html += '<button onclick="callPropertySeller(\'' + property.Phone + '\')" style="background:#25D366;margin-top:10px;">';
-      html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Seller</button>';
+    if (phone) {
+      html += '<button onclick="callPropertySeller(\'' + phone + '\')" style="background:#25D366;"><i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Seller</button>';
     }
   } else {
-    html += '<div style="margin-top:15px;padding:12px;border:1px solid #ddd;border-radius:10px;">';
+    html += '<div class="hij-detail-guest">';
     html += '<p>Login to contact the owner.</p>';
-    html += '<button onclick="openPage(\'login\')">Login</button>';
-    html += '<button onclick="openPage(\'register\')" style="background:#666;">Register</button>';
+    html += '<button class="btnLogin" onclick="openPage(\'login\')">Login</button>';
+    html += '<button class="btnRegister" onclick="openPage(\'register\')">Register</button>';
     html += '</div>';
   }
 
-  // Share button for everyone
-  html += '<button onclick="shareProperty()" style="margin-top:10px;">';
-  html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">share</i> Share</button>';
+  // Share
+  html += '<button onclick="shareProperty()" style="background:#666;"><i class="material-icons" style="font-size:18px;vertical-align:middle;">share</i> Share</button>';
 
-  html += '<button onclick="loadProperties()" style="background:#666;margin-top:10px;">';
-  html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back</button>';
-
-  html += '</div>';
+  html += '</div>'; // actions
+  html += '</div>'; // hij-detail
 
   container.innerHTML = html;
   openPage("properties");
@@ -301,7 +327,7 @@ function showPropertyDetails(property) {
 
 /*
 ============================================================
-SELLER CONTACT
+SELLER CONTACT (Preserved)
 ============================================================
 */
 
@@ -322,7 +348,7 @@ function callPropertySeller(phone) {
 
 /*
 ============================================================
-PROPERTY DIRECTIONS
+PROPERTY DIRECTIONS (Preserved)
 ============================================================
 */
 
@@ -336,7 +362,7 @@ function getPropertyDirections() {
 
 /*
 ============================================================
-SHARE PROPERTY
+SHARE PROPERTY (Preserved)
 ============================================================
 */
 
@@ -351,10 +377,4 @@ function shareProperty() {
   }
 }
 
-/*
-============================================================
-BACKWARD COMPAT
-============================================================
-*/
-
-console.log("Properties module loaded");
+console.log("Properties module loaded (Stage 4HIJ)");

@@ -2,13 +2,31 @@
 ============================================================
 EKKA1KM FRONTEND
 Interests.js
-Phase 3.6 - Interest System
+Stage 4HIJ - Interests Management Experience
+V2.0
+Preserves canonical interest functionality
 ============================================================
 */
 
 /*
 ============================================================
-LOAD MY INTERESTS
+NAMESPACED HELPERS (Stage 4HIJ)
+============================================================
+*/
+
+function interestSafeRender(val) {
+  if (val === undefined || val === null) return "";
+  if (typeof val === "number" && isNaN(val)) return "";
+  if (val instanceof Date && isNaN(val.getTime())) return "";
+  var s = String(val).trim();
+  if (s === "undefined" || s === "null" || s === "NaN" || s === "Invalid Date") return "";
+  return s;
+}
+
+
+/*
+============================================================
+LOAD MY INTERESTS — Stage 4HIJ Redesign
 ============================================================
 */
 
@@ -16,191 +34,82 @@ function loadMyInterests() {
   var userId = getUserId();
   if (!userId) {
     document.getElementById("interestsList").innerHTML =
-      '<div class="card" style="text-align:center;padding:30px;">' +
-      "<p>Please login to see your interests</p></div>";
+      '<div class="hij-empty"><i class="material-icons">favorite_border</i><p>Please login to see your interests</p></div>';
     return;
   }
 
-  var container =
-    document.getElementById(
-      "interestsList"
-    );
+  var container = document.getElementById("interestsList");
 
-  container.innerHTML =
-    '<div class="card" style="text-align:center;padding:30px;">' +
-    "<p>Loading interests...</p></div>";
+  container.innerHTML = '<div class="hij-loading"><i class="material-icons">favorite</i><p>Loading interests...</p></div>';
 
-  var url =
-    getApiUrl() +
+  var url = getApiUrl() +
     "?action=getmyinterests" +
-    "&userId=" +
-    encodeURIComponent(userId);
+    "&userId=" + encodeURIComponent(userId);
 
   fetch(url)
-    .then(function(r) {
-      return r.json();
-    })
+    .then(function(r) { return r.json(); })
     .then(function(res) {
-      if (
-        res &&
-        res.success &&
-        res.data
-      ) {
-        renderMyInterests(
-          res.data
-        );
+      if (res && res.success && res.data) {
+        renderMyInterests(res.data);
       } else {
-        container.innerHTML =
-          '<div class="card" style="text-align:center;padding:30px;">' +
-          "<p>No interests found</p></div>";
+        container.innerHTML = '<div class="hij-empty"><i class="material-icons">favorite_border</i><p>No interests found</p></div>';
       }
     })
     .catch(function(err) {
-      console.log(
-        "Interests error:",
-        err
-      );
-      container.innerHTML =
-        '<div class="card" style="text-align:center;padding:30px;">' +
-        "<p>Error loading interests</p></div>";
+      console.log("Interests error:", err);
+      container.innerHTML = '<div class="hij-error"><i class="material-icons">error_outline</i><p>Error loading interests</p></div>';
     });
 }
 
 
 /*
 ============================================================
-RENDER MY INTERESTS
+RENDER MY INTERESTS — Stage 4HIJ Redesign
 ============================================================
 */
 
 function renderMyInterests(data) {
-  var container =
-    document.getElementById(
-      "interestsList"
-    );
-
+  var container = document.getElementById("interestsList");
   if (!container) return;
 
-  var interests =
-    data.data || [];
+  // data can be an array directly or have a data property
+  var interests = Array.isArray(data) ? data : (data.data || data.interests || []);
 
-  if (interests.length === 0) {
-    container.innerHTML =
-      '<div class="card" style="text-align:center;padding:30px;">' +
-      "<p>You haven't marked any interests yet.</p>" +
-      '<p style="font-size:13px;color:#888;margin-top:8px;">Browse products and properties to mark them as interested.</p>' +
-      "</div>";
+  if (!interests || interests.length === 0) {
+    container.innerHTML = '<div class="hij-empty"><i class="material-icons">favorite_border</i><p>No interests yet</p>' +
+      '<p style="font-size:12px;color:#888;margin-top:6px;">Browse products, businesses, or properties and express your interest!</p></div>';
     return;
   }
 
-  var html = "";
+  var html = '';
 
-  // Products Section
-  var products = interests.filter(
-    function(i) {
-      return (
-        i.targetType ===
-        "Product"
-      );
+  interests.forEach(function(item) {
+    var type = interestSafeRender(item.Type) || interestSafeRender(item.type) || "General";
+    var title = interestSafeRender(item.Title) || interestSafeRender(item.title) || "-";
+    var refId = interestSafeRender(item.ReferenceID) || interestSafeRender(item.referenceId) || interestSafeRender(item.id) || "";
+    var interestId = interestSafeRender(item.InterestID) || interestSafeRender(item.interestId) || "";
+    var status = interestSafeRender(item.Status) || interestSafeRender(item.status) || "";
+    var createdAt = interestSafeRender(item.CreatedDate) || interestSafeRender(item.createdAt) || "";
+
+    html += '<div class="interest-hij-card">';
+    html += '<div class="interest-hij-left">';
+    html += '<div class="interest-hij-type">' + type + '</div>';
+    html += '<div class="interest-hij-title">' + title + '</div>';
+    html += '<div class="interest-hij-meta">' +
+      (status ? '<span>Status: ' + status + '</span>' : '') +
+      (createdAt ? ' <span>' + createdAt + '</span>' : '') +
+      '</div>';
+    html += '</div>';
+
+    // Remove button
+    if (interestId) {
+      html += '<button class="interest-hij-remove" onclick="removeInterest(\'' + interestId + '\')">Remove</button>';
+    } else if (refId && type) {
+      html += '<button class="interest-hij-remove" onclick="removeInterestByRef(\'' + type + '\',\'' + refId + '\')">Remove</button>';
     }
-  );
 
-  if (products.length > 0) {
-    html +=
-      '<div class="dashboardSection"><h3>Interested Products (' +
-      products.length +
-      ")</h3>";
-    products.forEach(
-      function(i) {
-        var target =
-          i.targetData || {};
-        html +=
-          '<div class="dashboardActivityCard">';
-        html +=
-          '<div class="dashboardActivityItem">';
-        html +=
-          '<div class="title">' +
-          (target.Title ||
-            "Product") +
-          "</div>";
-        html +=
-          '<div class="meta">₹' +
-          (target.Price ||
-            "0") +
-          " | " +
-          (target.Status ||
-            "") +
-          "</div>";
-        html +=
-          '<div class="meta" style="font-size:10px;color:#aaa;">' +
-          (i.date || "") +
-          "</div>";
-        html +=
-          '<button class="btn-gray" onclick="removeInterest(\'' +
-          i.targetType +
-          "','" +
-          i.targetId +
-          '\')" style="margin-top:8px;font-size:12px;padding:8px;">Remove Interest</button>';
-        html +=
-          "</div></div>";
-      }
-    );
-    html += "</div>";
-  }
-
-  // Properties Section
-  var properties =
-    interests.filter(
-      function(i) {
-        return (
-          i.targetType ===
-          "Property"
-        );
-      }
-    );
-
-  if (properties.length > 0) {
-    html +=
-      '<div class="dashboardSection"><h3>Interested Properties (' +
-      properties.length +
-      ")</h3>";
-    properties.forEach(
-      function(i) {
-        var target =
-          i.targetData || {};
-        html +=
-          '<div class="dashboardActivityCard">';
-        html +=
-          '<div class="dashboardActivityItem">';
-        html +=
-          '<div class="title">' +
-          (target.Title ||
-            "Property") +
-          "</div>";
-        html +=
-          '<div class="meta">₹' +
-          (target.Price ||
-            "0") +
-          " | " +
-          (target.Category ||
-            "") +
-          "</div>";
-        html +=
-          '<div class="meta" style="font-size:10px;color:#aaa;">' +
-          (i.date || "") +
-          "</div>";
-        html +=
-          '<button class="btn-gray" onclick="removeInterest(\'' +
-          i.targetType +
-          "','" +
-          i.targetId +
-          '\')" style="margin-top:8px;font-size:12px;padding:8px;">Remove Interest</button>';
-        html +=
-          "</div></div>";
-      }
-    );
-    html += "</div>";
-  }
+    html += '</div>';
+  });
 
   container.innerHTML = html;
 }
@@ -208,109 +117,64 @@ function renderMyInterests(data) {
 
 /*
 ============================================================
-MARK INTERESTED
+REMOVE INTEREST (Preserved)
 ============================================================
 */
 
-function markInterested(
-  targetType,
-  targetId
-) {
+function removeInterest(interestId) {
+  if (!interestId) return;
   var userId = getUserId();
-  if (!userId) {
-    requireLogin();
-    return;
-  }
+  if (!userId) { requireLogin(); return; }
 
-  var url =
-    getApiUrl() +
-    "?action=markinterested" +
-    "&userId=" +
-    encodeURIComponent(userId) +
-    "&targetType=" +
-    encodeURIComponent(
-      targetType
-    ) +
-    "&targetId=" +
-    encodeURIComponent(targetId);
+  var url = getApiUrl() +
+    "?action=removeinterest" +
+    "&userId=" + encodeURIComponent(userId) +
+    "&interestId=" + encodeURIComponent(interestId);
 
   fetch(url)
-    .then(function(r) {
-      return r.json();
-    })
+    .then(function(r) { return r.json(); })
     .then(function(res) {
-      if (
-        res &&
-        res.success
-      ) {
-        alert(
-          "Interest marked successfully!"
-        );
+      if (res && res.success) {
+        loadMyInterests();
       } else {
-        alert(
-          res.message ||
-            "Failed to mark interest"
-        );
+        alert(res.message || "Failed to remove interest");
       }
     })
     .catch(function(err) {
-      console.log(
-        "Mark interest error:",
-        err
-      );
+      console.log("Remove interest error:", err);
+      alert("Error removing interest");
     });
 }
 
 
 /*
 ============================================================
-REMOVE INTEREST
+REMOVE INTEREST BY REFERENCE (backward compatible)
 ============================================================
 */
 
-function removeInterest(
-  targetType,
-  targetId
-) {
+function removeInterestByRef(type, refId) {
+  if (!type || !refId) return;
   var userId = getUserId();
-  if (!userId) {
-    requireLogin();
-    return;
-  }
+  if (!userId) { requireLogin(); return; }
 
-  var url =
-    getApiUrl() +
+  var url = getApiUrl() +
     "?action=removeinterest" +
-    "&userId=" +
-    encodeURIComponent(userId) +
-    "&targetType=" +
-    encodeURIComponent(
-      targetType
-    ) +
-    "&targetId=" +
-    encodeURIComponent(targetId);
+    "&userId=" + encodeURIComponent(userId) +
+    "&type=" + encodeURIComponent(type) +
+    "&referenceId=" + encodeURIComponent(refId);
 
   fetch(url)
-    .then(function(r) {
-      return r.json();
-    })
+    .then(function(r) { return r.json(); })
     .then(function(res) {
-      if (
-        res &&
-        res.success
-      ) {
+      if (res && res.success) {
         loadMyInterests();
       } else {
-        alert(
-          res.message ||
-            "Failed to remove interest"
-        );
+        alert(res.message || "Failed to remove interest");
       }
     })
     .catch(function(err) {
-      console.log(
-        "Remove interest error:",
-        err
-      );
+      console.log("Remove interest error:", err);
+      alert("Error removing interest");
     });
 }

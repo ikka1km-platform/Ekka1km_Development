@@ -2,123 +2,117 @@
 ============================================================
 EKKA1KM FRONTEND
 Businesses.js
-Businesses + Business Details
-V1.1 Trial
-Guest Mode Supported
+Stage 4HIJ - Businesses Browsing & Detail Experience
+V2.0
+Preserves all canonical functionality
 ============================================================
 */
 
 let CURRENT_BUSINESS = null;
 
+/*
+============================================================
+NAMESPACED HELPERS (Stage 4HIJ)
+============================================================
+*/
+
+function businessSafeRender(val) {
+  if (val === undefined || val === null) return "";
+  if (typeof val === "number" && isNaN(val)) return "";
+  if (val instanceof Date && isNaN(val.getTime())) return "";
+  var s = String(val).trim();
+  if (s === "undefined" || s === "null" || s === "NaN" || s === "Invalid Date") return "";
+  return s;
+}
+
 
 /*
 ============================================================
-LOAD BUSINESSES
+LOAD BUSINESSES — Stage 4HIJ Redesign
 ============================================================
 */
 
 async function loadBusinesses() {
+  const container = document.getElementById("businessList");
+  if (!container) return;
 
-  const container =
-    document.getElementById(
-      "businessList"
-    );
-
-  if (!container)
-    return;
-
-  container.innerHTML =
-    "<div class='card'>Loading Businesses...</div>";
+  container.innerHTML = '<div class="hij-loading"><i class="material-icons">store</i><p>Loading Businesses...</p></div>';
 
   try {
+    const response = await fetch(
+      `${getApiUrl()}?action=businesses&lat=${CURRENT_LAT}&lng=${CURRENT_LNG}&radius=${getRadius()}`
+    );
+    const json = await response.json();
+    const businesses = (json.data && json.data.data) || [];
 
-    const response =
-      await fetch(
-        `${getApiUrl()}?action=businesses&lat=${CURRENT_LAT}&lng=${CURRENT_LNG}&radius=${getRadius()}`
-      );
-
-    const json =
-      await response.json();
-
-    const businesses =
-      (json.data &&
-        json.data.data) ||
-      [];
-
-    if (
-      businesses.length === 0
-    ) {
-
-      container.innerHTML =
-        "<div class='card'>No Businesses Found.</div>";
-
+    if (businesses.length === 0) {
+      container.innerHTML = '<div class="hij-empty"><i class="material-icons">store</i><p>No Businesses Found.</p></div>';
       if (typeof renderHomeBusinessesPreview === "function") {
         renderHomeBusinessesPreview(businesses);
       }
       return;
     }
 
-    let html = "";
+    let html = '<div class="business-listing">';
 
-    businesses.forEach(
-      business => {
+    businesses.forEach(business => {
+      const name = businessSafeRender(business.BusinessName) || "-";
+      const category = businessSafeRender(business.Category);
+      const desc = businessSafeRender(business.Description);
+      const address = businessSafeRender(business.Address);
+      const city = businessSafeRender(business.City);
+      const state = businessSafeRender(business.State);
+      const distance = businessSafeRender(business.DistanceKm);
+      const logo = businessSafeRender(business.Logo);
+      const phone = businessSafeRender(business.Phone) || businessSafeRender(business.Mobile);
+      const email = businessSafeRender(business.Email);
 
-        html += `
-        <div class="card">
-
-          <h3>
-            ${business.BusinessName || "-"}
-          </h3>
-
-          <p>
-            ${business.Category || ""}
-          </p>
-
-          <p>
-            ${business.Address || ""}
-          </p>
-
-          ${
-            business.DistanceKm
-              ? `<span class="badge">${business.DistanceKm} KM Away</span>`
-              : ""
-          }
-
-          <button
-            onclick='showBusinessDetails(${JSON.stringify(business)})'>
-            View Details
-          </button>
-
-          <button
-            onclick='openStorePage(${JSON.stringify(business)})'
-            style="background:#0f9d58;">
-            Visit Store
-          </button>
-
+      html += `
+        <div class="businessCard" onclick='showBusinessDetails(${JSON.stringify(business)})'>
+          <div class="businessCard-header">
+            <div class="businessCard-logo">
+              ${logo
+                ? `<img src="${logo}" alt="${name}" onerror="this.parentElement.innerHTML='<span class=\\'businessCard-logoPlaceholder\\'>${name.charAt(0)}</span>'">`
+                : `<span class="businessCard-logoPlaceholder">${name.charAt(0)}</span>`
+              }
+            </div>
+            <div class="businessCard-info">
+              <div class="businessCard-name">${name}</div>
+              ${category ? `<div class="businessCard-category">${category}</div>` : ""}
+            </div>
+          </div>
+          <div class="businessCard-body">
+            ${desc ? `<div class="businessCard-desc">${desc}</div>` : ""}
+            <div class="businessCard-details">
+              ${city ? `<span class="businessCard-detail"><i class="material-icons">location_on</i> ${city}${state ? ", " + state : ""}</span>` : ""}
+              ${distance ? `<span class="businessCard-detail"><i class="material-icons">near_me</i> ${distance} KM</span>` : ""}
+              ${phone ? `<span class="businessCard-detail"><i class="material-icons">phone</i> ${phone}</span>` : ""}
+            </div>
+            <div class="businessCard-actions">
+              <button class="productCard-btnPrimary" onclick='event.stopPropagation();showBusinessDetails(${JSON.stringify(business)})'>View Details</button>
+              <button class="productCard-btnSecondary" onclick='event.stopPropagation();openStorePage(${JSON.stringify(business)})'>Visit Store</button>
+            </div>
+          </div>
         </div>
-        `;
-      }
-    );
+      `;
+    });
 
+    html += '</div>';
     container.innerHTML = html;
 
     // Also render Home preview from the same dataset
     if (typeof renderHomeBusinessesPreview === "function") {
       renderHomeBusinessesPreview(businesses);
     }
-  }
-  catch (err) {
-
+  } catch (err) {
     console.log(err);
-
-    container.innerHTML =
-      "<div class='card'>Unable to load businesses.</div>";
+    container.innerHTML = '<div class="hij-error"><i class="material-icons">error_outline</i><p>Unable to load businesses.</p></div>';
   }
 }
 
 
 /*
-HOME PREVIEW — BUSINESSES NEAR YOU
+HOME PREVIEW — BUSINESSES NEAR YOU (Preserved)
 */
 
 function renderHomeBusinessesPreview(businesses) {
@@ -162,144 +156,131 @@ function renderHomeBusinessesPreview(businesses) {
 
 /*
 ============================================================
-BUSINESS DETAILS
+BUSINESS DETAILS — Stage 4HIJ Redesign
 ============================================================
 */
 
-function showBusinessDetails(
-  business
-) {
+function showBusinessDetails(business) {
+  CURRENT_BUSINESS = business;
 
-  CURRENT_BUSINESS =
-    business;
+  const container = document.getElementById("businessList");
+  if (!container) return;
 
-  const container =
-    document.getElementById(
-      "businessList"
-    );
-
-  const isLogin =
-    !!getCurrentUser();
-
+  const isLogin = !!getCurrentUser();
   const userId = getUserId();
   const isOwner = userId && (String(business.UserID) === String(userId) || String(business.OwnerUserID) === String(userId));
 
-  let html = `
-  <div class="card">
+  const name = businessSafeRender(business.BusinessName) || "-";
+  const category = businessSafeRender(business.Category);
+  const desc = businessSafeRender(business.Description);
+  const address = businessSafeRender(business.Address);
+  const city = businessSafeRender(business.City);
+  const state = businessSafeRender(business.State);
+  const pincode = businessSafeRender(business.Pincode);
+  const phone = businessSafeRender(business.Phone) || businessSafeRender(business.Mobile);
+  const email = businessSafeRender(business.Email);
+  const website = businessSafeRender(business.Website);
+  const logo = businessSafeRender(business.Logo);
+  const coverImage = businessSafeRender(business.CoverImage);
+  const openTime = businessSafeRender(business.OpenTime) || businessSafeRender(business.OpeningTime);
+  const closeTime = businessSafeRender(business.CloseTime) || businessSafeRender(business.ClosingTime);
+  const distance = businessSafeRender(business.DistanceKm);
 
-    <h2>
-      ${business.BusinessName || "-"}
-    </h2>
+  let html = '<div class="hij-detail">';
 
-    <p>
-      ${business.Category || ""}
-    </p>
+  // Back button
+  html += `<button class="hij-backBtn" onclick="loadBusinesses()"><i class="material-icons">arrow_back</i> Back to Businesses</button>`;
 
-    <p>
-      ${business.Description || ""}
-    </p>
+  // Cover + Logo
+  html += '<div style="position:relative;margin-bottom:14px;">';
+  if (coverImage) {
+    html += `<div style="width:100%;height:140px;border-radius:var(--radius-lg);overflow:hidden;background:linear-gradient(135deg,var(--primary),#43a047);">
+      <img src="${coverImage}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
+    </div>`;
+  } else {
+    html += `<div style="width:100%;height:100px;border-radius:var(--radius-lg);background:linear-gradient(135deg,var(--primary),#43a047);"></div>`;
+  }
 
-    <p>
-      ${business.Address || ""}
-    </p>
+  html += `<div style="display:flex;align-items:flex-end;gap:12px;margin-top:-40px;padding:0 14px;">`;
+  if (logo) {
+    html += `<div style="width:72px;height:72px;border-radius:16px;overflow:hidden;border:3px solid #fff;background:#e8f5e9;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.1);">
+      <img src="${logo}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
+    </div>`;
+  } else {
+    html += `<div style="width:72px;height:72px;border-radius:16px;border:3px solid #fff;background:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.1);">
+      <span style="font-size:28px;font-weight:700;color:#fff;">${name.charAt(0)}</span>
+    </div>`;
+  }
+  html += '</div>';
+  html += '</div>';
 
-    <p>
-      ${business.City || ""}
-    </p>
+  // Name & Category
+  html += `<div class="hij-detail-title">${name}</div>`;
+  if (category) html += `<div style="font-size:13px;color:var(--primary);font-weight:500;margin-bottom:8px;">${category}</div>`;
 
-    <button
-      onclick="shareBusiness()">
-      Share
-    </button>
-  `;
+  // Description
+  if (desc) html += `<div class="hij-detail-desc">${desc}</div>`;
 
-  /*
-  ============================================================
-  LOGGED IN USER
-  ============================================================
-  */
+  // Details Grid
+  html += '<div class="hij-detail-grid">';
+  if (address) html += `<div class="hij-detail-gridItem" style="grid-column:1/-1;"><strong>Address</strong>${address}</div>`;
+  if (city) html += `<div class="hij-detail-gridItem"><strong>City</strong>${city}${state ? ", " + state : ""}</div>`;
+  if (pincode) html += `<div class="hij-detail-gridItem"><strong>Pincode</strong>${pincode}</div>`;
+  if (distance) html += `<div class="hij-detail-gridItem"><strong>Distance</strong>${distance} KM</div>`;
+  if (phone) html += `<div class="hij-detail-gridItem"><strong>Phone</strong>${phone}</div>`;
+  if (email) html += `<div class="hij-detail-gridItem"><strong>Email</strong>${email}</div>`;
+  if (website) html += `<div class="hij-detail-gridItem" style="grid-column:1/-1;"><strong>Website</strong>${website}</div>`;
+  if (openTime) html += `<div class="hij-detail-gridItem"><strong>Opens</strong>${openTime}</div>`;
+  if (closeTime) html += `<div class="hij-detail-gridItem"><strong>Closes</strong>${closeTime}</div>`;
+  html += '</div>';
+
+  // Actions
+  html += '<div class="hij-detail-actions">';
 
   if (isLogin) {
     if (isOwner) {
       html += `
-        <div style="margin-top:15px;padding:12px;background:#fff3e0;border:1px solid #ffe0b2;border-radius:10px;color:#e65100;">
+        <div style="padding:12px;background:#fff3e0;border:1px solid #ffe0b2;border-radius:10px;color:#e65100;text-align:center;font-weight:600;font-size:14px;">
           <i class="material-icons" style="font-size:18px;vertical-align:middle;">info</i> You are the owner of this business.
         </div>
       `;
     }
 
     html += `
-      <button
-        onclick="callBusiness()" ${isOwner ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
-        Call Business
+      <button onclick="callBusiness()" ${isOwner ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
+        <i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Business
       </button>
 
-      <button
-        onclick="contactBusinessOwner()" ${isOwner ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
-        Contact Owner
+      <button onclick="contactBusinessOwner()" ${isOwner ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
+        <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> Contact Owner
       </button>
     `;
-  }
-
-  /*
-  ============================================================
-  GUEST USER
-  ============================================================
-  */
-
-  else {
-
+  } else {
     html += `
-      <div
-        style="
-          margin-top:15px;
-          padding:12px;
-          border:1px solid #ddd;
-          border-radius:10px;
-        ">
-
-        <p>
-          Login to contact this business.
-        </p>
-
-        <button
-          onclick="openPage('login')">
-          Login
-        </button>
-
-        <button
-          onclick="openPage('register')"
-          style="background:#666;">
-          Register
-        </button>
-
+      <div class="hij-detail-guest">
+        <p>Login to contact this business.</p>
+        <button class="btnLogin" onclick="openPage('login')">Login</button>
+        <button class="btnRegister" onclick="openPage('register')">Register</button>
       </div>
     `;
   }
 
-  html += `
-    <button
-      onclick="loadBusinesses()"
-      style="background:#666;">
-      Back
-    </button>
+  // Share
+  html += `<button onclick="shareBusiness()" style="background:#666;">
+    <i class="material-icons" style="font-size:18px;vertical-align:middle;">share</i> Share
+  </button>`;
 
-  </div>
-  `;
+  html += '</div>'; // actions
+  html += '</div>'; // hij-detail
 
-  container.innerHTML =
-    html;
-
-  openPage(
-    "businesses"
-  );
-
+  container.innerHTML = html;
+  openPage("businesses");
   trackBusinessView();
 }
 
 
 /*
-BUSINESS VIEW ANALYTICS
+BUSINESS VIEW ANALYTICS (Preserved)
 */
 
 function trackBusinessView() {
@@ -319,113 +300,58 @@ function trackBusinessView() {
 
 /*
 ============================================================
-CALL BUSINESS
+CALL BUSINESS (Preserved)
 ============================================================
 */
 
 function callBusiness() {
+  if (!requireLogin()) return;
+  if (!CURRENT_BUSINESS) return;
 
-  if (
-    !requireLogin()
-  ) {
-    return;
-  }
-
-  if (
-    !CURRENT_BUSINESS
-  ) {
-    return;
-  }
-
-  const mobile =
-    CURRENT_BUSINESS.Mobile ||
-    CURRENT_BUSINESS.Phone ||
-    "";
-
+  const mobile = CURRENT_BUSINESS.Mobile || CURRENT_BUSINESS.Phone || "";
   if (!mobile) {
-
-    alert(
-      "Business phone number not available."
-    );
-
+    alert("Business phone number not available.");
     return;
   }
-
-  window.location.href =
-    `tel:${mobile}`;
+  window.location.href = `tel:${mobile}`;
 }
 
 
 /*
 ============================================================
-CONTACT OWNER
+CONTACT OWNER (Preserved)
 ============================================================
 */
 
 function contactBusinessOwner() {
+  if (!requireLogin()) return;
+  if (!CURRENT_BUSINESS) return;
 
-  if (
-    !requireLogin()
-  ) {
-    return;
+  if (typeof notifyBusinessContact === "function") {
+    notifyBusinessContact(CURRENT_BUSINESS);
   }
-
-  if (
-    !CURRENT_BUSINESS
-  ) {
-    return;
-  }
-
-  if (
-    typeof notifyBusinessContact ===
-    "function"
-  ) {
-    notifyBusinessContact(
-      CURRENT_BUSINESS
-    );
-  }
-
-  alert(
-    "Business enquiry sent."
-  );
+  alert("Business enquiry sent.");
 }
 
 
 /*
 ============================================================
-SHARE BUSINESS
+SHARE BUSINESS (Preserved)
 ============================================================
 */
 
 function shareBusiness() {
+  if (!CURRENT_BUSINESS) return;
 
-  if (
-    !CURRENT_BUSINESS
-  ) {
-    return;
-  }
+  const text = `${CURRENT_BUSINESS.BusinessName || ""}\n${CURRENT_BUSINESS.Address || ""}`;
 
-  const text =
-    `${CURRENT_BUSINESS.BusinessName || ""}\n${CURRENT_BUSINESS.Address || ""}`;
-
-  if (
-    navigator.share
-  ) {
-
+  if (navigator.share) {
     navigator.share({
-      title:
-        CURRENT_BUSINESS.BusinessName,
+      title: CURRENT_BUSINESS.BusinessName,
       text
     });
-
   } else {
-
-    navigator.clipboard
-      .writeText(text);
-
-    alert(
-      "Business details copied."
-    );
+    navigator.clipboard.writeText(text);
+    alert("Business details copied.");
   }
 }
-

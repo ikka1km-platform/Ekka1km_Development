@@ -2,8 +2,9 @@
 ============================================================
 EKKA1KM FRONTEND
 News.js
-V2.0 - Professional News System
-Hero, Breaking, Standard Cards, Categories, Local, Share
+Stage 4HIJ - News Browsing & Detail Experience
+V2.1
+Preserves hero, breaking, standard cards, categories, share
 ============================================================
 */
 
@@ -17,7 +18,23 @@ const NEWS_CATEGORIES = [
 
 /*
 ============================================================
-TIME AGO HELPER
+NAMESPACED HELPERS (Stage 4HIJ)
+============================================================
+*/
+
+function newsSafeRender(val) {
+  if (val === undefined || val === null) return "";
+  if (typeof val === "number" && isNaN(val)) return "";
+  if (val instanceof Date && isNaN(val.getTime())) return "";
+  var s = String(val).trim();
+  if (s === "undefined" || s === "null" || s === "NaN" || s === "Invalid Date") return "";
+  return s;
+}
+
+
+/*
+============================================================
+TIME AGO HELPER (preserved existing name for backward compat)
 ============================================================
 */
 
@@ -39,7 +56,7 @@ function timeAgo(dateStr) {
 
 /*
 ============================================================
-LOAD NEWS WITH PROFESSIONAL CARDS
+LOAD NEWS WITH PROFESSIONAL CARDS — Stage 4HIJ
 ============================================================
 */
 
@@ -47,7 +64,7 @@ async function loadNews() {
   const container = document.getElementById("newsList");
   if (!container) return;
 
-  container.innerHTML = "<div class='card'>Loading News...</div>";
+  container.innerHTML = '<div class="hij-loading"><i class="material-icons">newspaper</i><p>Loading News...</p></div>';
 
   try {
     const response = await fetch(
@@ -57,7 +74,7 @@ async function loadNews() {
     const allNews = json.data || [];
 
     if (allNews.length === 0) {
-      container.innerHTML = "<div class='card'>No News Found.</div>";
+      container.innerHTML = '<div class="hij-empty"><i class="material-icons">newspaper</i><p>No News Found.</p></div>';
       if (typeof renderHomeNewsPreview === "function") {
         renderHomeNewsPreview(allNews);
       }
@@ -93,7 +110,7 @@ async function loadNews() {
       </div>`;
       breaking.forEach(item => {
         html += `<div style="cursor:pointer;padding:6px 0;border-bottom:1px solid #ffcdd2;" onclick='showNewsDetails(${JSON.stringify(item)})'>
-          <strong style="font-size:14px;">${item.Title || ""}</strong>
+          <strong style="font-size:14px;">${newsSafeRender(item.Title)}</strong>
         </div>`;
       });
       html += `</div>`;
@@ -111,53 +128,63 @@ async function loadNews() {
         <div style="position:absolute;bottom:0;left:0;right:0;padding:20px;background:linear-gradient(transparent,rgba(0,0,0,.8));">
           <div style="display:flex;gap:6px;margin-bottom:6px;">
             <span class="badge" style="background:#ff9800;color:#fff;font-size:10px;">Featured</span>
-            ${hero.Category ? `<span class="badge" style="background:#e0e0e0;font-size:10px;">${hero.Category}</span>` : ""}
+            ${hero.Category ? `<span class="badge" style="background:#e0e0e0;font-size:10px;">${newsSafeRender(hero.Category)}</span>` : ""}
           </div>
-          <h2 style="color:#fff;margin:0;font-size:18px;">${hero.Title || ""}</h2>
+          <h2 style="color:#fff;margin:0;font-size:18px;">${newsSafeRender(hero.Title)}</h2>
           <p style="color:rgba(255,255,255,.8);font-size:12px;margin-top:4px;">${timeAgo(hero.CreatedDate)}</p>
         </div>
       `;
       html += `</div>`;
     }
 
-    // Standard News Cards
+    // Standard News — Stage 4HIJ enhanced cards
     const displayNews = standard.length > 0 ? standard : allNews;
+    html += '<div class="news-listing">';
+
     displayNews.forEach(item => {
       const hasImage = item.Image && item.Image.trim();
       const hasVideo = item.VideoURL && item.VideoURL.trim();
       const isBreaking = (item.Category || "").toLowerCase() === "breaking";
+      const category = newsSafeRender(item.Category);
+      const title = newsSafeRender(item.Title) || "";
+      const desc = newsSafeRender(item.Description) || "";
+      const city = newsSafeRender(item.City);
+      const source = newsSafeRender(item.Source);
 
       html += `
-        <div class="newsCard" style="display:flex;gap:12px;margin-bottom:12px;padding:12px;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;" onclick='showNewsDetails(${JSON.stringify(item)})'>
+        <div class="newsCard-hij" onclick='showNewsDetails(${JSON.stringify(item)})'>
           ${hasImage ? `
-            <div style="width:100px;min-width:100px;height:100px;border-radius:10px;overflow:hidden;">
-              <img src="${item.Image}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
+            <div class="newsCard-hij-img">
+              <img src="${item.Image}" alt="${title}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'newsCard-hij-img newsCard-hij-imgPlaceholder\\'><i class=\\'material-icons\\'>newspaper</i></div>'">
             </div>
           ` : hasVideo ? `
-            <div style="width:100px;min-width:100px;height:100px;border-radius:10px;overflow:hidden;background:#e8f5e9;display:flex;align-items:center;justify-content:center;position:relative;">
-              <i class="material-icons" style="font-size:36px;color:var(--primary);">play_circle_filled</i>
+            <div class="newsCard-hij-img" style="position:relative;">
+              <i class="material-icons" style="font-size:48px;color:var(--primary);">play_circle_filled</i>
             </div>
-          ` : ""}
-          <div style="flex:1;min-width:0;">
+          ` : `
+            <div class="newsCard-hij-img newsCard-hij-imgPlaceholder">
+              <i class="material-icons">newspaper</i>
+            </div>
+          `}
+          <div class="newsCard-hij-body">
             <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
-              ${isBreaking ? `<span class="badge" style="background:#d32f2f;color:#fff;font-size:9px;">BREAKING</span>` : ""}
-              ${item.Category ? `<span class="badge" style="background:#e8f5e9;font-size:9px;">${item.Category}</span>` : ""}
-              ${hasVideo ? `<span class="badge" style="background:#e3f2fd;font-size:9px;">📹 Video</span>` : ""}
+              ${isBreaking ? `<span class="newsCard-hij-category breaking">BREAKING</span>` : ""}
+              ${category && !isBreaking ? `<span class="newsCard-hij-category">${category}</span>` : ""}
+              ${hasVideo ? `<span class="newsCard-hij-category" style="background:#e3f2fd;color:#1565c0;">📹 Video</span>` : ""}
             </div>
-            <h3 style="font-size:14px;margin:0 0 4px;line-height:1.3;">${item.Title || ""}</h3>
-            <p style="font-size:12px;color:#666;margin:0;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
-              ${(item.Description || "").substring(0, 120)}
-            </p>
-            <div style="font-size:10px;color:#999;margin-top:6px;">
-              ${timeAgo(item.CreatedDate)}
-              ${item.City ? ` · ${item.City}` : ""}
-              ${item.Source ? ` · ${item.Source}` : ""}
+            <div class="newsCard-hij-title">${title}</div>
+            ${desc ? `<div class="newsCard-hij-desc">${desc.substring(0, 120)}</div>` : ""}
+            <div class="newsCard-hij-meta">
+              <span>${timeAgo(item.CreatedDate)}</span>
+              ${city ? `<span>· ${city}</span>` : ""}
+              ${source ? `<span>· ${source}</span>` : ""}
             </div>
           </div>
         </div>
       `;
     });
 
+    html += '</div>'; // news-listing
     container.innerHTML = html;
 
     // Also render Home Local News preview from the same dataset
@@ -166,8 +193,7 @@ async function loadNews() {
     }
   } catch (err) {
     console.log(err);
-    container.innerHTML = "<div class='card'>Unable to load news.</div>";
-    // Update Home preview on error
+    container.innerHTML = '<div class="hij-error"><i class="material-icons">error_outline</i><p>Unable to load news.</p></div>';
     const homeContainer = document.getElementById("homeLocalNewsContent");
     if (homeContainer) {
       homeContainer.innerHTML = '<div class="homeSection-empty">Unable to load news.</div>';
@@ -177,7 +203,7 @@ async function loadNews() {
 
 
 /*
-HOME PREVIEW — LOCAL NEWS
+HOME PREVIEW — LOCAL NEWS (Preserved)
 */
 
 function renderHomeNewsPreview(news) {
@@ -234,9 +260,7 @@ function showNewsDetailsFromHome(item) {
 
 
 /*
-============================================================
 LOAD NEWS BY CATEGORY
-============================================================
 */
 
 async function loadNewsByCategory(category) {
@@ -264,16 +288,20 @@ async function loadNewsByCategory(category) {
     news.forEach(item => {
       const hasImage = item.Image && item.Image.trim();
       html += `
-        <div class="newsCard" style="display:flex;gap:12px;margin-bottom:12px;padding:12px;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;" onclick='showNewsDetails(${JSON.stringify(item)})'>
+        <div class="newsCard-hij" onclick='showNewsDetails(${JSON.stringify(item)})'>
           ${hasImage ? `
-            <div style="width:80px;min-width:80px;height:80px;border-radius:8px;overflow:hidden;">
+            <div class="newsCard-hij-img">
               <img src="${item.Image}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
             </div>
-          ` : ""}
-          <div style="flex:1;min-width:0;">
-            <h4 style="font-size:13px;margin:0 0 4px;">${item.Title || ""}</h4>
-            <p style="font-size:11px;color:#666;margin:0;">${(item.Description || "").substring(0, 80)}</p>
-            <div style="font-size:10px;color:#999;margin-top:4px;">${timeAgo(item.CreatedDate)}</div>
+          ` : `
+            <div class="newsCard-hij-img newsCard-hij-imgPlaceholder">
+              <i class="material-icons">newspaper</i>
+            </div>
+          `}
+          <div class="newsCard-hij-body">
+            <div class="newsCard-hij-title">${item.Title || ""}</div>
+            <div class="newsCard-hij-desc">${(item.Description || "").substring(0, 80)}</div>
+            <div class="newsCard-hij-meta"><span>${timeAgo(item.CreatedDate)}</span></div>
           </div>
         </div>
       `;
@@ -288,9 +316,7 @@ async function loadNewsByCategory(category) {
 
 
 /*
-============================================================
 NEWS DETAILS - Full Article Page
-============================================================
 */
 
 function showNewsDetails(item) {
@@ -306,8 +332,17 @@ function showNewsDetails(item) {
 
   const hasImage = item.Image && item.Image.trim();
   const hasVideo = item.VideoURL && item.VideoURL.trim();
+  const title = newsSafeRender(item.Title) || "";
+  const desc = newsSafeRender(item.Description) || "";
+  const category = newsSafeRender(item.Category);
+  const author = newsSafeRender(item.Author);
+  const city = newsSafeRender(item.City);
+  const state = newsSafeRender(item.State);
+  const source = newsSafeRender(item.Source);
 
   let html = `
+    <button class="hij-backBtn" onclick="loadNews()"><i class="material-icons">arrow_back</i> Back to News</button>
+
     <div class="card" style="padding:0;overflow:hidden;">
       ${hasImage ? `
         <div style="position:relative;">
@@ -326,22 +361,22 @@ function showNewsDetails(item) {
 
       <div style="padding:16px;">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
-          ${item.Category ? `<span class="badge" style="background:var(--primary);color:#fff;">${item.Category}</span>` : ""}
+          ${category ? `<span class="badge" style="background:var(--primary);color:#fff;">${category}</span>` : ""}
           ${item.Featured === "Yes" ? `<span class="badge" style="background:#ff9800;color:#fff;">Featured</span>` : ""}
           ${hasVideo ? `<span class="badge" style="background:#e3f2fd;">📹 Video</span>` : ""}
         </div>
 
-        <h1 style="font-size:22px;margin:0 0 8px;line-height:1.3;">${item.Title || ""}</h1>
+        <h1 style="font-size:22px;margin:0 0 8px;line-height:1.3;">${title}</h1>
 
         <div style="display:flex;gap:12px;font-size:12px;color:#888;margin-bottom:15px;flex-wrap:wrap;">
-          ${item.Author ? `<span>✍️ ${item.Author}</span>` : ""}
+          ${author ? `<span>✍️ ${author}</span>` : ""}
           <span>🕐 ${timeAgo(item.CreatedDate)}</span>
-          ${item.City ? `<span>📍 ${item.City}${item.State ? ", " + item.State : ""}</span>` : ""}
-          ${item.Source ? `<span>📰 ${item.Source}</span>` : ""}
+          ${city ? `<span>📍 ${city}${state ? ", " + state : ""}</span>` : ""}
+          ${source ? `<span>📰 ${source}</span>` : ""}
         </div>
 
         <div style="font-size:15px;line-height:1.7;color:#333;white-space:pre-wrap;">
-          ${item.Description || ""}
+          ${desc}
         </div>
       </div>
     </div>
@@ -388,9 +423,7 @@ function showNewsDetails(item) {
 
 
 /*
-============================================================
-LOAD RELATED NEWS
-============================================================
+LOAD RELATED NEWS (Preserved)
 */
 
 async function loadRelatedNews(newsId) {
@@ -415,7 +448,7 @@ async function loadRelatedNews(newsId) {
         <div style="display:flex;gap:10px;padding:10px;border-bottom:1px solid #eee;cursor:pointer;" onclick='showNewsDetails(${JSON.stringify(item)})'>
           ${item.Image ? `<img src="${item.Image}" style="width:60px;height:60px;border-radius:8px;object-fit:cover;" onerror="this.style.display='none'">` : ""}
           <div style="flex:1;">
-            <div style="font-size:13px;font-weight:500;">${item.Title || ""}</div>
+            <div style="font-size:13px;font-weight:500;">${newsSafeRender(item.Title) || ""}</div>
             <div style="font-size:10px;color:#888;margin-top:2px;">${timeAgo(item.CreatedDate)}</div>
           </div>
         </div>
@@ -431,9 +464,7 @@ async function loadRelatedNews(newsId) {
 
 
 /*
-============================================================
-SHARE SYSTEM
-============================================================
+SHARE SYSTEM (Preserved)
 */
 
 function getShareText() {
