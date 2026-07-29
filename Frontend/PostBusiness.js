@@ -61,6 +61,11 @@ function submitBusiness() {
     return;
   }
 
+  // Detect edit mode via stored data-business-id
+  var container = document.getElementById("postBusiness");
+  var existingId = container ? container.getAttribute("data-business-id") : null;
+  var isEdit = !!existingId;
+
   var formData = {
     userId: userId,
     title: name,
@@ -80,26 +85,33 @@ function submitBusiness() {
     status: "Pending"
   };
 
-  var url = getApiUrl() + "?action=createbusiness";
+  var action = isEdit ? "updatebusiness" : "createbusiness";
+  var url = getApiUrl() + "?action=" + action;
 
   var params = new URLSearchParams();
   Object.keys(formData).forEach(function(key) {
     if (formData[key]) params.append(key, formData[key]);
   });
 
+  if (isEdit) {
+    params.append("businessId", existingId);
+  }
+
   fetch(url + "&" + params.toString())
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res && res.success) {
-        alert("Business created successfully!");
+        alert(isEdit ? "Business updated successfully!" : "Business created successfully!");
+        // Clear edit state
+        if (container) container.removeAttribute("data-business-id");
         openPage("businesses");
       } else {
-        alert(res.message || "Failed to create business");
+        alert(res.message || (isEdit ? "Failed to update business" : "Failed to create business"));
       }
     })
     .catch(function(err) {
-      console.log("Post business error:", err);
-      alert("Error creating business");
+      console.log(isEdit ? "Update business error:" : "Post business error:", err);
+      alert(isEdit ? "Error updating business" : "Error creating business");
     });
 }
 
@@ -140,8 +152,11 @@ function updateBusinessForm(businessId) {
         document.getElementById("bizLogo").value = business.Logo || "";
         document.getElementById("bizCoverImage").value = business.CoverImage || "";
 
-        // Store business ID for update
-        document.getElementById("postBusiness").setAttribute("data-business-id", businessId);
+        // Ensure business ID is set for edit mode
+        var container = document.getElementById("postBusiness");
+        if (container) {
+          container.setAttribute("data-business-id", businessId);
+        }
       } else {
         alert("Business not found");
       }

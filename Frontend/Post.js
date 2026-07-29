@@ -63,10 +63,11 @@ function openPostForm(formType) {
   switch (formType) {
     case "product":
       openPage("postProduct");
-      setTimeout(initProductImageUploads, 100);
+      initProductImageUploads();
       break;
     case "property":
       openPage("postProperty");
+      setTimeout(initPropertyImageUploads, 100);
       break;
     case "business":
       openPage("postBusiness");
@@ -259,6 +260,72 @@ async function handleNewsMediaUpload(event, slotId, inputId) {
     const input = document.getElementById(inputId);
     if (input) {
       input.value = mediaUrl;
+    }
+
+    statusEl.innerHTML = "✅ Uploaded";
+    statusEl.style.color = "#0f9d58";
+  } catch (err) {
+    console.log(err);
+    statusEl.innerHTML = "❌ " + (err.message || "Error uploading");
+    statusEl.style.color = "#d32f2f";
+  }
+}
+
+
+/*
+============================================================
+INIT PROPERTY IMAGE UPLOAD WIDGETS
+============================================================
+*/
+
+function initPropertyImageUploads() {
+  const imageSlots = ["propImageUpload1","propImageUpload2","propImageUpload3"];
+  const imageInputs = ["propImage1","propImage2","propImage3"];
+
+  imageSlots.forEach((slotId, idx) => {
+    const container = document.getElementById(slotId);
+    if (!container) return;
+
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px;border:1px dashed #ccc;border-radius:8px;">
+        <input type="file" id="fileInput_${slotId}" accept="image/*" style="flex:1;font-size:12px;" onchange="handlePropertyImageUpload(event, '${slotId}', '${imageInputs[idx]}')">
+        <span id="status_${slotId}" style="font-size:11px;color:#888;">No image</span>
+      </div>
+    `;
+  });
+}
+
+
+/*
+============================================================
+HANDLE PROPERTY IMAGE UPLOAD
+============================================================
+*/
+
+async function handlePropertyImageUpload(event, slotId, inputId) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById("status_" + slotId);
+  if (!statusEl) return;
+
+  statusEl.innerHTML = "Uploading...";
+  statusEl.style.color = "#0f9d58";
+
+  try {
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      statusEl.innerHTML = "❌ " + validation.error;
+      statusEl.style.color = "#d32f2f";
+      return;
+    }
+
+    const data = await uploadMediaFile(file, "properties");
+    const imageUrl = data.url;
+
+    const input = document.getElementById(inputId);
+    if (input) {
+      input.value = imageUrl;
     }
 
     statusEl.innerHTML = "✅ Uploaded";
@@ -682,6 +749,8 @@ function clearPostForm(formType) {
   // Reset upload statuses
   const slotsToReset = formType === "product"
     ? ["prodImageUpload1","prodImageUpload2","prodImageUpload3","prodImageUpload4","prodImageUpload5"]
+    : formType === "property"
+    ? ["propImageUpload1","propImageUpload2","propImageUpload3"]
     : formType === "business"
     ? ["bizLogoUpload","bizCoverUpload"]
     : formType === "news"

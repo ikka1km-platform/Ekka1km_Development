@@ -55,6 +55,11 @@ function submitNews() {
     return;
   }
 
+  // Detect edit mode via stored data-news-id
+  var container = document.getElementById("postNews");
+  var existingId = container ? container.getAttribute("data-news-id") : null;
+  var isEdit = !!existingId;
+
   var formData = {
     userId: userId,
     title: title,
@@ -67,26 +72,33 @@ function submitNews() {
     status: "Pending"
   };
 
-  var url = getApiUrl() + "?action=createnews";
+  var action = isEdit ? "updatenews" : "createnews";
+  var url = getApiUrl() + "?action=" + action;
 
   var params = new URLSearchParams();
   Object.keys(formData).forEach(function(key) {
     if (formData[key]) params.append(key, formData[key]);
   });
 
+  if (isEdit) {
+    params.append("newsId", existingId);
+  }
+
   fetch(url + "&" + params.toString())
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res && res.success) {
-        alert("News posted successfully!");
+        alert(isEdit ? "News updated successfully!" : "News posted successfully!");
+        // Clear edit state
+        if (container) container.removeAttribute("data-news-id");
         openPage("news");
       } else {
-        alert(res.message || "Failed to post news");
+        alert(res.message || (isEdit ? "Failed to update news" : "Failed to post news"));
       }
     })
     .catch(function(err) {
-      console.log("Post news error:", err);
-      alert("Error posting news");
+      console.log(isEdit ? "Update news error:" : "Post news error:", err);
+      alert(isEdit ? "Error updating news" : "Error posting news");
     });
 }
 
@@ -120,8 +132,11 @@ function updateNewsForm(newsId) {
         document.getElementById("newsCity").value = news.City || "";
         document.getElementById("newsState").value = news.State || "";
 
-        // Store news ID for update
-        document.getElementById("postNews").setAttribute("data-news-id", newsId);
+        // Ensure news ID is set for edit mode
+        var container = document.getElementById("postNews");
+        if (container) {
+          container.setAttribute("data-news-id", newsId);
+        }
       } else {
         alert("News not found");
       }

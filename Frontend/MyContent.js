@@ -434,7 +434,8 @@ function editMyContentItem(type, id) {
     }
   } else if (type === "property") {
     if (typeof updatePropertyForm === "function") {
-      updatePropertyForm(id);
+      var property = MY_CONTENT_DATA.properties.find(function(p) { return String(p.PropertyID) === String(id); });
+      updatePropertyForm(id, property);
     }
   } else if (type === "news") {
     if (typeof updateNewsForm === "function") {

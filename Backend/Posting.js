@@ -162,29 +162,49 @@ function updateProduct(e) {
     var data = sheet.getDataRange().getValues();
     var headers = data[0];
 
+    var userIdIndex = headers.indexOf("UserID");
+    var productRow = null;
+    var rowIndex = -1;
+
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][0]).trim() === String(productId).trim()) {
-        for (var j = 0; j < headers.length; j++) {
-          var key = headers[j];
-          if (p[key] !== undefined && p[key] !== "") {
-            sheet.getRange(i + 1, j + 1).setValue(p[key]);
-          }
-        }
-
-        // Track event
-        try {
-          if (typeof trackEvent === "function") {
-            trackEvent({
-              parameter: { eventType: "ProductUpdated", userId: p.userId || "", entityType: "Product", entityId: productId }
-            });
-          }
-        } catch (te) { Logger.log("ProductUpdated track error: " + te); }
-
-        return success({ productId: productId }, "Product updated successfully");
+        productRow = data[i];
+        rowIndex = i;
+        break;
       }
     }
 
-    return error("Product not found");
+    if (!productRow || rowIndex < 0) {
+      return error("Product not found");
+    }
+
+    // Ownership validation
+    var ownerUserId = userIdIndex >= 0 ? String(productRow[userIdIndex]) : "";
+    var requestingUserId = p.userId || "";
+    if (requestingUserId && String(ownerUserId) !== String(requestingUserId)) {
+      return error("Not authorized to update this product");
+    }
+
+    // Do not allow changing immutable fields
+    var protectedFields = ["ProductID", "UserID", "CreatedDate"];
+
+    for (var j = 0; j < headers.length; j++) {
+      var key = headers[j];
+      if (protectedFields.indexOf(key) >= 0) continue;
+      if (p[key] === undefined || p[key] === "") continue;
+      sheet.getRange(rowIndex + 1, j + 1).setValue(p[key]);
+    }
+
+    // Track event
+    try {
+      if (typeof trackEvent === "function") {
+        trackEvent({
+          parameter: { eventType: "ProductUpdated", userId: requestingUserId, entityType: "Product", entityId: productId }
+        });
+      }
+    } catch (te) { Logger.log("ProductUpdated track error: " + te); }
+
+    return success({ productId: productId }, "Product updated successfully");
 
   } catch (err) {
     return exception(err);
@@ -322,28 +342,54 @@ function updateProperty(e) {
     var data = sheet.getDataRange().getValues();
     var headers = data[0];
 
+    var userIdIndex = headers.indexOf("OwnerUserID");
+    var updatedDateIndex = headers.indexOf("UpdatedDate");
+    var propertyRow = null;
+    var rowIndex = -1;
+
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][0]).trim() === String(propertyId).trim()) {
-        for (var j = 0; j < headers.length; j++) {
-          var key = headers[j];
-          if (p[key] !== undefined && p[key] !== "") {
-            sheet.getRange(i + 1, j + 1).setValue(p[key]);
-          }
-        }
-
-        try {
-          if (typeof trackEvent === "function") {
-            trackEvent({
-              parameter: { eventType: "PropertyUpdated", userId: p.userId || "", entityType: "Property", entityId: propertyId }
-            });
-          }
-        } catch (te) { Logger.log("PropertyUpdated track error: " + te); }
-
-        return success({ propertyId: propertyId }, "Property updated successfully");
+        propertyRow = data[i];
+        rowIndex = i;
+        break;
       }
     }
 
-    return error("Property not found");
+    if (!propertyRow || rowIndex < 0) {
+      return error("Property not found");
+    }
+
+    // Ownership validation
+    var ownerUserId = userIdIndex >= 0 ? String(propertyRow[userIdIndex]) : "";
+    var requestingUserId = p.userId || "";
+    if (requestingUserId && String(ownerUserId) !== String(requestingUserId)) {
+      return error("Not authorized to update this property");
+    }
+
+    // Do not allow changing immutable fields
+    var protectedFields = ["PropertyID", "OwnerUserID", "CreatedDate"];
+
+    for (var j = 0; j < headers.length; j++) {
+      var key = headers[j];
+      if (protectedFields.indexOf(key) >= 0) continue;
+      if (p[key] === undefined || p[key] === "") continue;
+      sheet.getRange(rowIndex + 1, j + 1).setValue(p[key]);
+    }
+
+    // Update UpdatedDate if the column exists
+    if (updatedDateIndex >= 0) {
+      sheet.getRange(rowIndex + 1, updatedDateIndex + 1).setValue(new Date());
+    }
+
+    try {
+      if (typeof trackEvent === "function") {
+        trackEvent({
+          parameter: { eventType: "PropertyUpdated", userId: requestingUserId, entityType: "Property", entityId: propertyId }
+        });
+      }
+    } catch (te) { Logger.log("PropertyUpdated track error: " + te); }
+
+    return success({ propertyId: propertyId }, "Property updated successfully");
 
   } catch (err) {
     return exception(err);
@@ -483,28 +529,48 @@ function updateBusiness(e) {
     var data = sheet.getDataRange().getValues();
     var headers = data[0];
 
+    var userIdIndex = headers.indexOf("OwnerUserID");
+    var businessRow = null;
+    var rowIndex = -1;
+
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][0]).trim() === String(businessId).trim()) {
-        for (var j = 0; j < headers.length; j++) {
-          var key = headers[j];
-          if (p[key] !== undefined && p[key] !== "") {
-            sheet.getRange(i + 1, j + 1).setValue(p[key]);
-          }
-        }
-
-        try {
-          if (typeof trackEvent === "function") {
-            trackEvent({
-              parameter: { eventType: "BusinessUpdated", userId: p.userId || "", entityType: "Business", entityId: businessId }
-            });
-          }
-        } catch (te) { Logger.log("BusinessUpdated track error: " + te); }
-
-        return success({ businessId: businessId }, "Business updated successfully");
+        businessRow = data[i];
+        rowIndex = i;
+        break;
       }
     }
 
-    return error("Business not found");
+    if (!businessRow || rowIndex < 0) {
+      return error("Business not found");
+    }
+
+    // Ownership validation
+    var ownerUserId = userIdIndex >= 0 ? String(businessRow[userIdIndex]) : "";
+    var requestingUserId = p.userId || "";
+    if (requestingUserId && String(ownerUserId) !== String(requestingUserId)) {
+      return error("Not authorized to update this business");
+    }
+
+    // Do not allow changing immutable fields
+    var protectedFields = ["BusinessID", "OwnerUserID", "CreatedDate"];
+
+    for (var j = 0; j < headers.length; j++) {
+      var key = headers[j];
+      if (protectedFields.indexOf(key) >= 0) continue;
+      if (p[key] === undefined || p[key] === "") continue;
+      sheet.getRange(rowIndex + 1, j + 1).setValue(p[key]);
+    }
+
+    try {
+      if (typeof trackEvent === "function") {
+        trackEvent({
+          parameter: { eventType: "BusinessUpdated", userId: requestingUserId, entityType: "Business", entityId: businessId }
+        });
+      }
+    } catch (te) { Logger.log("BusinessUpdated track error: " + te); }
+
+    return success({ businessId: businessId }, "Business updated successfully");
 
   } catch (err) {
     return exception(err);
@@ -646,28 +712,48 @@ function updateNews(e) {
     var data = sheet.getDataRange().getValues();
     var headers = data[0];
 
+    var userIdIndex = headers.indexOf("UserID");
+    var newsRow = null;
+    var rowIndex = -1;
+
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][0]).trim() === String(newsId).trim()) {
-        for (var j = 0; j < headers.length; j++) {
-          var key = headers[j];
-          if (p[key] !== undefined && p[key] !== "") {
-            sheet.getRange(i + 1, j + 1).setValue(p[key]);
-          }
-        }
-
-        try {
-          if (typeof trackEvent === "function") {
-            trackEvent({
-              parameter: { eventType: "NewsUpdated", userId: p.userId || "", entityType: "News", entityId: newsId }
-            });
-          }
-        } catch (te) { Logger.log("NewsUpdated track error: " + te); }
-
-        return success({ newsId: newsId }, "News updated successfully");
+        newsRow = data[i];
+        rowIndex = i;
+        break;
       }
     }
 
-    return error("News not found");
+    if (!newsRow || rowIndex < 0) {
+      return error("News not found");
+    }
+
+    // Ownership validation
+    var ownerUserId = userIdIndex >= 0 ? String(newsRow[userIdIndex]) : "";
+    var requestingUserId = p.userId || "";
+    if (requestingUserId && String(ownerUserId) !== String(requestingUserId)) {
+      return error("Not authorized to update this news");
+    }
+
+    // Do not allow changing immutable fields
+    var protectedFields = ["NewsID", "UserID", "CreatedDate"];
+
+    for (var j = 0; j < headers.length; j++) {
+      var key = headers[j];
+      if (protectedFields.indexOf(key) >= 0) continue;
+      if (p[key] === undefined || p[key] === "") continue;
+      sheet.getRange(rowIndex + 1, j + 1).setValue(p[key]);
+    }
+
+    try {
+      if (typeof trackEvent === "function") {
+        trackEvent({
+          parameter: { eventType: "NewsUpdated", userId: requestingUserId, entityType: "News", entityId: newsId }
+        });
+      }
+    } catch (te) { Logger.log("NewsUpdated track error: " + te); }
+
+    return success({ newsId: newsId }, "News updated successfully");
 
   } catch (err) {
     return exception(err);

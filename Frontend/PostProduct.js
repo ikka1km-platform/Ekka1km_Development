@@ -16,6 +16,10 @@ function openPostProductForm() {
   if (!requireLogin()) return;
   openPage("postProduct");
   clearProductForm();
+  // Use existing proven init from Post.js (expects prodImageUpload1/2/3 in HTML)
+  if (typeof initProductImageUploads === "function") {
+    initProductImageUploads();
+  }
 }
 
 /*
@@ -66,6 +70,11 @@ function submitProduct() {
     return;
   }
 
+  // Detect edit mode via stored data-product-id
+  var container = document.getElementById("postProduct");
+  var existingId = container ? container.getAttribute("data-product-id") : null;
+  var isEdit = !!existingId;
+
   var formData = {
     userId: userId,
     title: title,
@@ -89,26 +98,33 @@ function submitProduct() {
     status: "Pending"
   };
 
-  var url = getApiUrl() + "?action=createproduct";
+  var action = isEdit ? "updateproduct" : "createproduct";
+  var url = getApiUrl() + "?action=" + action;
 
   var params = new URLSearchParams();
   Object.keys(formData).forEach(function(key) {
     if (formData[key]) params.append(key, formData[key]);
   });
 
+  if (isEdit) {
+    params.append("productId", existingId);
+  }
+
   fetch(url + "&" + params.toString())
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res && res.success) {
-        alert("Product posted successfully!");
+        alert(isEdit ? "Product updated successfully!" : "Product posted successfully!");
+        // Clear edit state
+        if (container) container.removeAttribute("data-product-id");
         openPage("products");
       } else {
-        alert(res.message || "Failed to post product");
+        alert(res.message || (isEdit ? "Failed to update product" : "Failed to post product"));
       }
     })
     .catch(function(err) {
-      console.log("Post product error:", err);
-      alert("Error posting product");
+      console.log(isEdit ? "Update product error:" : "Post product error:", err);
+      alert(isEdit ? "Error updating product" : "Error posting product");
     });
 }
 
@@ -133,15 +149,18 @@ function updateProductForm(productId) {
       if (res && res.success && res.data) {
         var product = res.data;
         openPage("postProduct");
-        
-        document.getElementById("prodTitle").value = product.Title || "";
-        document.getElementById("prodDesc").value = product.Description || "";
-        document.getElementById("prodPrice").value = product.Price || "";
-        document.getElementById("prodCategory").value = product.Category || "";
-        document.getElementById("prodCondition").value = product.Condition || "New";
-        document.getElementById("prodBrand").value = product.Brand || "";
-        document.getElementById("prodModel").value = product.Model || "";
-        document.getElementById("prodImage").value = product.ImageURL || "";
+        if (typeof initProductImageUploads === "function") {
+          initProductImageUploads();
+        }
+
+      document.getElementById("prodTitle").value = product.Title || "";
+      document.getElementById("prodDesc").value = product.Description || "";
+      document.getElementById("prodPrice").value = product.Price || "";
+      document.getElementById("prodCategory").value = product.Category || "";
+      document.getElementById("prodCondition").value = product.Condition || "New";
+      document.getElementById("prodBrand").value = product.Brand || "";
+      document.getElementById("prodModel").value = product.Model || "";
+      document.getElementById("prodImage").value = product.ImageURL || "";
         document.getElementById("prodImage2").value = product.Image2 || "";
         document.getElementById("prodImage3").value = product.Image3 || "";
         document.getElementById("prodCity").value = product.City || "";
@@ -153,8 +172,11 @@ function updateProductForm(productId) {
         document.getElementById("prodCOD").value = product.COD || "No";
         document.getElementById("prodNegotiable").value = product.Negotiable || "No";
 
-        // Store product ID for update
-        document.getElementById("postProduct").setAttribute("data-product-id", productId);
+        // Ensure product ID is set for edit mode
+        var container = document.getElementById("postProduct");
+        if (container) {
+          container.setAttribute("data-product-id", productId);
+        }
       } else {
         alert("Product not found");
       }

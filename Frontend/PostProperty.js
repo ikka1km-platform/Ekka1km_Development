@@ -16,6 +16,7 @@ function openPostPropertyForm() {
   if (!requireLogin()) return;
   openPage("postProperty");
   clearPropertyForm();
+  setTimeout(initPropertyImageUploads, 100);
 }
 
 /*
@@ -34,6 +35,9 @@ function clearPropertyForm() {
   document.getElementById("propBathrooms").value = "";
   document.getElementById("propArea").value = "";
   document.getElementById("propImages").value = "";
+  document.getElementById("propImage1").value = "";
+  document.getElementById("propImage2").value = "";
+  document.getElementById("propImage3").value = "";
   document.getElementById("propAddress").value = "";
   document.getElementById("propCity").value = "";
   document.getElementById("propDistrict").value = "";
@@ -61,6 +65,20 @@ function submitProperty() {
     return;
   }
 
+  // Detect edit mode via stored data-property-id
+  var container = document.getElementById("postProperty");
+  var existingId = container ? container.getAttribute("data-property-id") : null;
+  var isEdit = !!existingId;
+
+  // Build image URLs from individual upload slots
+  var images = document.getElementById("propImages").value.trim();
+  if (!images) {
+    var img1 = document.getElementById("propImage1").value.trim();
+    var img2 = document.getElementById("propImage2").value.trim();
+    var img3 = document.getElementById("propImage3").value.trim();
+    images = [img1, img2, img3].filter(Boolean).join(",");
+  }
+
   var formData = {
     userId: userId,
     title: title,
@@ -73,30 +91,37 @@ function submitProperty() {
     pincode: "",
     latitude: "",
     longitude: "",
-    image: document.getElementById("propImages").value.trim(),
+    image: images,
     status: "Pending"
   };
 
-  var url = getApiUrl() + "?action=createproperty";
+  var action = isEdit ? "updateproperty" : "createproperty";
+  var url = getApiUrl() + "?action=" + action;
 
   var params = new URLSearchParams();
   Object.keys(formData).forEach(function(key) {
     if (formData[key]) params.append(key, formData[key]);
   });
 
+  if (isEdit) {
+    params.append("propertyId", existingId);
+  }
+
   fetch(url + "&" + params.toString())
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res && res.success) {
-        alert("Property posted successfully!");
+        alert(isEdit ? "Property updated successfully!" : "Property posted successfully!");
+        // Clear edit state
+        if (container) container.removeAttribute("data-property-id");
         openPage("properties");
       } else {
-        alert(res.message || "Failed to post property");
+        alert(res.message || (isEdit ? "Failed to update property" : "Failed to post property"));
       }
     })
     .catch(function(err) {
-      console.log("Post property error:", err);
-      alert("Error posting property");
+      console.log(isEdit ? "Update property error:" : "Post property error:", err);
+      alert(isEdit ? "Error updating property" : "Error posting property");
     });
 }
 
@@ -106,10 +131,44 @@ UPDATE PROPERTY
 ============================================================
 */
 
-function updatePropertyForm(propertyId) {
+function updatePropertyForm(propertyId, existingProperty) {
   var userId = getUserId();
   if (!userId) {
     requireLogin();
+    return;
+  }
+
+  // If existing property object provided, skip the failing GET request
+  if (existingProperty && existingProperty.PropertyID) {
+    openPage("postProperty");
+    setTimeout(initPropertyImageUploads, 100);
+    
+    document.getElementById("propType").value = existingProperty.Type || "Apartment";
+    document.getElementById("propPurpose").value = existingProperty.Purpose || "Sell";
+    document.getElementById("propTitle").value = existingProperty.Title || "";
+    document.getElementById("propDesc").value = existingProperty.Description || "";
+    document.getElementById("propPrice").value = existingProperty.Price || "";
+    document.getElementById("propBedrooms").value = existingProperty.Bedrooms || "";
+    document.getElementById("propBathrooms").value = existingProperty.Bathrooms || "";
+    document.getElementById("propArea").value = existingProperty.Area || "";
+    document.getElementById("propAddress").value = existingProperty.Address || "";
+    document.getElementById("propCity").value = existingProperty.City || "";
+    document.getElementById("propDistrict").value = existingProperty.District || "";
+    document.getElementById("propState").value = existingProperty.State || "";
+
+    // Preserve existing images into hidden fields and hidden comma field
+    var existingImages = existingProperty.Images || "";
+    document.getElementById("propImages").value = existingImages;
+    var imageParts = existingImages ? existingImages.split(",").map(function(s){ return s.trim(); }) : [];
+    document.getElementById("propImage1").value = imageParts[0] || "";
+    document.getElementById("propImage2").value = imageParts[1] || "";
+    document.getElementById("propImage3").value = imageParts[2] || "";
+
+    // Ensure property ID is set for edit mode
+    var container = document.getElementById("postProperty");
+    if (container) {
+      container.setAttribute("data-property-id", propertyId);
+    }
     return;
   }
 
@@ -136,8 +195,11 @@ function updatePropertyForm(propertyId) {
         document.getElementById("propDistrict").value = property.District || "";
         document.getElementById("propState").value = property.State || "";
 
-        // Store property ID for update
-        document.getElementById("postProperty").setAttribute("data-property-id", propertyId);
+        // Ensure property ID is set for edit mode
+        var container = document.getElementById("postProperty");
+        if (container) {
+          container.setAttribute("data-property-id", propertyId);
+        }
       } else {
         alert("Property not found");
       }

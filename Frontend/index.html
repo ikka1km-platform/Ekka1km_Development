@@ -1,4 +1,4 @@
-<![CDATA[<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -935,17 +935,25 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
     </select>
 
     <input
-      id="annCity"
-      placeholder="City">
+      id="prodBrand"
+      placeholder="Brand">
 
-    <div id="prodImageUrls" style="display:none;">
-        <input id="prodImage" placeholder="Image URL">
-        <input id="prodImage2" placeholder="Image 2 URL">
-        <input id="prodImage3" placeholder="Image 3 URL">
-        <input id="prodImage4" placeholder="Image 4 URL">
-        <input id="prodImage5" placeholder="Image 5 URL">
-      </div>
+    <input
+      id="prodModel"
+      placeholder="Model">
+
+    <!-- Product Image Uploads -->
+    <div style="margin:15px 0;">
+      <label style="font-weight:600;font-size:14px;display:block;margin-bottom:8px;">Product Images</label>
+
+      <div id="prodImageUpload1" style="margin-bottom:10px;"></div>
+      <div id="prodImageUpload2" style="margin-bottom:10px;"></div>
+      <div id="prodImageUpload3" style="margin-bottom:10px;"></div>
     </div>
+
+    <input id="prodImage" style="display:none;">
+    <input id="prodImage2" style="display:none;">
+    <input id="prodImage3" style="display:none;">
 
     <input
       id="prodCity"
@@ -1052,9 +1060,17 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       id="propArea"
       placeholder="Area (sq ft)">
 
-    <input
-      id="propImages"
-      placeholder="Image URLs (comma separated)">
+    <!-- Property Image Uploads -->
+    <div style="margin:15px 0;">
+      <label style="font-weight:600;font-size:14px;display:block;margin-bottom:8px;">Property Images</label>
+      <div id="propImageUpload1" style="margin-bottom:10px;"></div>
+      <div id="propImageUpload2" style="margin-bottom:10px;"></div>
+      <div id="propImageUpload3" style="margin-bottom:10px;"></div>
+    </div>
+    <input id="propImage1" style="display:none;">
+    <input id="propImage2" style="display:none;">
+    <input id="propImage3" style="display:none;">
+    <input id="propImages" style="display:none;">
 
     <textarea
       id="propAddress"
@@ -1731,4 +1747,4 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 <script src="MyContent.js"></script>
 
 </body>
-</html>]]>
+</html>
