@@ -376,8 +376,8 @@ async function loadPipQueue() {
     PIP_QUEUE = queue;
     PIP_QUEUE_INDEX = 0;
     PIP_QUEUE_LOADED = true;
-    console.log("Phase4: Rendering PIP - showing ad 1 of", queue.length);
-    showPipAdFromQueue();
+    console.log("Stage 4K-PIP: entering Reward Ad Mode", queue.length);
+    if (typeof enterRewardAdMode === "function") enterRewardAdMode();
   } catch (err) {
     console.error("Phase4: loadPipQueue error:", err.toString());
     if (!PIP_QUEUE_LOADED) setTimeout(loadPipQueue, 3000);
@@ -646,7 +646,7 @@ function showRewardPopup(coins, campaignId) {
 SHOW MORE ADS POPUP
 ============================================================
 */
-function showMoreAdsPopup() {
+function showMoreAdsPopup() { if (REWARD_AD_MODE_ACTIVE) return;
   const popup = document.createElement("div");
   popup.id = "moreAdsPopup";
   popup.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:999999;";
@@ -928,7 +928,7 @@ async function watchAllAds() {
       alert("All ads completed!");
       return;
     }
-    openAdWatchModal(PIP_QUEUE[0].CampaignID);
+    if (typeof enterRewardAdMode === "function") enterRewardAdMode(); else openAdWatchModal(PIP_QUEUE[0].CampaignID);
   } catch (err) {
     console.log("watchAllAds error:", err);
   }
@@ -1008,3 +1008,205 @@ ANIMATION STYLE
     " .pipVideoContainer video::-webkit-media-controls { opacity: 0.8; }";
   document.head.appendChild(style);
 })();
+
+/* Stage 4K-PIP Reward Ad Mode */
+let REWARD_AD_MODE_ACTIVE = false;
+let REWARD_AD_MODE_OVERLAY = null;
+let REWARD_AD_MODE_CONTROLS_VISIBLE = true;
+let REWARD_AD_MODE_CONTROLS_TIMER = null;
+let REWARD_AD_MODE_VIDEO_TIMER = null;
+
+function enterRewardAdMode() {
+  if (REWARD_AD_MODE_ACTIVE) return;
+  if (!PIP_QUEUE || PIP_QUEUE.length === 0) return;
+  REWARD_AD_MODE_ACTIVE = true;
+  PIP_QUEUE_INDEX = 0;
+  const bottomNav = document.getElementById("bottomNav");
+  if (bottomNav) { bottomNav.style.pointerEvents = "none"; bottomNav.style.opacity = "0.5"; }
+  const homeContent = document.getElementById("homeContent");
+  if (homeContent) homeContent.style.display = "none";
+  const disco = document.getElementById("globalDisco");
+  if (disco) disco.style.display = "none";
+  const mainContent = document.querySelector("main.content") || document.querySelector(".content") || document.querySelector("main");
+  if (mainContent) mainContent.style.display = "none";
+  buildRewardAdOverlay();
+  renderRewardAdFromQueue();
+}
+
+function exitRewardAdMode() {
+  if (!REWARD_AD_MODE_ACTIVE) return;
+  if (REWARD_AD_MODE_VIDEO_TIMER) { clearTimeout(REWARD_AD_MODE_VIDEO_TIMER); REWARD_AD_MODE_VIDEO_TIMER = null; }
+  if (REWARD_AD_MODE_CONTROLS_TIMER) { clearTimeout(REWARD_AD_MODE_CONTROLS_TIMER); REWARD_AD_MODE_CONTROLS_TIMER = null; }
+  if (REWARD_AD_MODE_OVERLAY) { REWARD_AD_MODE_OVERLAY.remove(); REWARD_AD_MODE_OVERLAY = null; }
+  REWARD_AD_MODE_ACTIVE = false;
+  REWARD_AD_MODE_CONTROLS_VISIBLE = true;
+  CURRENT_PIP_AD = null;
+  CURRENT_WATCHING_CAMPAIGN = null;
+  AD_WATCH_SECONDS = 0;
+  const bottomNav = document.getElementById("bottomNav");
+  if (bottomNav) { bottomNav.style.pointerEvents = ""; bottomNav.style.opacity = ""; }
+  const homeContent = document.getElementById("homeContent");
+  if (homeContent) homeContent.style.display = "";
+  const disco = document.getElementById("globalDisco");
+  if (disco) disco.style.display = "";
+  const mainContent = document.querySelector("main.content") || document.querySelector(".content") || document.querySelector("main");
+  if (mainContent) mainContent.style.display = "";
+  if (typeof loadAll === "function") loadAll();
+}
+
+function buildRewardAdOverlay() {
+  if (REWARD_AD_MODE_OVERLAY) { REWARD_AD_MODE_OVERLAY.remove(); }
+  const overlay = document.createElement("div");
+  overlay.id = "rewardAdModeOverlay";
+  overlay.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:99990;display:flex;flex-direction:column;";
+  const player = document.createElement("div");
+  player.id = "rewardAdPlayer";
+  player.style.cssText = "position:relative;width:100%;max-width:960px;margin:70px auto 0;background:#000;border-radius:14px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.35);flex:1 1 auto;display:flex;flex-direction:column;max-height:calc(100vh - 140px);";
+  overlay.appendChild(player);
+  document.body.appendChild(overlay);
+  REWARD_AD_MODE_OVERLAY = overlay;
+  const closeBtn = document.createElement("div");
+  closeBtn.id = "rewardAdCloseBtn";
+  closeBtn.innerHTML = String.fromCharCode(10005);
+  closeBtn.style.cssText = "position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.65);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:99999;font-size:18px;border:1px solid rgba(255,255,255,0.25);";
+  closeBtn.onclick = exitRewardAdMode;
+  player.appendChild(closeBtn);
+}
+
+function renderRewardAdFromQueue() {
+  if (!REWARD_AD_MODE_ACTIVE) return;
+  if (PIP_QUEUE_INDEX >= PIP_QUEUE.length) { exitRewardAdMode(); return; }
+  const campaign = PIP_QUEUE[PIP_QUEUE_INDEX];
+  if (!campaign) { exitRewardAdMode(); return; }
+  CURRENT_PIP_AD = campaign;
+  CURRENT_WATCHING_CAMPAIGN = campaign;
+  AD_WATCH_SECONDS = 0;
+  const player = document.getElementById("rewardAdPlayer");
+  if (!player) { exitRewardAdMode(); return; }
+  player.innerHTML = "";
+  const closeBtn = document.createElement("div");
+  closeBtn.id = "rewardAdCloseBtn";
+  closeBtn.innerHTML = String.fromCharCode(10005);
+  closeBtn.style.cssText = "position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.65);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:99999;font-size:18px;border:1px solid rgba(255,255,255,0.25);";
+  closeBtn.onclick = exitRewardAdMode;
+  player.appendChild(closeBtn);
+  const creativeType = String(campaign.CreativeType || campaign.creativeType || "IMAGE").toUpperCase();
+  const rewardCoins = Number(campaign.RewardCoins || campaign.rewardCoins || 0);
+  const duration = Number(campaign.Duration || campaign.duration || 10);
+  const imageUrl = campaign.ImageURL || campaign.imageURL || "";
+  const videoUrl = campaign.VideoURL || campaign.videoURL || "";
+  const title = campaign.Title || campaign.title || "Reward Ad";
+  const description = campaign.Description || campaign.description || "";
+  const destinationType = campaign.DestinationType || campaign.destinationType || "None";
+  const mediaContainer = document.createElement("div");
+  mediaContainer.style.cssText = "position:relative;width:100%;flex:1 1 auto;display:flex;align-items:center;justify-content:center;background:#000;min-height:0;";
+  const mediaWrap = document.createElement("div");
+  mediaWrap.style.cssText = "position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;";
+  if (creativeType === "VIDEO" && videoUrl) {
+    const video = document.createElement("video");
+    video.src = videoUrl;
+    video.controls = false;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "metadata";
+    video.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;";
+    mediaWrap.appendChild(video);
+    const playPause = document.createElement("div");
+    playPause.innerHTML = String.fromCharCode(10074) + String.fromCharCode(10074);
+    playPause.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,0.45);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;";
+    playPause.onclick = function() {
+      if (video.paused) { video.play(); playPause.innerHTML = String.fromCharCode(9646) + String.fromCharCode(9646); } else { video.pause(); playPause.innerHTML = String.fromCharCode(9654); }
+      resetRewardControlsTimer();
+    };
+    mediaWrap.appendChild(playPause);
+    video.addEventListener("timeupdate", function() {
+      if (video.duration) {
+        const pct = Math.min(100, (video.currentTime / video.duration) * 100);
+        const bar = document.getElementById("rewardAdProgress");
+        if (bar) bar.style.width = pct + "%";
+        const timer = document.getElementById("rewardAdTime");
+        if (timer) timer.textContent = formatTime(video.currentTime) + " / " + formatTime(video.duration);
+      }
+    });
+    video.addEventListener("ended", function() { onRewardAdCompleted(); });
+    video.play().catch(function(){ });
+  } else {
+    if (imageUrl && isValidImageUrl(imageUrl)) {
+      const img = document.createElement("img");
+      img.src = imageUrl;
+      img.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;";
+      img.onerror = function() { img.style.display = "none"; };
+      mediaWrap.appendChild(img);
+    }
+  }
+  mediaContainer.appendChild(mediaWrap);
+  player.appendChild(mediaContainer);
+  const destStrip = document.createElement("div");
+  destStrip.style.cssText = "padding:10px 14px;background:rgba(0,0,0,0.6);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;";
+  const titleEl = document.createElement("div");
+  titleEl.style.cssText = "font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+  titleEl.textContent = title || "Reward Ad";
+  destStrip.appendChild(titleEl);
+  const reward = document.createElement("div");
+  reward.style.cssText = "font-size:11px;font-weight:700;color:#ffd54f;white-space:nowrap;";
+  reward.innerHTML = String.fromCharCode(11088) + " " + rewardCoins + " coins";
+  destStrip.appendChild(reward);
+  player.appendChild(destStrip);
+  const thinProgress = document.createElement("div");
+  thinProgress.id = "rewardAdProgress";
+  thinProgress.style.cssText = "height:3px;background:#e0e0e0;width:100%;";
+  const fill = document.createElement("div");
+  fill.style.cssText = "height:100%;background:var(--primary);width:0%;transition:width 0.3s;";
+  thinProgress.appendChild(fill);
+  player.appendChild(thinProgress);
+  const pos = document.createElement("div");
+  pos.id = "rewardAdTime";
+  pos.style.cssText = "font-size:10px;color:#bbb;padding:2px 8px 6px;";
+  pos.textContent = "Ad " + (PIP_QUEUE_INDEX + 1) + "/" + PIP_QUEUE.length + " · " + formatTime(AD_WATCH_SECONDS);
+  player.appendChild(pos);
+  const controls = document.createElement("div");
+  controls.id = "rewardAdControls";
+  controls.style.cssText = "padding:6px 10px 10px;display:flex;gap:8px;justify-content:center;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,0.6));";
+  const skipBtn = document.createElement("div");
+  skipBtn.innerHTML = "Skip >>";
+  skipBtn.style.cssText = "padding:6px 12px;border-radius:16px;background:rgba(255,255,255,0.2);color:#fff;cursor:pointer;font-size:12px;";
+  skipBtn.onclick = function() { skipCurrentPipAd(); };
+  controls.appendChild(skipBtn);
+  player.appendChild(controls);
+  showRewardAdControls();
+  resetRewardControlsTimer();
+  if (typeof startAdWatchTimer === "function") startAdWatchTimer();
+}
+
+function showRewardAdControls() {
+  const controls = document.getElementById("rewardAdControls");
+  if (controls) controls.style.opacity = "1";
+  REWARD_AD_MODE_CONTROLS_VISIBLE = true;
+}
+
+function hideRewardAdControls() {
+  if (!REWARD_AD_MODE_ACTIVE) return;
+  const controls = document.getElementById("rewardAdControls");
+  if (controls) controls.style.opacity = "0";
+  REWARD_AD_MODE_CONTROLS_VISIBLE = false;
+}
+
+function resetRewardControlsTimer() {
+  if (REWARD_AD_MODE_CONTROLS_TIMER) clearTimeout(REWARD_AD_MODE_CONTROLS_TIMER);
+  showRewardAdControls();
+  REWARD_AD_MODE_CONTROLS_TIMER = setTimeout(function() { hideRewardAdControls(); }, 2500);
+}
+
+function onRewardAdCompleted() {
+  if (typeof completeCurrentPipAd === "function") completeCurrentPipAd();
+  if (REWARD_AD_MODE_ACTIVE) {
+    REWARD_AD_MODE_VIDEO_TIMER = setTimeout(function() { renderRewardAdFromQueue(); }, 1600);
+  }
+}
+
+function formatTime(seconds) {
+  if (!seconds || isNaN(seconds)) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return m + ":" + (s < 10 ? "0" : "") + s;
+}
