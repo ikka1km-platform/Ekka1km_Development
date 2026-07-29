@@ -150,7 +150,17 @@ function renderHomeLivePreview(items) {
 
     html += '</div>';
 
-    html += '</div>';
+    const viewerCount = Number(item.ViewerCount || item.viewerCount || 0);
+    if (viewerCount > 0) {
+      html += '<div class="homePreviewCard-meta">&#128065; ' + viewerCount.toLocaleString() + ' watching</div>';
+    }
+
+    const announcer = escapeHtml(item.Announcer || item.announcer || item.Streamer || "");
+    if (announcer) {
+      html += '<div class="homePreviewCard-meta">' + announcer + '</div>';
+    }
+
+    html += '<button onclick="event.stopPropagation();openLiveWatchModal(\'' + liveId + '\')" style="margin-top:6px;width:100%;padding:8px;background:var(--primary);color:#fff;border:none;border-radius:15px;cursor:pointer;font-weight:500;">Watch</button>';
 
     html += '</div>';
   });
@@ -199,7 +209,7 @@ function renderLivePage(items) {
     const isLive = String(item.IsLive || "")
       .toLowerCase() === "yes";
 
-    html += '<div class="card" onclick="openInternalDestination(\'live\', \'' + liveId + '\')" style="cursor:pointer;">';
+    html += '<div class="card liveStreamCard" data-live-id="' + liveId + '" style="cursor:pointer;">';
 
     if (imageUrl && isValidImageUrl(imageUrl)) {
       html +=
@@ -232,6 +242,13 @@ function renderLivePage(items) {
       html += '<p class="text-muted">' + city + '</p>';
     }
 
+    const viewerCount = Number(item.ViewerCount || item.viewerCount || 0);
+    if (viewerCount > 0) {
+      html += '<div style="font-size:12px;color:#666;margin:6px 0;">&#128065; ' + viewerCount.toLocaleString() + ' watching</div>';
+    }
+    const announcer = escapeHtml(item.Announcer || item.announcer || item.Streamer || "");
+    if (announcer) html += '<div style="font-size:12px;color:#666;">' + announcer + '</div>';
+    html += '<button onclick="event.stopPropagation();openLiveWatchModal(\'' + liveId + '\')" style="width:100%;margin-top:8px;padding:9px;background:var(--primary);color:#fff;border:none;border-radius:15px;cursor:pointer;font-weight:500;">Watch Live</button>';
     html += '</div>';
   });
 
@@ -266,4 +283,35 @@ VALID IMAGE URL CHECK (reused from Ads pattern)
 function isValidImageUrl(url) {
   if (!url || typeof url !== "string") return false;
   return url.trim().toLowerCase().startsWith("http");
+}
+/*
+============================================================
+LIVE WATCH MODAL
+============================================================
+*/
+function openLiveWatchModal(liveId) {
+  if (!liveId) return;
+  const modal = document.createElement("div");
+  modal.id = "liveWatchModal";
+  modal.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:999999;";
+  modal.innerHTML = '<div style="background:#111;border-radius:18px;padding:12px;max-width:960px;width:94%;animation:scaleIn 0.3s;">' +
+    '<div style="position:relative;width:100%;padding-top:56.25%;background:#000;border-radius:12px;overflow:hidden;">' +
+    '<iframe id="liveWatchFrame" src="" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;" allow="autoplay; fullscreen" allowfullscreen></iframe>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;">' +
+    '<div style="color:#fff;font-weight:600;font-size:14px;" id="liveWatchTitle">Live</div>' +
+    '<button onclick="closeLiveWatchModal()" style="padding:8px 12px;background:#666;color:#fff;border:none;border-radius:12px;cursor:pointer;">Close</button></div></div>';
+  document.body.appendChild(modal);
+  const item = CURRENT_LIVE_DATA.find(function(x){ return String(x.LiveID) === String(liveId); }) || {};
+  const title = item.Title || item.title || "Live";
+  document.getElementById("liveWatchTitle").textContent = title;
+  const streamUrl = item.StreamURL || item.streamURL || item.VideoURL || item.VideoUrl || "";
+  const embed = item.EmbedURL || item.embedURL || streamUrl;
+  const frame = document.getElementById("liveWatchFrame");
+  if (frame && embed) frame.src = embed;
+}
+
+function closeLiveWatchModal() {
+  const modal = document.getElementById("liveWatchModal");
+  if (modal) modal.remove();
 }
