@@ -213,6 +213,12 @@ function openPage(pageId) {
     }
   }
 
+  if (pageId === "orders") {
+    if (typeof loadOrdersPage === "function") {
+      loadOrdersPage();
+    }
+  }
+
   window.scrollTo(0, 0);
 }
 
@@ -581,6 +587,7 @@ function renderDashboard(data) {
   html += '<div class="dashboardSection"><h3>Quick Actions</h3>';
   html += '<div class="dashboardQuickActions">';
   html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'product\')"><i class="material-icons">shopping_bag</i><span>Post Something</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPage(\'orders\')"><i class="material-icons">receipt_long</i><span>Orders / Leads</span></div>';
   html += '<div class="dashboardQuickAction" onclick="openPage(\'wallet\')"><i class="material-icons">account_balance_wallet</i><span>Wallet</span></div>';
   html += '<div class="dashboardQuickAction" onclick="openPage(\'profile\')"><i class="material-icons">person</i><span>Profile</span></div>';
   html += '<div class="dashboardQuickAction" onclick="openPage(\'promotions\')"><i class="material-icons">trending_up</i><span>Promotions</span></div>';

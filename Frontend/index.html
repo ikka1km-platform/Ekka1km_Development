@@ -752,6 +752,17 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   </div>
 </div>
 
+<!-- ORDERS / LEADS -->
+
+<div id="orders" class="page">
+  <div class="sectionTitle">My Orders / Leads</div>
+  <div id="ordersList">
+    <div class="card" style="text-align:center;padding:30px;">
+      <p>Loading orders and leads...</p>
+    </div>
+  </div>
+</div>
+
 <!-- PROMOTIONS -->
 
 <div id="promotions" class="page">
@@ -1607,6 +1618,13 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
     <div
       class="sideDrawer-item"
+      onclick="navigateFromDrawer('orders')">
+      <i class="material-icons">receipt_long</i>
+      <span>Orders / Leads</span>
+    </div>
+
+    <div
+      class="sideDrawer-item"
       onclick="navigateFromDrawer('myContent')">
       <i class="material-icons">folder</i>
       <span>My Content</span>
@@ -1745,6 +1763,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 <script src="Announcements.js"></script>
 <script src="Announcers.js"></script>
 <script src="MyContent.js"></script>
+<script src="Orders.js"></script>
 
 </body>
 </html>
