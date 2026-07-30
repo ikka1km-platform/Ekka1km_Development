@@ -5008,3 +5008,1111 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
     min-height: 40px;
   }
 }
+
+/* ==========================================================
+   STAGE 4M — PROMOTIONS UX
+   ========================================================== */
+
+/* Summary Cards Grid */
+.promo-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.promo-summary-card {
+  background: var(--summ-bg, #f5f5f5);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(0,0,0,0.04);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.promo-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+.promo-summary-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.promo-summary-icon i {
+  font-size: 22px;
+}
+
+.promo-summary-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.promo-summary-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--summ-color, #333);
+  line-height: 1.2;
+}
+
+.promo-summary-label {
+  font-size: 11px;
+  color: #666;
+  margin-top: 2px;
+}
+
+/* Action Bar */
+.promo-action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.promo-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Campaign List */
+.promo-campaign-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Campaign Card */
+.promo-campaign-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  border: 1px solid #eee;
+  transition: box-shadow 0.2s;
+}
+
+.promo-campaign-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+.promo-card-header {
+  display: flex;
+  gap: 12px;
+  cursor: pointer;
+  align-items: flex-start;
+}
+
+.promo-card-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #f0f0f0;
+}
+
+.promo-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.promo-card-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #aaa;
+}
+
+.promo-card-thumb-placeholder i {
+  font-size: 28px;
+}
+
+.promo-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.promo-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.promo-card-meta {
+  font-size: 12px;
+  color: #888;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
+.promo-card-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+/* Chips */
+.promo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.promo-chip-status {
+  font-size: 11px;
+}
+
+/* Quick Stats */
+.promo-card-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.promo-stat-item {
+  text-align: center;
+}
+
+.promo-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+  display: block;
+}
+
+.promo-stat-label {
+  font-size: 10px;
+  color: #999;
+  text-transform: uppercase;
+}
+
+/* Budget Row */
+.promo-card-budget {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.promo-budget-item {
+  text-align: center;
+}
+
+.promo-budget-label {
+  font-size: 10px;
+  color: #999;
+  text-transform: uppercase;
+  display: block;
+}
+
+.promo-budget-val {
+  font-size: 14px;
+  font-weight: 700;
+  color: #333;
+  display: block;
+}
+
+/* Progress Bar */
+.promo-card-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.promo-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: #e0e0e0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.promo-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.promo-progress-bar-lg {
+  height: 10px;
+}
+
+.promo-progress-bar-xl {
+  height: 14px;
+}
+
+.promo-progress-text {
+  font-size: 11px;
+  color: #888;
+  font-weight: 600;
+  min-width: 36px;
+  text-align: right;
+}
+
+.promo-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Actions */
+.promo-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.promo-btn-sm {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #ddd;
+  background: #f9f9f9;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.promo-btn-sm:hover {
+  background: #eee;
+}
+
+.promo-btn-warning {
+  background: #fff3e0;
+  border-color: #ffb74d;
+  color: #e65100;
+}
+
+.promo-btn-danger {
+  background: #ffebee;
+  border-color: #ef9a9a;
+  color: #c62828;
+}
+
+/* Buttons */
+.promo-btn-primary {
+  background: var(--primary, #0f9d58);
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.promo-btn-primary:hover {
+  opacity: 0.9;
+}
+
+.promo-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.promo-btn-secondary {
+  background: #f5f5f5;
+  color: #333;
+  border: 1px solid #ddd;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.promo-btn-warning {
+  background: #fff3e0;
+  color: #e65100;
+  border: 1px solid #ffb74d;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.promo-btn-danger {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.promo-btn-back {
+  background: transparent;
+  border: none;
+  color: var(--primary, #0f9d58);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0;
+  margin-bottom: 12px;
+}
+
+.promo-btn-lg {
+  padding: 14px 28px;
+  font-size: 16px;
+}
+
+/* Detail Page */
+.promo-detail-page,
+.promo-analytics-page {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.promo-detail-header {
+  margin-bottom: 20px;
+}
+
+.promo-detail-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.promo-detail-title-row h2 {
+  font-size: 22px;
+  margin: 0;
+}
+
+.promo-detail-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.promo-detail-dates {
+  font-size: 13px;
+  color: #888;
+  margin-top: 6px;
+}
+
+.promo-detail-progress {
+  margin-bottom: 20px;
+}
+
+/* KPI Grid */
+.promo-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.promo-kpi-grid-lg {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.promo-kpi-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.promo-kpi-value {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.promo-kpi-label {
+  font-size: 12px;
+  color: #888;
+}
+
+/* Detail Sections */
+.promo-detail-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.promo-detail-section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.promo-detail-section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: #333;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.promo-detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f8f8f8;
+}
+
+.promo-detail-row:last-child {
+  border-bottom: none;
+}
+
+.promo-detail-row span:first-child {
+  color: #888;
+}
+
+.promo-detail-row span:last-child {
+  font-weight: 500;
+  color: #333;
+}
+
+.promo-detail-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+/* Analytics */
+.promo-analytics-title {
+  font-size: 22px;
+  margin: 10px 0 4px;
+}
+
+.promo-analytics-subtitle {
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 20px;
+}
+
+.promo-analytics-section {
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.promo-analytics-section h3 {
+  font-size: 16px;
+  margin: 0 0 16px 0;
+}
+
+.promo-analytics-progress {
+  margin-top: 8px;
+}
+
+.promo-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.promo-metric-chart {
+  background: #fafafa;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.promo-metric-chart h4 {
+  font-size: 13px;
+  margin: 0 0 12px 0;
+  color: #555;
+}
+
+.promo-chart-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.promo-chart-bar-label {
+  font-size: 12px;
+  color: #666;
+  min-width: 80px;
+}
+
+.promo-chart-bar-track {
+  flex: 1;
+  height: 10px;
+  background: #e0e0e0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.promo-chart-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.5s;
+}
+
+.promo-chart-bar-value {
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* Summary Table */
+.promo-summary-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.promo-summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+
+.promo-summary-row:last-child {
+  border-bottom: none;
+}
+
+.promo-summary-row span {
+  color: #666;
+}
+
+.promo-summary-row strong {
+  color: #333;
+}
+
+/* Empty State */
+.promo-empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.promo-empty-icon {
+  margin-bottom: 16px;
+}
+
+.promo-empty-state h3 {
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+.promo-empty-state p {
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 20px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.promo-benefits-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px 0;
+  text-align: left;
+  max-width: 360px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.promo-benefits-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 14px;
+  color: #555;
+}
+
+/* Loading State */
+.promo-loading-state {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.promo-loading-state i {
+  color: var(--primary, #0f9d58);
+  animation: promoSpin 1.5s linear infinite;
+}
+
+.promo-loading-state h3 {
+  margin: 16px 0 8px;
+}
+
+.promo-loading-state p {
+  color: #888;
+}
+
+/* Error State */
+.promo-error-state {
+  text-align: center;
+  padding: 40px 20px;
+  background: #fff;
+  border-radius: 16px;
+}
+
+.promo-error-icon {
+  margin-bottom: 16px;
+}
+
+.promo-error-state h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.promo-error-state p {
+  color: #888;
+  margin-bottom: 20px;
+}
+
+/* Skeleton Loading */
+.promo-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.promo-skeleton-card {
+  height: 72px;
+  border-radius: 14px;
+  background: #f0f0f0;
+  overflow: hidden;
+  position: relative;
+}
+
+.promo-skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.promo-skeleton-item {
+  height: 140px;
+  border-radius: 16px;
+  background: #f0f0f0;
+  overflow: hidden;
+  position: relative;
+}
+
+.promo-skeleton-shimmer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+  animation: promoShimmer 1.5s infinite;
+}
+
+/* Wizard */
+.promo-wizard {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.promo-wizard-title {
+  font-size: 24px;
+  margin: 10px 0 20px;
+  text-align: center;
+}
+
+.promo-wizard-steps {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  gap: 4px;
+}
+
+.promo-wizard-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 60px;
+  cursor: default;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.promo-wizard-step.active,
+.promo-wizard-step.done {
+  opacity: 1;
+}
+
+.promo-wizard-step.done {
+  cursor: pointer;
+}
+
+.promo-wizard-step-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  transition: all 0.2s;
+}
+
+.promo-wizard-step.active .promo-wizard-step-icon {
+  background: var(--primary, #0f9d58);
+  color: #fff;
+}
+
+.promo-wizard-step.done .promo-wizard-step-icon {
+  background: #0f9d58;
+  color: #fff;
+}
+
+.promo-wizard-step-label {
+  font-size: 11px;
+  color: #666;
+  text-align: center;
+}
+
+.promo-wizard-step.active .promo-wizard-step-label {
+  font-weight: 600;
+  color: var(--primary, #0f9d58);
+}
+
+.promo-wizard-content {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.promo-wizard-step-content h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.promo-wizard-desc {
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 20px;
+}
+
+.promo-wizard-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.promo-option-card {
+  border: 2px solid #eee;
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.promo-option-card:hover {
+  border-color: #ccc;
+  background: #fafafa;
+}
+
+.promo-option-card.selected {
+  border-color: var(--primary, #0f9d58);
+  background: #e6f4ea;
+}
+
+.promo-option-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.promo-option-icon i {
+  font-size: 32px;
+}
+
+.promo-option-label {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.promo-option-desc {
+  font-size: 12px;
+  color: #888;
+}
+
+.promo-wizard-field {
+  margin-bottom: 16px;
+}
+
+.promo-wizard-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #555;
+}
+
+.promo-wizard-select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.promo-wizard-nav {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.promo-wizard-nav button {
+  flex: 1;
+}
+
+.promo-wizard-next {
+  margin-left: auto;
+}
+
+/* Budget Card */
+.promo-wizard-budget {
+  margin-top: 16px;
+}
+
+.promo-budget-card {
+  background: #f9f9f9;
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.promo-budget-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.promo-budget-row span {
+  color: #666;
+}
+
+.promo-budget-row strong {
+  color: #333;
+}
+
+.promo-budget-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 10px 0;
+}
+
+.promo-budget-total {
+  font-size: 16px;
+}
+
+.promo-budget-amount {
+  color: var(--primary, #0f9d58);
+  font-size: 20px;
+}
+
+.promo-budget-warning {
+  background: #fff3e0;
+  color: #e65100;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Review Card */
+.promo-wizard-review {
+  margin-top: 16px;
+}
+
+.promo-review-card {
+  background: #f9f9f9;
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.promo-review-card h4 {
+  font-size: 15px;
+  margin: 0 0 12px 0;
+  color: #333;
+}
+
+.promo-review-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 14px;
+  border-bottom: 1px solid #eee;
+}
+
+.promo-review-row:last-child {
+  border-bottom: none;
+}
+
+.promo-review-row span {
+  color: #666;
+}
+
+.promo-review-row strong {
+  color: #333;
+}
+
+.promo-review-total {
+  font-size: 16px;
+  padding-top: 12px;
+  border-top: 2px solid #e0e0e0;
+  margin-top: 8px;
+}
+
+.promo-review-amount {
+  color: var(--primary, #0f9d58);
+  font-size: 20px;
+}
+
+/* Animations */
+@keyframes promoShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes promoSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes promoFadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .promo-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .promo-card-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .promo-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .promo-detail-sections {
+    grid-template-columns: 1fr;
+  }
+
+  .promo-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .promo-wizard-options {
+    grid-template-columns: 1fr;
+  }
+
+  .promo-wizard-steps {
+    gap: 2px;
+  }
+
+  .promo-wizard-step {
+    min-width: 48px;
+  }
+
+  .promo-wizard-step-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .promo-wizard-step-label {
+    font-size: 10px;
+  }
+
+  .promo-card-actions {
+    flex-direction: column;
+  }
+
+  .promo-card-actions button {
+    width: 100%;
+  }
+
+  .promo-detail-actions {
+    flex-direction: column;
+  }
+
+  .promo-detail-actions button {
+    width: 100%;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 1024px) {
+  .promo-summary-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .promo-card-stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

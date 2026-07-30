@@ -219,6 +219,12 @@ function openPage(pageId) {
     }
   }
 
+  if (pageId === "promotions") {
+    if (typeof openPromotionsPage === "function") {
+      openPromotionsPage();
+    }
+  }
+
   window.scrollTo(0, 0);
 }
 

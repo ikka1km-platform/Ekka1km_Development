@@ -2,138 +2,926 @@
 ============================================================
 EKKA1KM FRONTEND
 Promotions.js
-Stage 4HIJ - Promotion Wizard & List Redesign
-V2.0
-Preserves ALL canonical promotion logic, coin calculations,
-wallet integration, campaign logic, economy safeguards
+Stage 4M — Promotions & Campaign UX Redesign
+Production-quality promotions management experience
+Reuses existing backend APIs — NO backend changes required
 ============================================================
 */
 
-var PROMO_STEP = 1;
-var PROMO_SELECTIONS = {
+/* ==========================================================
+   STATE
+   ========================================================== */
+var PROMO_VIEW = "list";        // "list" | "detail" | "create" | "analytics"
+var PROMO_CAMPAIGNS = [];
+var PROMO_SELECTED_CAMPAIGN = null;
+var PROMO_WALLET_BALANCE = 0;
+var PROMO_WIZARD_STEP = 1;
+var PROMO_WIZARD = {
   targetType: "Product",
   targetId: "",
+  targetTitle: "",
+  targetImage: "",
   promotionType: "Silver",
   radius: "51",
   duration: "7",
+  rewardCoins: 0,
   totalPrice: 0
 };
+var PROMO_LOADING = false;
+var PROMO_ERROR = null;
 
+/* ==========================================================
+   PROMOTION TYPE PRICING (mirrors Backend/Promotions.js)
+   ========================================================== */
+var PROMO_PRICES = {
+  "Silver": { "1": 10, "5": 20, "10": 30, "25": 50, "51": 75, "100": 100, "All India": 200 },
+  "Gold": { "1": 25, "5": 50, "10": 75, "25": 100, "51": 150, "100": 200, "All India": 400 },
+  "Titanium": { "1": 50, "5": 100, "10": 150, "25": 200, "51": 300, "100": 400, "All India": 800 }
+};
+var PROMO_DURATION_MULTIPLIER = { "1": 1, "3": 3, "7": 7, "15": 15, "30": 30 };
+var PROMO_POOL_RATIO = 0.7; // 70% goes to reward pool
 
-/*
-============================================================
-OPEN PROMOTION WIZARD — Stage 4HIJ Redesign
-============================================================
-*/
+/* ==========================================================
+   STATUS MAPPING — professional chips
+   ========================================================== */
+var PROMO_STATUS_CONFIG = {
+  "Active":     { label: "Running",    icon: "play_circle", color: "#0f9d58", bg: "#e6f4ea" },
+  "Running":    { label: "Running",    icon: "play_circle", color: "#0f9d58", bg: "#e6f4ea" },
+  "Pending":    { label: "Pending",    icon: "schedule",    color: "#f9a825", bg: "#fff8e1" },
+  "Draft":      { label: "Draft",      icon: "edit_note",   color: "#757575", bg: "#f5f5f5" },
+  "Paused":     { label: "Paused",     icon: "pause_circle",color: "#1565c0", bg: "#e3f2fd" },
+  "Completed":  { label: "Completed",  icon: "check_circle",color: "#2e7d32", bg: "#e8f5e9" },
+  "Expired":    { label: "Expired",    icon: "timer_off",   color: "#757575", bg: "#eeeeee" },
+  "Cancelled":  { label: "Cancelled",  icon: "cancel",      color: "#c62828", bg: "#ffebee" },
+  "Rejected":   { label: "Rejected",   icon: "block",       color: "#c62828", bg: "#ffebee" },
+  "Suspended":  { label: "Suspended",  icon: "gavel",       color: "#e65100", bg: "#fff3e0" },
+  "Approved":   { label: "Approved",   icon: "verified",    color: "#0f9d58", bg: "#e6f4ea" },
+  "Stopped":    { label: "Stopped",    icon: "stop_circle", color: "#c62828", bg: "#ffebee" }
+};
 
-function openPromotionWizard() {
-  if (!requireLogin()) return;
-
-  openPage("promotions");
-
-  var container = document.getElementById("promotionsContent");
-  if (!container) return;
-
-  container.innerHTML = '<div class="hij-loading"><i class="material-icons">trending_up</i><p>Loading promotion wizard...</p></div>';
-
-  // Load user's products for target selection
-  var userId = getUserId();
-  var url = getApiUrl() + "?action=products&userId=" + encodeURIComponent(userId);
-
-  fetch(url)
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
-      var products = res && res.data ? res.data.data || [] : [];
-      renderPromotionWizard(products);
-    })
-    .catch(function(err) {
-      console.log("Promotion wizard error:", err);
-      renderPromotionWizard([]);
-    });
+function getPromoStatusCfg(status) {
+  return PROMO_STATUS_CONFIG[status] || { label: status, icon: "help", color: "#888", bg: "#f5f5f5" };
 }
 
+/* ==========================================================
+   PROMOTION TYPE COLORS
+   ========================================================== */
+var PROMO_TYPE_COLORS = {
+  "Silver":   { color: "#757575", bg: "#f5f5f5", label: "Silver" },
+  "Gold":     { color: "#f57c00", bg: "#fff3e0", label: "Gold" },
+  "Titanium": { color: "#0f9d58", bg: "#e6f4ea", label: "Titanium" }
+};
 
-/*
-============================================================
-RENDER PROMOTION WIZARD — Stage 4HIJ Redesign
-============================================================
-*/
+/* ==========================================================
+   MAIN ENTRY POINT
+   Called when user navigates to promotions page
+   ========================================================== */
+function openPromotionsPage() {
+  if (!requireLogin()) return;
+  loadPromotionsData();
+}
 
-function renderPromotionWizard(products) {
+/* ==========================================================
+   LOAD PROMOTIONS DATA
+   Fetches user promotions and wallet balance
+   ========================================================== */
+function loadPromotionsData() {
+  PROMO_LOADING = true;
+  PROMO_ERROR = null;
+  renderPromotionsPage();
+
+  var userId = getUserId();
+  if (!userId) {
+    PROMO_LOADING = false;
+    renderPromotionsPage();
+    return;
+  }
+
+  // Fetch promotions and wallet in parallel
+  var promoUrl = getApiUrl() + "?action=getuserpromotions&userId=" + encodeURIComponent(userId);
+  var walletUrl = getApiUrl() + "?action=wallet&userId=" + encodeURIComponent(userId);
+
+  Promise.all([
+    fetch(promoUrl).then(function(r) { return r.json(); }),
+    fetch(walletUrl).then(function(r) { return r.json(); })
+  ])
+  .then(function(results) {
+    var promoRes = results[0];
+    var walletRes = results[1];
+
+    if (promoRes && promoRes.success && promoRes.data) {
+      PROMO_CAMPAIGNS = (promoRes.data.data || []).map(function(c) {
+        return normalizePromotion(c);
+      });
+      PROMO_CAMPAIGNS.sort(function(a, b) {
+        var order = { "Active": 0, "Running": 0, "Pending": 1, "Paused": 2, "Draft": 3, "Completed": 4, "Expired": 5, "Cancelled": 6, "Stopped": 6 };
+        var aOrd = order[a.Status] !== undefined ? order[a.Status] : 99;
+        var bOrd = order[b.Status] !== undefined ? order[b.Status] : 99;
+        if (aOrd !== bOrd) return aOrd - bOrd;
+        return new Date(b.CreatedDate || 0) - new Date(a.CreatedDate || 0);
+      });
+    } else {
+      PROMO_CAMPAIGNS = [];
+    }
+
+    if (walletRes && walletRes.success && walletRes.data) {
+      PROMO_WALLET_BALANCE = Number(walletRes.data.coins || walletRes.data.Balance || 0);
+    }
+
+    PROMO_LOADING = false;
+    renderPromotionsPage();
+  })
+  .catch(function(err) {
+    console.log("loadPromotionsData error:", err);
+    PROMO_LOADING = false;
+    PROMO_ERROR = "Failed to load promotions. Please try again.";
+    renderPromotionsPage();
+  });
+}
+
+/* ==========================================================
+   NORMALIZE PROMOTION (map backend fields)
+   ========================================================== */
+function normalizePromotion(p) {
+  if (!p) return p;
+  var n = {};
+  n.PromotionID = p.PromotionID || p.promotionId || "";
+  n.UserID = p.UserID || p.userId || "";
+  n.PromotionType = p.PromotionType || p.promotionType || "Silver";
+  n.TargetType = p.TargetType || p.targetType || "";
+  n.TargetID = p.TargetID || p.targetId || "";
+  n.Radius = p.Radius || p.radius || "51";
+  n.Duration = p.Duration || p.duration || "1";
+  n.CoinsSpent = Number(p.CoinsSpent || p.coinsSpent || 0);
+  n.RewardPool = Number(p.RewardPool || p.rewardPool || 0);
+  n.RemainingRewardCoins = Number(p.RemainingRewardCoins || p.remainingRewardCoins || 0);
+  n.Views = Number(p.Views || p.views || 0);
+  n.Clicks = Number(p.Clicks || p.clicks || 0);
+  n.Interested = Number(p.Interested || p.interested || 0);
+  n.CTR = Number(p.CTR || p.ctr || 0);
+  n.Status = p.Status || p.status || "Pending";
+  n.StartDate = p.StartDate || p.startDate || p.CreatedDate || "";
+  n.EndDate = p.EndDate || p.endDate || "";
+  n.CreatedDate = p.CreatedDate || p.createdDate || "";
+  n.UpdatedDate = p.UpdatedDate || p.updatedDate || "";
+  n.City = p.City || p.city || "";
+  n.State = p.State || p.state || "";
+  n.Featured = "No"; // Legacy system doesn't have Featured
+  n.PIPEnabled = "No"; // Legacy system doesn't have PIPEnabled
+  n.ImageURL = p.ImageURL || p.imageURL || "";
+  n.Title = p.Title || p.title || p.PromotionType || "Promotion";
+  n.Description = p.Description || p.description || "";
+
+  // Calculate derived fields
+  n.CoinsUsed = n.CoinsSpent;
+  n.RewardDistributed = Math.max(0, n.RewardPool - n.RemainingRewardCoins);
+  n.RewardRemaining = n.RemainingRewardCoins;
+  n.CTR = n.Views > 0 ? Math.round((n.Clicks / n.Views) * 100) : 0;
+  n.ProgressPercent = n.RewardPool > 0 ? Math.min(100, Math.round((n.RewardDistributed / n.RewardPool) * 100)) : 0;
+
+  return n;
+}
+
+/* ==========================================================
+   RENDER PROMOTIONS PAGE
+   Main render function — handles all views
+   ========================================================== */
+function renderPromotionsPage() {
   var container = document.getElementById("promotionsContent");
   if (!container) return;
 
-  var html = '<div class="promo-hij-wizard">';
+  if (PROMO_VIEW === "create") {
+    renderCreateWizard(container);
+    return;
+  }
 
-  // Step indicator
-  html += '<div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding:2px 0;">';
-  for (var s = 1; s <= 6; s++) {
-    var active = s === PROMO_STEP ? 'background:var(--primary);color:#fff;' : 'background:#f0f0f0;color:#888;';
-    html += '<div style="' + active + 'padding:6px 12px;border-radius:16px;font-size:11px;font-weight:600;white-space:nowrap;">Step ' + s + '</div>';
+  if (PROMO_VIEW === "detail" && PROMO_SELECTED_CAMPAIGN) {
+    renderCampaignDetail(container);
+    return;
+  }
+
+  if (PROMO_VIEW === "analytics" && PROMO_SELECTED_CAMPAIGN) {
+    renderCampaignAnalytics(container);
+    return;
+  }
+
+  renderCampaignList(container);
+}
+
+/* ==========================================================
+   RENDER CAMPAIGN LIST (Main View)
+   ========================================================== */
+function renderCampaignList(container) {
+  PROMO_VIEW = "list";
+
+  if (PROMO_LOADING) {
+    renderSkeleton(container);
+    return;
+  }
+
+  if (PROMO_ERROR) {
+    renderError(container);
+    return;
+  }
+
+  var html = "";
+
+  // Summary Cards
+  html += renderSummaryCards();
+
+  // Action Bar
+  html += '<div class="promo-action-bar">';
+  html += '<h3 class="promo-section-title">My Campaigns</h3>';
+  html += '<button class="promo-btn-primary" onclick="openCreateWizard()">';
+  html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">add_circle</i> Create Campaign';
+  html += '</button>';
+  html += '</div>';
+
+  if (PROMO_CAMPAIGNS.length === 0) {
+    html += renderEmptyState();
+    container.innerHTML = html;
+    return;
+  }
+
+  // Campaign Cards
+  html += '<div class="promo-campaign-list">';
+  PROMO_CAMPAIGNS.forEach(function(c, idx) {
+    html += renderCampaignCard(c, idx);
+  });
+  html += '</div>';
+
+  container.innerHTML = html;
+
+  // Attach event listeners for expand/collapse
+  document.querySelectorAll(".promo-card-toggle").forEach(function(el) {
+    el.addEventListener("click", function() {
+      var card = this.closest(".promo-campaign-card");
+      if (card) {
+        card.classList.toggle("promo-card-expanded");
+        var details = card.querySelector(".promo-card-details");
+        if (details) {
+          details.style.display = details.style.display === "block" ? "none" : "block";
+        }
+      }
+    });
+  });
+}
+
+/* ==========================================================
+   RENDER SUMMARY CARDS
+   ========================================================== */
+function renderSummaryCards() {
+  var active = 0, scheduled = 0, completed = 0;
+  var coinsSpent = 0, rewardPool = 0, remainingPool = 0;
+
+  PROMO_CAMPAIGNS.forEach(function(c) {
+    var s = String(c.Status || "");
+    if (s === "Active" || s === "Running") active++;
+    else if (s === "Pending" || s === "Draft") scheduled++;
+    else if (s === "Completed" || s === "Expired" || s === "Cancelled" || s === "Stopped") completed++;
+    coinsSpent += Number(c.CoinsSpent || 0);
+    rewardPool += Number(c.RewardPool || 0);
+    remainingPool += Number(c.RemainingRewardCoins || 0);
+  });
+
+  var html = '<div class="promo-summary-grid">';
+  html += summaryCard("Active Campaigns", active, "play_circle", "#0f9d58", "#e6f4ea");
+  html += summaryCard("Scheduled", scheduled, "schedule", "#f9a825", "#fff8e1");
+  html += summaryCard("Completed", completed, "check_circle", "#2e7d32", "#e8f5e9");
+  html += summaryCard("Coins Spent", coinsSpent, "account_balance_wallet", "#1565c0", "#e3f2fd");
+  html += summaryCard("Reward Pool", rewardPool, "redeem", "#e65100", "#fff3e0");
+  html += summaryCard("Balance", PROMO_WALLET_BALANCE, "monetization_on", "#0f9d58", "#e6f4ea");
+  html += '</div>';
+  return html;
+}
+
+function summaryCard(label, value, icon, color, bg) {
+  var val = typeof value === "number" ? value.toLocaleString() : value;
+  return '<div class="promo-summary-card" style="--summ-color:' + color + ';--summ-bg:' + bg + ';">' +
+    '<div class="promo-summary-icon"><i class="material-icons" style="color:' + color + ';">' + icon + '</i></div>' +
+    '<div class="promo-summary-info">' +
+    '<div class="promo-summary-value">' + val + '</div>' +
+    '<div class="promo-summary-label">' + label + '</div>' +
+    '</div></div>';
+}
+
+/* ==========================================================
+   RENDER CAMPAIGN CARD
+   ========================================================== */
+function renderCampaignCard(c, idx) {
+  var sc = getPromoStatusCfg(c.Status);
+  var tc = PROMO_TYPE_COLORS[c.PromotionType] || { color: "#888", bg: "#f5f5f5", label: c.PromotionType };
+  var startDate = c.StartDate ? formatDate(c.StartDate) : "—";
+  var endDate = c.EndDate ? formatDate(c.EndDate) : "—";
+  var ctr = c.Views > 0 ? Math.round((c.Clicks / c.Views) * 100) + "%" : "0%";
+  var progress = c.ProgressPercent || 0;
+
+  var html = '<div class="promo-campaign-card" data-idx="' + idx + '">';
+
+  // Card Header
+  html += '<div class="promo-card-header" onclick="selectCampaign(' + idx + ')">';
+
+  // Thumbnail
+  html += '<div class="promo-card-thumb">';
+  if (c.ImageURL) {
+    html += '<img src="' + c.ImageURL + '" onerror="this.style.display=\'none\'" alt="">';
+  } else {
+    html += '<div class="promo-card-thumb-placeholder">';
+    html += '<i class="material-icons">campaign</i>';
+    html += '</div>';
   }
   html += '</div>';
 
-  if (PROMO_STEP === 1) {
-    // Step 1: Select Target Type
-    html += '<div class="promo-hij-step">';
-    html += '<div class="promo-hij-stepTitle"><span class="promo-hij-stepNumber">1</span> Select Target</div>';
-    html += '<p style="font-size:13px;color:#888;margin-bottom:12px;">What do you want to promote?</p>';
+  // Info
+  html += '<div class="promo-card-info">';
+  html += '<div class="promo-card-title">' + escapeHtml(c.Title || c.PromotionType + " Campaign") + '</div>';
+  html += '<div class="promo-card-meta">';
+  if (c.TargetType) html += '<span>' + c.TargetType + '</span>';
+  if (c.Radius) html += '<span>📍 ' + c.Radius + ' KM</span>';
+  html += '</div>';
+  html += '<div class="promo-card-meta">';
+  html += '<span>📅 ' + startDate + ' → ' + endDate + '</span>';
+  html += '</div>';
+  html += '</div>';
 
-    html += '<div class="promo-hij-field">';
-    html += '<label>Target Type</label>';
-    html += '<select id="promoWizTargetType">';
-    html += '<option value="Product">Product</option>';
-    html += '<option value="Business">Business</option>';
-    html += '<option value="Property">Property</option>';
+  // Status & Type
+  html += '<div class="promo-card-badges">';
+  html += '<span class="promo-chip" style="background:' + tc.bg + ';color:' + tc.color + ';">' + tc.label + '</span>';
+  html += '<span class="promo-chip promo-chip-status" style="background:' + sc.bg + ';color:' + sc.color + ';">';
+  html += '<i class="material-icons" style="font-size:14px;vertical-align:middle;">' + sc.icon + '</i> ' + sc.label;
+  html += '</span>';
+  html += '</div>';
+
+  html += '</div>'; // end card-header
+
+  // Quick Stats Row
+  html += '<div class="promo-card-stats">';
+  html += '<div class="promo-stat-item"><span class="promo-stat-value">' + (c.Views || 0) + '</span><span class="promo-stat-label">Views</span></div>';
+  html += '<div class="promo-stat-item"><span class="promo-stat-value">' + (c.Clicks || 0) + '</span><span class="promo-stat-label">Clicks</span></div>';
+  html += '<div class="promo-stat-item"><span class="promo-stat-value">' + (c.Interested || 0) + '</span><span class="promo-stat-label">Interested</span></div>';
+  html += '<div class="promo-stat-item"><span class="promo-stat-value">' + ctr + '</span><span class="promo-stat-label">CTR</span></div>';
+  html += '</div>';
+
+  // Budget Row
+  html += '<div class="promo-card-budget">';
+  html += '<div class="promo-budget-item"><span class="promo-budget-label">Spent</span><span class="promo-budget-val">' + (c.CoinsSpent || 0) + '</span></div>';
+  html += '<div class="promo-budget-item"><span class="promo-budget-label">Pool</span><span class="promo-budget-val">' + (c.RewardPool || 0) + '</span></div>';
+  html += '<div class="promo-budget-item"><span class="promo-budget-label">Remaining</span><span class="promo-budget-val">' + (c.RemainingRewardCoins || 0) + '</span></div>';
+  html += '</div>';
+
+  // Featured & PIP Badges (if applicable)
+  if (String(c.Featured || "").toLowerCase() === "yes") {
+    html += '<span class="promo-chip promo-chip-featured" style="background:#ff6f00;color:#fff;">★ Featured</span> ';
+  }
+  if (String(c.PIPEnabled || "").toLowerCase() === "yes") {
+    html += '<span class="promo-chip promo-chip-pip" style="background:#1565c0;color:#fff;">PIP Enabled</span>';
+  }
+
+  // Progress Bar
+  html += '<div class="promo-card-progress">';
+  html += '<div class="promo-progress-bar"><div class="promo-progress-fill" style="width:' + progress + '%;background:' + sc.color + ';"></div></div>';
+  html += '<span class="promo-progress-text">' + progress + '%</span>';
+  html += '</div>';
+
+  // Actions
+  html += '<div class="promo-card-actions">';
+  html += '<button class="promo-btn-sm" onclick="event.stopPropagation();viewCampaignAnalytics(' + idx + ')"><i class="material-icons" style="font-size:16px;vertical-align:middle;">analytics</i> Analytics</button>';
+
+  if (c.Status === "Active" || c.Status === "Running") {
+    html += '<button class="promo-btn-sm promo-btn-warning" onclick="event.stopPropagation();pauseCampaignAction(\'' + c.PromotionID + '\',' + idx + ')"><i class="material-icons" style="font-size:16px;vertical-align:middle;">pause_circle</i> Pause</button>';
+  }
+  if (c.Status === "Paused") {
+    html += '<button class="promo-btn-sm" onclick="event.stopPropagation();resumeCampaignAction(\'' + c.PromotionID + '\',' + idx + ')"><i class="material-icons" style="font-size:16px;vertical-align:middle;">play_circle</i> Resume</button>';
+  }
+  if (c.Status === "Active" || c.Status === "Running" || c.Status === "Paused") {
+    html += '<button class="promo-btn-sm promo-btn-danger" onclick="event.stopPropagation();stopCampaignAction(\'' + c.PromotionID + '\',' + idx + ')"><i class="material-icons" style="font-size:16px;vertical-align:middle;">stop_circle</i> Stop</button>';
+  }
+
+  html += '</div>';
+
+  // Expanded Details
+  html += '<div class="promo-card-details" style="display:none;">';
+  html += renderCardDetails(c);
+  html += '</div>';
+
+  html += '</div>'; // end promo-campaign-card
+  return html;
+}
+
+/* ==========================================================
+   RENDER CARD DETAILS (expanded section)
+   ========================================================== */
+function renderCardDetails(c) {
+  var poolDistributed = Math.max(0, (c.RewardPool || 0) - (c.RemainingRewardCoins || 0));
+  var html = '<div class="promo-details-grid">';
+
+  html += '<div class="promo-detail-section">';
+  html += '<h4>Campaign Info</h4>';
+  html += '<div class="promo-detail-row"><span>Type</span><span>' + (c.PromotionType || "—") + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Target</span><span>' + (c.TargetType || "—") + ' (' + (c.TargetID || "—") + ')</span></div>';
+  html += '<div class="promo-detail-row"><span>Radius</span><span>' + (c.Radius || "—") + ' KM</span></div>';
+  html += '<div class="promo-detail-row"><span>Duration</span><span>' + (c.Duration || "—") + ' day(s)</span></div>';
+  if (c.City) html += '<div class="promo-detail-row"><span>City</span><span>' + escapeHtml(c.City) + '</span></div>';
+  html += '</div>';
+
+  html += '<div class="promo-detail-section">';
+  html += '<h4>Budget</h4>';
+  html += '<div class="promo-detail-row"><span>Coins Spent</span><span>' + (c.CoinsSpent || 0) + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Reward Pool</span><span>' + (c.RewardPool || 0) + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Distributed</span><span>' + poolDistributed + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Remaining</span><span>' + (c.RemainingRewardCoins || 0) + '</span></div>';
+  html += '</div>';
+
+  html += '<div class="promo-detail-section">';
+  html += '<h4>Performance</h4>';
+  html += '<div class="promo-detail-row"><span>Views</span><span>' + (c.Views || 0) + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Clicks</span><span>' + (c.Clicks || 0) + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Interested</span><span>' + (c.Interested || 0) + '</span></div>';
+  html += '<div class="promo-detail-row"><span>CTR</span><span>' + (c.Views > 0 ? Math.round((c.Clicks / c.Views) * 100) + "%" : "0%") + '</span></div>';
+  html += '</div>';
+
+  html += '</div>'; // end promo-details-grid
+  return html;
+}
+
+/* ==========================================================
+   SELECT CAMPAIGN (navigate to detail screen)
+   ========================================================== */
+function selectCampaign(idx) {
+  if (idx >= 0 && idx < PROMO_CAMPAIGNS.length) {
+    PROMO_SELECTED_CAMPAIGN = PROMO_CAMPAIGNS[idx];
+    PROMO_VIEW = "detail";
+    renderPromotionsPage();
+  }
+}
+
+/* ==========================================================
+   RENDER CAMPAIGN DETAIL (full screen)
+   ========================================================== */
+function renderCampaignDetail(container) {
+  var c = PROMO_SELECTED_CAMPAIGN;
+  if (!c) {
+    PROMO_VIEW = "list";
+    renderPromotionsPage();
+    return;
+  }
+
+  var sc = getPromoStatusCfg(c.Status);
+  var tc = PROMO_TYPE_COLORS[c.PromotionType] || { color: "#888", bg: "#f5f5f5", label: c.PromotionType };
+  var startDate = c.StartDate ? formatDate(c.StartDate) : "—";
+  var endDate = c.EndDate ? formatDate(c.EndDate) : "—";
+  var poolDistributed = Math.max(0, (c.RewardPool || 0) - (c.RemainingRewardCoins || 0));
+
+  var html = '<div class="promo-detail-page">';
+
+  // Back button
+  html += '<button class="promo-btn-back" onclick="backToCampaignList()"><i class="material-icons" style="font-size:20px;vertical-align:middle;">arrow_back</i> Back to Campaigns</button>';
+
+  // Header
+  html += '<div class="promo-detail-header">';
+  html += '<div class="promo-detail-title-row">';
+  html += '<h2>' + escapeHtml(c.Title || c.PromotionType + " Campaign") + '</h2>';
+  html += '<div class="promo-detail-badges">';
+  html += '<span class="promo-chip" style="background:' + tc.bg + ';color:' + tc.color + ';">' + tc.label + '</span>';
+  html += '<span class="promo-chip promo-chip-status" style="background:' + sc.bg + ';color:' + sc.color + ';">';
+  html += '<i class="material-icons" style="font-size:14px;vertical-align:middle;">' + sc.icon + '</i> ' + sc.label;
+  html += '</span>';
+  html += '</div>';
+  html += '</div>';
+  html += '<div class="promo-detail-dates">' + startDate + ' → ' + endDate + '</div>';
+  html += '</div>';
+
+  // Progress
+  html += '<div class="promo-detail-progress">';
+  html += '<div class="promo-progress-bar promo-progress-bar-lg"><div class="promo-progress-fill" style="width:' + (c.ProgressPercent || 0) + '%;background:' + sc.color + ';"></div></div>';
+  html += '<div class="promo-progress-labels">';
+  html += '<span>Reward Pool: ' + (c.RewardPool || 0) + ' coins</span>';
+  html += '<span>' + (c.ProgressPercent || 0) + '% distributed</span>';
+  html += '<span>Remaining: ' + (c.RemainingRewardCoins || 0) + ' coins</span>';
+  html += '</div>';
+  html += '</div>';
+
+  // KPI Grid
+  html += '<div class="promo-kpi-grid">';
+  html += kpiCard("👁 Views", c.Views || 0, "#1565c0");
+  html += kpiCard("👆 Clicks", c.Clicks || 0, "#0f9d58");
+  html += kpiCard("❤️ Interested", c.Interested || 0, "#e65100");
+  html += kpiCard("📊 CTR", c.Views > 0 ? Math.round((c.Clicks / c.Views) * 100) + "%" : "0%", "#f9a825");
+  html += kpiCard("💰 Spent", c.CoinsSpent || 0, "#c62828");
+  html += kpiCard("🎁 Distributed", poolDistributed, "#2e7d32");
+  html += '</div>';
+
+  // Details Grid
+  html += '<div class="promo-detail-sections">';
+
+  html += '<div class="promo-detail-section">';
+  html += '<h4>Campaign Information</h4>';
+  html += '<div class="promo-detail-row"><span>Promotion Type</span><span>' + (c.PromotionType || "—") + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Target Type</span><span>' + (c.TargetType || "—") + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Target ID</span><span>' + (c.TargetID || "—") + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Radius</span><span>' + (c.Radius || "—") + ' KM</span></div>';
+  html += '<div class="promo-detail-row"><span>Duration</span><span>' + (c.Duration || "—") + ' day(s)</span></div>';
+  if (c.City) html += '<div class="promo-detail-row"><span>City</span><span>' + escapeHtml(c.City) + '</span></div>';
+  if (c.State) html += '<div class="promo-detail-row"><span>State</span><span>' + escapeHtml(c.State) + '</span></div>';
+  html += '</div>';
+
+  html += '<div class="promo-detail-section">';
+  html += '<h4>Budget & Rewards</h4>';
+  html += '<div class="promo-detail-row"><span>Total Coins Spent</span><span>' + (c.CoinsSpent || 0) + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Reward Pool</span><span>' + (c.RewardPool || 0) + ' coins</span></div>';
+  html += '<div class="promo-detail-row"><span>Coins Distributed</span><span>' + poolDistributed + ' coins</span></div>';
+  html += '<div class="promo-detail-row"><span>Remaining in Pool</span><span>' + (c.RemainingRewardCoins || 0) + ' coins</span></div>';
+  html += '<div class="promo-detail-row"><span>Views Generated</span><span>' + (c.Views || 0) + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Cost Per View</span><span>' + (c.Views > 0 ? Math.round((c.CoinsSpent || 0) / (c.Views || 1)) + " coins" : "—") + '</span></div>';
+  html += '</div>';
+
+  html += '<div class="promo-detail-section">';
+  html += '<h4>Performance</h4>';
+  html += '<div class="promo-detail-row"><span>Views</span><span>' + (c.Views || 0) + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Clicks</span><span>' + (c.Clicks || 0) + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Interested</span><span>' + (c.Interested || 0) + '</span></div>';
+  html += '<div class="promo-detail-row"><span>CTR</span><span>' + (c.Views > 0 ? Math.round((c.Clicks / c.Views) * 100) + "%" : "0%") + '</span></div>';
+  html += '<div class="promo-detail-row"><span>Conversion Rate</span><span>' + (c.Views > 0 ? Math.round((c.Interested / c.Views) * 100) + "%" : "0%") + '</span></div>';
+  html += '</div>';
+
+  html += '</div>';
+
+  // Actions
+  html += '<div class="promo-detail-actions">';
+  html += '<button class="promo-btn-primary" onclick="viewCampaignAnalyticsFromDetail()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">analytics</i> View Analytics</button>';
+  if (c.Status === "Active" || c.Status === "Running") {
+    html += '<button class="promo-btn-warning" onclick="pauseCampaignAction(\'' + c.PromotionID + '\',-1)"><i class="material-icons" style="font-size:18px;vertical-align:middle;">pause_circle</i> Pause Campaign</button>';
+  }
+  if (c.Status === "Paused") {
+    html += '<button class="promo-btn-primary" onclick="resumeCampaignAction(\'' + c.PromotionID + '\',-1)"><i class="material-icons" style="font-size:18px;vertical-align:middle;">play_circle</i> Resume Campaign</button>';
+  }
+  if (c.Status === "Active" || c.Status === "Running" || c.Status === "Paused") {
+    html += '<button class="promo-btn-danger" onclick="stopCampaignAction(\'' + c.PromotionID + '\',-1)"><i class="material-icons" style="font-size:18px;vertical-align:middle;">stop_circle</i> Stop Campaign</button>';
+  }
+  html += '<button class="promo-btn-secondary" onclick="backToCampaignList()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back to List</button>';
+  html += '</div>';
+
+  html += '</div>'; // end promo-detail-page
+  container.innerHTML = html;
+}
+
+/* ==========================================================
+   RENDER CAMPAIGN ANALYTICS
+   ========================================================== */
+function renderCampaignAnalytics(container) {
+  var c = PROMO_SELECTED_CAMPAIGN;
+  if (!c) {
+    PROMO_VIEW = "list";
+    renderPromotionsPage();
+    return;
+  }
+
+  var poolDistributed = Math.max(0, (c.RewardPool || 0) - (c.RemainingRewardCoins || 0));
+  var ctr = c.Views > 0 ? Math.round((c.Clicks / c.Views) * 100) : 0;
+  var conversionRate = c.Views > 0 ? Math.round((c.Interested / c.Views) * 100) : 0;
+
+  var html = '<div class="promo-analytics-page">';
+
+  // Back button
+  html += '<button class="promo-btn-back" onclick="backToCampaignList()"><i class="material-icons" style="font-size:20px;vertical-align:middle;">arrow_back</i> Back to Campaigns</button>';
+
+  html += '<h2 class="promo-analytics-title">📊 Campaign Analytics</h2>';
+  html += '<p class="promo-analytics-subtitle">' + escapeHtml(c.Title || c.PromotionType + " Campaign") + ' — ' + (c.PromotionType || "") + '</p>';
+
+  // KPI Grid
+  html += '<div class="promo-kpi-grid promo-kpi-grid-lg">';
+  html += kpiCard("👁 Total Views", c.Views || 0, "#1565c0");
+  html += kpiCard("👆 Total Clicks", c.Clicks || 0, "#0f9d58");
+  html += kpiCard("❤️ Interested", c.Interested || 0, "#e65100");
+  html += kpiCard("📊 CTR", ctr + "%", "#f9a825");
+  html += kpiCard("🎁 Coins Distributed", poolDistributed, "#2e7d32");
+  html += kpiCard("💰 Remaining Pool", c.RemainingRewardCoins || 0, "#c62828");
+  html += '</div>';
+
+  // Progress Section
+  html += '<div class="promo-analytics-section">';
+  html += '<h3>Campaign Progress</h3>';
+  html += '<div class="promo-analytics-progress">';
+  html += '<div class="promo-progress-bar promo-progress-bar-xl"><div class="promo-progress-fill" style="width:' + (c.ProgressPercent || 0) + '%;background:#0f9d58;"></div></div>';
+  html += '<div class="promo-progress-labels">';
+  html += '<span>💰 Budget: ' + (c.CoinsSpent || 0) + ' coins</span>';
+  html += '<span>🎯 Progress: ' + (c.ProgressPercent || 0) + '%</span>';
+  html += '<span>📅 ' + (c.StartDate ? formatDate(c.StartDate) : "—") + ' → ' + (c.EndDate ? formatDate(c.EndDate) : "—") + '</span>';
+  html += '</div>';
+  html += '</div>';
+  html += '</div>';
+
+  // Performance Metrics
+  html += '<div class="promo-analytics-section">';
+  html += '<h3>Performance Metrics</h3>';
+  html += '<div class="promo-metrics-grid">';
+
+  // CTR Chart (simple bar chart)
+  html += '<div class="promo-metric-chart">';
+  html += '<h4>Click-Through Rate (CTR)</h4>';
+  html += '<div class="promo-chart-bar-container">';
+  html += '<div class="promo-chart-bar-label">CTR</div>';
+  html += '<div class="promo-chart-bar-track"><div class="promo-chart-bar-fill" style="width:' + Math.min(ctr, 100) + '%;background:#f9a825;"></div></div>';
+  html += '<div class="promo-chart-bar-value">' + ctr + '%</div>';
+  html += '</div>';
+  html += '<div class="promo-chart-bar-container">';
+  html += '<div class="promo-chart-bar-label">Conversion</div>';
+  html += '<div class="promo-chart-bar-track"><div class="promo-chart-bar-fill" style="width:' + Math.min(conversionRate, 100) + '%;background:#0f9d58;"></div></div>';
+  html += '<div class="promo-chart-bar-value">' + conversionRate + '%</div>';
+  html += '</div>';
+  html += '</div>';
+
+  // Distribution Chart
+  html += '<div class="promo-metric-chart">';
+  html += '<h4>Reward Distribution</h4>';
+  html += '<div class="promo-chart-bar-container">';
+  html += '<div class="promo-chart-bar-label">Distributed</div>';
+  html += '<div class="promo-chart-bar-track"><div class="promo-chart-bar-fill" style="width:' + (c.RewardPool > 0 ? Math.round((poolDistributed / c.RewardPool) * 100) : 0) + '%;background:#2e7d32;"></div></div>';
+  html += '<div class="promo-chart-bar-value">' + poolDistributed + '</div>';
+  html += '</div>';
+  html += '<div class="promo-chart-bar-container">';
+  html += '<div class="promo-chart-bar-label">Remaining</div>';
+  html += '<div class="promo-chart-bar-track"><div class="promo-chart-bar-fill" style="width:' + (c.RewardPool > 0 ? Math.round((c.RemainingRewardCoins / c.RewardPool) * 100) : 0) + '%;background:#c62828;"></div></div>';
+  html += '<div class="promo-chart-bar-value">' + (c.RemainingRewardCoins || 0) + '</div>';
+  html += '</div>';
+  html += '</div>';
+
+  html += '</div>'; // end promo-metrics-grid
+  html += '</div>';
+
+  // Summary Stats
+  html += '<div class="promo-analytics-section">';
+  html += '<h3>Campaign Summary</h3>';
+  html += '<div class="promo-summary-table">';
+  html += '<div class="promo-summary-row"><span>Total Views</span><strong>' + (c.Views || 0) + '</strong></div>';
+  html += '<div class="promo-summary-row"><span>Total Clicks</span><strong>' + (c.Clicks || 0) + '</strong></div>';
+  html += '<div class="promo-summary-row"><span>Interested Users</span><strong>' + (c.Interested || 0) + '</strong></div>';
+  html += '<div class="promo-summary-row"><span>Click-Through Rate</span><strong>' + ctr + '%</strong></div>';
+  html += '<div class="promo-summary-row"><span>Conversion Rate</span><strong>' + conversionRate + '%</strong></div>';
+  html += '<div class="promo-summary-row"><span>Coins Spent</span><strong>' + (c.CoinsSpent || 0) + '</strong></div>';
+  html += '<div class="promo-summary-row"><span>Reward Pool</span><strong>' + (c.RewardPool || 0) + '</strong></div>';
+  html += '<div class="promo-summary-row"><span>Coins Distributed</span><strong>' + poolDistributed + '</strong></div>';
+  html += '<div class="promo-summary-row"><span>Remaining Rewards</span><strong>' + (c.RemainingRewardCoins || 0) + '</strong></div>';
+  html += '<div class="promo-summary-row"><span>Cost Per View</span><strong>' + (c.Views > 0 ? Math.round((c.CoinsSpent || 0) / (c.Views || 1)) + " coins" : "—") + '</strong></div>';
+  html += '</div>';
+  html += '</div>';
+
+  html += '<div class="promo-detail-actions">';
+  html += '<button class="promo-btn-secondary" onclick="backToCampaignList()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back to Campaigns</button>';
+  html += '</div>';
+
+  html += '</div>'; // end promo-analytics-page
+  container.innerHTML = html;
+}
+
+/* ==========================================================
+   KPI CARD
+   ========================================================== */
+function kpiCard(label, value, color) {
+  var val = typeof value === "number" ? value.toLocaleString() : value;
+  return '<div class="promo-kpi-card" style="border-left:4px solid ' + color + ';">' +
+    '<div class="promo-kpi-value" style="color:' + color + ';">' + val + '</div>' +
+    '<div class="promo-kpi-label">' + label + '</div></div>';
+}
+
+/* ==========================================================
+   VIEW CAMPAIGN ANALYTICS
+   ========================================================== */
+function viewCampaignAnalytics(idx) {
+  if (idx >= 0 && idx < PROMO_CAMPAIGNS.length) {
+    PROMO_SELECTED_CAMPAIGN = PROMO_CAMPAIGNS[idx];
+    PROMO_VIEW = "analytics";
+    renderPromotionsPage();
+  }
+}
+
+function viewCampaignAnalyticsFromDetail() {
+  PROMO_VIEW = "analytics";
+  renderPromotionsPage();
+}
+
+/* ==========================================================
+   BACK TO LIST
+   ========================================================== */
+function backToCampaignList() {
+  PROMO_VIEW = "list";
+  PROMO_SELECTED_CAMPAIGN = null;
+  renderPromotionsPage();
+}
+
+/* ==========================================================
+   CAMPAIGN ACTIONS
+   ========================================================== */
+function pauseCampaignAction(id, idx) {
+  if (!confirm("Pause this campaign? It will stop delivering until resumed.")) return;
+  var url = getApiUrl() + "?action=pausepromotion&promotionId=" + encodeURIComponent(id);
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res && res.success) {
+        showToast("Campaign paused");
+        loadPromotionsData();
+      } else {
+        showToast(res.message || "Failed to pause campaign");
+      }
+    })
+    .catch(function(err) {
+      console.log("Pause error:", err);
+      showToast("Error pausing campaign");
+    });
+}
+
+function resumeCampaignAction(id, idx) {
+  if (!confirm("Resume this campaign?")) return;
+  var url = getApiUrl() + "?action=resumepromotion&promotionId=" + encodeURIComponent(id);
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res && res.success) {
+        showToast("Campaign resumed");
+        loadPromotionsData();
+      } else {
+        showToast(res.message || "Failed to resume campaign");
+      }
+    })
+    .catch(function(err) {
+      console.log("Resume error:", err);
+      showToast("Error resuming campaign");
+    });
+}
+
+function stopCampaignAction(id, idx) {
+  if (!confirm("Stop this campaign? This action cannot be undone.")) return;
+  var url = getApiUrl() + "?action=stoppromotion&promotionId=" + encodeURIComponent(id);
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (res && res.success) {
+        showToast("Campaign stopped");
+        loadPromotionsData();
+      } else {
+        showToast(res.message || "Failed to stop campaign");
+      }
+    })
+    .catch(function(err) {
+      console.log("Stop error:", err);
+      showToast("Error stopping campaign");
+    });
+}
+
+/* ==========================================================
+   CREATE CAMPAIGN WIZARD
+   ========================================================== */
+function openCreateWizard() {
+  PROMO_WIZARD_STEP = 1;
+  PROMO_WIZARD = {
+    targetType: "Product",
+    targetId: "",
+    targetTitle: "",
+    targetImage: "",
+    promotionType: "Silver",
+    radius: "51",
+    duration: "7",
+    rewardCoins: 0,
+    totalPrice: 0
+  };
+  PROMO_VIEW = "create";
+  renderPromotionsPage();
+}
+
+function renderCreateWizard(container) {
+  var html = '<div class="promo-wizard">';
+
+  // Back button
+  html += '<button class="promo-btn-back" onclick="cancelCreateWizard()"><i class="material-icons" style="font-size:20px;vertical-align:middle;">arrow_back</i> Back to Campaigns</button>';
+  html += '<h2 class="promo-wizard-title">🚀 Create Campaign</h2>';
+
+  // Step indicator
+  html += '<div class="promo-wizard-steps">';
+  var steps = [
+    { label: "Listing", icon: "inventory_2" },
+    { label: "Type", icon: "category" },
+    { label: "Radius", icon: "location_on" },
+    { label: "Duration", icon: "calendar_today" },
+    { label: "Budget", icon: "account_balance_wallet" },
+    { label: "Review", icon: "checklist" }
+  ];
+  steps.forEach(function(s, i) {
+    var stepNum = i + 1;
+    var isActive = stepNum === PROMO_WIZARD_STEP;
+    var isDone = stepNum < PROMO_WIZARD_STEP;
+    var cls = isActive ? "promo-wizard-step active" : isDone ? "promo-wizard-step done" : "promo-wizard-step";
+    html += '<div class="' + cls + '" onclick="' + (isDone ? 'goToWizardStep(' + stepNum + ')' : '') + '">';
+    html += '<div class="promo-wizard-step-icon">';
+    if (isDone) html += '<i class="material-icons">check</i>';
+    else html += '<i class="material-icons">' + s.icon + '</i>';
+    html += '</div>';
+    html += '<div class="promo-wizard-step-label">' + s.label + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  // Step content
+  html += '<div class="promo-wizard-content">';
+  html += renderWizardStep();
+  html += '</div>';
+
+  html += '</div>'; // end promo-wizard
+  container.innerHTML = html;
+
+  // Post-render setup for current step
+  setupWizardStep();
+}
+
+function renderWizardStep() {
+  var step = PROMO_WIZARD_STEP;
+  var html = "";
+
+  if (step === 1) {
+    // Step 1: Choose Listing
+    html += '<div class="promo-wizard-step-content">';
+    html += '<h3>Choose What to Promote</h3>';
+    html += '<p class="promo-wizard-desc">Select the type of listing you want to promote.</p>';
+    html += '<div class="promo-wizard-options">';
+    var types = [
+      { id: "Product", icon: "shopping_bag", desc: "Promote a product listing" },
+      { id: "Business", icon: "store", desc: "Promote your business" },
+      { id: "Property", icon: "real_estate_agent", desc: "Promote a property" }
+    ];
+    types.forEach(function(t) {
+      var sel = t.id === PROMO_WIZARD.targetType ? 'class="promo-option-card selected"' : 'class="promo-option-card"';
+      html += '<div ' + sel + ' onclick="selectWizardTargetType(\'' + t.id + '\')">';
+      html += '<div class="promo-option-icon"><i class="material-icons">' + t.icon + '</i></div>';
+      html += '<div class="promo-option-label">' + t.id + '</div>';
+      html += '<div class="promo-option-desc">' + t.desc + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    html += '<div class="promo-wizard-field" id="promoWizardTargetField" style="margin-top:15px;">';
+    html += '<label>Select your ' + PROMO_WIZARD.targetType + '</label>';
+    html += '<select id="promoWizardTargetSelect" class="promo-wizard-select" onchange="updateWizardTargetId()">';
+    html += '<option value="">Loading your ' + PROMO_WIZARD.targetType.toLowerCase() + 's...</option>';
     html += '</select>';
     html += '</div>';
-
-    html += '<div class="promo-hij-field">';
-    html += '<label>Select Item</label>';
-    html += '<select id="promoWizTargetId">';
-    if (products.length > 0) {
-      products.forEach(function(p) {
-        html += '<option value="' + p.ProductID + '">' + (p.Title || "Product") + " (₹" + (p.Price || "0") + ")</option>";
-      });
-    } else {
-      html += '<option value="">No products found</option>';
-    }
-    html += '</select>';
+    html += '<button class="promo-btn-primary promo-wizard-next" onclick="wizardNextStep()">Next: Promotion Type <i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_forward</i></button>';
     html += '</div>';
 
-    html += '<button class="promo-hij-submit" onclick="promoNextStep()">Next Step</button>';
+  } else if (step === 2) {
+    // Step 2: Promotion Type
+    html += '<div class="promo-wizard-step-content">';
+    html += '<h3>Choose Promotion Type</h3>';
+    html += '<p class="promo-wizard-desc">Select the reach and visibility level for your campaign.</p>';
+    html += '<div class="promo-wizard-options">';
+    var types = [
+      { id: "Silver", icon: "looks_one", desc: "Basic promotion — standard visibility", color: "#757575" },
+      { id: "Gold", icon: "looks_two", desc: "Better visibility — highlighted placement", color: "#f57c00" },
+      { id: "Titanium", icon: "looks_3", desc: "Maximum exposure — top placement", color: "#0f9d58" }
+    ];
+    types.forEach(function(t) {
+      var sel = t.id === PROMO_WIZARD.promotionType ? 'class="promo-option-card selected"' : 'class="promo-option-card"';
+      html += '<div ' + sel + ' onclick="selectWizardPromoType(\'' + t.id + '\')">';
+      html += '<div class="promo-option-icon" style="color:' + t.color + ';"><i class="material-icons">' + t.icon + '</i></div>';
+      html += '<div class="promo-option-label" style="color:' + t.color + ';">' + t.id + '</div>';
+      html += '<div class="promo-option-desc">' + t.desc + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    html += '<div class="promo-wizard-nav">';
+    html += '<button class="promo-btn-secondary" onclick="wizardPrevStep()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back</button>';
+    html += '<button class="promo-btn-primary promo-wizard-next" onclick="wizardNextStep()">Next: Radius <i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_forward</i></button>';
+    html += '</div>';
     html += '</div>';
 
-  } else if (PROMO_STEP === 2) {
-    // Step 2: Select Radius
-    html += '<div class="promo-hij-step">';
-    html += '<div class="promo-hij-stepTitle"><span class="promo-hij-stepNumber">2</span> Select Radius</div>';
-    html += '<p style="font-size:13px;color:#888;margin-bottom:12px;">Choose the reach of your promotion.</p>';
-
-    html += '<div class="promo-hij-field">';
+  } else if (step === 3) {
+    // Step 3: Radius
+    html += '<div class="promo-wizard-step-content">';
+    html += '<h3>Select Radius</h3>';
+    html += '<p class="promo-wizard-desc">Choose the geographic reach of your campaign.</p>';
+    html += '<div class="promo-wizard-field">';
     html += '<label>Radius</label>';
-    html += '<select id="promoWizRadius">';
+    html += '<select id="promoWizardRadius" class="promo-wizard-select" onchange="updateWizardRadius()">';
     var radii = ["1","5","10","25","51","100","All India"];
     radii.forEach(function(r) {
-      var sel = r === PROMO_SELECTIONS.radius ? "selected" : "";
-      html += '<option value="' + r + '" ' + sel + '>' + r + ' KM</option>';
+      var sel = r === PROMO_WIZARD.radius ? "selected" : "";
+      var label = r === "All India" ? "All India" : r + " KM";
+      html += '<option value="' + r + '" ' + sel + '>' + label + '</option>';
     });
     html += '</select>';
     html += '</div>';
-
-    html += '<button class="promo-hij-submit" onclick="promoNextStep()">Next Step</button>';
-    html += '<button class="productCard-btnSecondary" onclick="promoPrevStep()" style="width:100%;margin-top:8px;">Back</button>';
+    html += '<div class="promo-wizard-nav">';
+    html += '<button class="promo-btn-secondary" onclick="wizardPrevStep()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back</button>';
+    html += '<button class="promo-btn-primary promo-wizard-next" onclick="wizardNextStep()">Next: Duration <i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_forward</i></button>';
+    html += '</div>';
     html += '</div>';
 
-  } else if (PROMO_STEP === 3) {
-    // Step 3: Select Duration
-    html += '<div class="promo-hij-step">';
-    html += '<div class="promo-hij-stepTitle"><span class="promo-hij-stepNumber">3</span> Select Duration</div>';
-    html += '<p style="font-size:13px;color:#888;margin-bottom:12px;">How long should your promotion run?</p>';
-
-    html += '<div class="promo-hij-field">';
+  } else if (step === 4) {
+    // Step 4: Duration
+    html += '<div class="promo-wizard-step-content">';
+    html += '<h3>Select Duration</h3>';
+    html += '<p class="promo-wizard-desc">How long should your campaign run?</p>';
+    html += '<div class="promo-wizard-field">';
     html += '<label>Duration</label>';
-    html += '<select id="promoWizDuration">';
+    html += '<select id="promoWizardDuration" class="promo-wizard-select" onchange="updateWizardDuration()">';
     var durations = [
       { value: "1", label: "1 Day" },
       { value: "3", label: "3 Days" },
@@ -142,289 +930,389 @@ function renderPromotionWizard(products) {
       { value: "30", label: "30 Days" }
     ];
     durations.forEach(function(d) {
-      var sel = d.value === PROMO_SELECTIONS.duration ? "selected" : "";
-      html += '<option value="' + d.value + '" ' + sel + '>' + d.label + "</option>";
+      var sel = d.value === PROMO_WIZARD.duration ? "selected" : "";
+      html += '<option value="' + d.value + '" ' + sel + '>' + d.label + '</option>';
     });
     html += '</select>';
     html += '</div>';
-
-    html += '<button class="promo-hij-submit" onclick="promoNextStep()">Next Step</button>';
-    html += '<button class="productCard-btnSecondary" onclick="promoPrevStep()" style="width:100%;margin-top:8px;">Back</button>';
+    html += '<div class="promo-wizard-nav">';
+    html += '<button class="promo-btn-secondary" onclick="wizardPrevStep()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back</button>';
+    html += '<button class="promo-btn-primary promo-wizard-next" onclick="wizardNextStep()">Next: Budget <i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_forward</i></button>';
+    html += '</div>';
     html += '</div>';
 
-  } else if (PROMO_STEP === 4) {
-    // Step 4: Select Promotion Type
-    html += '<div class="promo-hij-step">';
-    html += '<div class="promo-hij-stepTitle"><span class="promo-hij-stepNumber">4</span> Select Promotion Type</div>';
-    html += '<p style="font-size:13px;color:#888;margin-bottom:12px;">Choose your promotion tier.</p>';
-
-    var types = [
-      { id: "Silver", name: "Silver", desc: "Basic promotion — standard visibility", color: "#888" },
-      { id: "Gold", name: "Gold", desc: "Better visibility — highlighted placement", color: "#f57c00" },
-      { id: "Titanium", name: "Titanium", desc: "Maximum exposure — top placement", color: "#0f9d58" }
-    ];
-
-    types.forEach(function(t) {
-      var sel = t.id === PROMO_SELECTIONS.promotionType ? 'border:2px solid ' + t.color + ';' : 'border:1px solid #ddd;';
-      html += '<div onclick="selectPromoType(\'' + t.id + '\')" style="' + sel + 'padding:14px;border-radius:12px;margin-bottom:8px;cursor:pointer;background:#f9f9f9;">';
-      html += '<h4 style="color:' + t.color + ';margin:0 0 4px;">' + t.name + '</h4>';
-      html += '<p style="font-size:12px;color:#888;margin:0;">' + t.desc + '</p></div>';
-    });
-
-    html += '<button class="promo-hij-submit" onclick="promoNextStep()" style="margin-top:12px;">Next Step</button>';
-    html += '<button class="productCard-btnSecondary" onclick="promoPrevStep()" style="width:100%;margin-top:8px;">Back</button>';
+  } else if (step === 5) {
+    // Step 5: Budget Summary
+    var price = calculateWizardPrice();
+    var rewardPool = Math.floor(price * PROMO_POOL_RATIO);
+    html += '<div class="promo-wizard-step-content">';
+    html += '<h3>Budget Summary</h3>';
+    html += '<p class="promo-wizard-desc">Review the cost of your campaign.</p>';
+    html += '<div class="promo-wizard-budget">';
+    html += '<div class="promo-budget-card">';
+    html += '<div class="promo-budget-row"><span>Promotion Type</span><strong>' + PROMO_WIZARD.promotionType + '</strong></div>';
+    html += '<div class="promo-budget-row"><span>Radius</span><strong>' + (PROMO_WIZARD.radius === "All India" ? "All India" : PROMO_WIZARD.radius + " KM") + '</strong></div>';
+    html += '<div class="promo-budget-row"><span>Duration</span><strong>' + PROMO_WIZARD.duration + ' day(s)</strong></div>';
+    html += '<div class="promo-budget-divider"></div>';
+    html += '<div class="promo-budget-row"><span>Base Price</span><strong>' + getBasePrice() + ' coins/day</strong></div>';
+    html += '<div class="promo-budget-row"><span>Duration Multiplier</span><strong>' + PROMO_WIZARD.duration + 'x</strong></div>';
+    html += '<div class="promo-budget-divider"></div>';
+    html += '<div class="promo-budget-row promo-budget-total"><span>Total Cost</span><strong class="promo-budget-amount">' + price + ' coins</strong></div>';
+    html += '<div class="promo-budget-row"><span>Reward Pool (70%)</span><strong>' + rewardPool + ' coins</strong></div>';
+    html += '<div class="promo-budget-row"><span>Current Balance</span><strong>' + PROMO_WALLET_BALANCE + ' coins</strong></div>';
+    if (PROMO_WALLET_BALANCE < price) {
+      html += '<div class="promo-budget-warning"><i class="material-icons" style="font-size:16px;vertical-align:middle;">warning</i> Insufficient balance! You need ' + (price - PROMO_WALLET_BALANCE) + ' more coins.</div>';
+    }
+    html += '</div>';
+    html += '</div>';
+    html += '<div class="promo-wizard-nav">';
+    html += '<button class="promo-btn-secondary" onclick="wizardPrevStep()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back</button>';
+    html += '<button class="promo-btn-primary promo-wizard-next" onclick="wizardNextStep()">Next: Review <i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_forward</i></button>';
+    html += '</div>';
     html += '</div>';
 
-  } else if (PROMO_STEP === 5) {
-    // Step 5: Calculate Cost
-    html += '<div class="promo-hij-step">';
-    html += '<div class="promo-hij-stepTitle"><span class="promo-hij-stepNumber">5</span> Calculate Cost</div>';
-
-    var calcUrl = getApiUrl() +
-      "?action=calculatepromotionprice" +
-      "&promotionType=" + encodeURIComponent(PROMO_SELECTIONS.promotionType) +
-      "&radius=" + encodeURIComponent(PROMO_SELECTIONS.radius) +
-      "&duration=" + encodeURIComponent(PROMO_SELECTIONS.duration);
-
-    html += '<div id="promoPriceDisplay">';
-    html += '<p style="font-size:13px;color:#888;">Calculating price...</p>';
+  } else if (step === 6) {
+    // Step 6: Review & Launch
+    var price = calculateWizardPrice();
+    var rewardPool = Math.floor(price * PROMO_POOL_RATIO);
+    html += '<div class="promo-wizard-step-content">';
+    html += '<h3>Review & Launch</h3>';
+    html += '<p class="promo-wizard-desc">Review your campaign details before launching.</p>';
+    html += '<div class="promo-wizard-review">';
+    html += '<div class="promo-review-card">';
+    html += '<h4>Campaign Summary</h4>';
+    html += '<div class="promo-review-row"><span>Target</span><strong>' + PROMO_WIZARD.targetType + '</strong></div>';
+    html += '<div class="promo-review-row"><span>Target ID</span><strong>' + (PROMO_WIZARD.targetId || "—") + '</strong></div>';
+    html += '<div class="promo-review-row"><span>Promotion Type</span><strong>' + PROMO_WIZARD.promotionType + '</strong></div>';
+    html += '<div class="promo-review-row"><span>Radius</span><strong>' + (PROMO_WIZARD.radius === "All India" ? "All India" : PROMO_WIZARD.radius + " KM") + '</strong></div>';
+    html += '<div class="promo-review-row"><span>Duration</span><strong>' + PROMO_WIZARD.duration + ' day(s)</strong></div>';
+    html += '<div class="promo-review-row promo-review-total"><span>Total Cost</span><strong class="promo-review-amount">' + price + ' coins</strong></div>';
+    html += '<div class="promo-review-row"><span>Reward Pool</span><strong>' + rewardPool + ' coins</strong></div>';
+    if (PROMO_WALLET_BALANCE < price) {
+      html += '<div class="promo-budget-warning"><i class="material-icons" style="font-size:16px;vertical-align:middle;">warning</i> Insufficient balance!</div>';
+    }
     html += '</div>';
-
-    html += '<button class="promo-hij-submit" onclick="promoNextStep()" style="margin-top:12px;" id="promoNextBtn5">Next Step</button>';
-    html += '<button class="productCard-btnSecondary" onclick="promoPrevStep()" style="width:100%;margin-top:8px;">Back</button>';
     html += '</div>';
+    html += '<div class="promo-wizard-nav">';
+    html += '<button class="promo-btn-secondary" onclick="wizardPrevStep()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back</button>';
+    html += '<button class="promo-btn-primary promo-wizard-launch" onclick="launchCampaign()" ' + (PROMO_WALLET_BALANCE < price ? 'disabled style="opacity:0.5;"' : '') + '>';
+    html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">rocket_launch</i> Launch Campaign</button>';
+    html += '</div>';
+    html += '</div>';
+  }
 
-    container.innerHTML = html;
+  return html;
+}
 
-    // Fetch price
-    fetch(calcUrl)
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        var display = document.getElementById("promoPriceDisplay");
-        if (display && res && res.success && res.data) {
-          PROMO_SELECTIONS.totalPrice = res.data.totalPrice;
-          display.innerHTML = '<div class="promo-hij-summary">' +
-            '<p><strong>Type:</strong> ' + res.data.promotionType + '</p>' +
-            '<p><strong>Radius:</strong> ' + res.data.radius + ' KM</p>' +
-            '<p><strong>Duration:</strong> ' + res.data.duration + ' day(s)</p>' +
-            '<h2 style="color:var(--primary);margin-top:10px;">' + res.data.totalPrice + ' Coins</h2>' +
-            '</div>';
-        } else if (display) {
-          display.innerHTML = '<p style="color:#c62828;">Error calculating price</p>';
-        }
-      })
-      .catch(function(err) {
-        console.log("Price calc error:", err);
+/* ==========================================================
+   WIZARD NAVIGATION
+   ========================================================== */
+function wizardNextStep() {
+  // Validate current step
+  if (PROMO_WIZARD_STEP === 1) {
+    if (!PROMO_WIZARD.targetId) {
+      showToast("Please select a " + PROMO_WIZARD.targetType.toLowerCase() + " to promote");
+      return;
+    }
+  }
+  if (PROMO_WIZARD_STEP < 6) {
+    PROMO_WIZARD_STEP++;
+    renderPromotionsPage();
+  }
+}
+
+function wizardPrevStep() {
+  if (PROMO_WIZARD_STEP > 1) {
+    PROMO_WIZARD_STEP--;
+    renderPromotionsPage();
+  }
+}
+
+function goToWizardStep(step) {
+  if (step >= 1 && step <= 6 && step < PROMO_WIZARD_STEP) {
+    PROMO_WIZARD_STEP = step;
+    renderPromotionsPage();
+  }
+}
+
+function cancelCreateWizard() {
+  PROMO_VIEW = "list";
+  renderPromotionsPage();
+}
+
+/* ==========================================================
+   WIZARD SELECTION HANDLERS
+   ========================================================== */
+function selectWizardTargetType(type) {
+  PROMO_WIZARD.targetType = type;
+  PROMO_WIZARD.targetId = "";
+  PROMO_WIZARD.targetTitle = "";
+  PROMO_WIZARD.targetImage = "";
+  renderPromotionsPage();
+  // Load user's items for this type
+  loadUserItemsForTarget();
+}
+
+function selectWizardPromoType(type) {
+  PROMO_WIZARD.promotionType = type;
+  renderPromotionsPage();
+}
+
+function updateWizardRadius() {
+  var el = document.getElementById("promoWizardRadius");
+  if (el) PROMO_WIZARD.radius = el.value;
+}
+
+function updateWizardDuration() {
+  var el = document.getElementById("promoWizardDuration");
+  if (el) PROMO_WIZARD.duration = el.value;
+}
+
+function updateWizardTargetId() {
+  var el = document.getElementById("promoWizardTargetSelect");
+  if (el) {
+    var val = el.value;
+    var text = el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : "";
+    PROMO_WIZARD.targetId = val;
+    PROMO_WIZARD.targetTitle = text;
+  }
+}
+
+/* ==========================================================
+   WIZARD SETUP (post-render)
+   ========================================================== */
+function setupWizardStep() {
+  if (PROMO_WIZARD_STEP === 1) {
+    loadUserItemsForTarget();
+  }
+}
+
+function loadUserItemsForTarget() {
+  var userId = getUserId();
+  if (!userId) return;
+
+  var targetType = PROMO_WIZARD.targetType;
+  var action = targetType === "Product" ? "products" : targetType === "Business" ? "businesses" : "properties";
+
+  var url = getApiUrl() + "?action=" + action + "&userId=" + encodeURIComponent(userId);
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      var select = document.getElementById("promoWizardTargetSelect");
+      if (!select) return;
+      var items = [];
+      if (res && res.success && res.data) {
+        items = res.data.data || res.data || [];
+      }
+      if (items.length === 0) {
+        select.innerHTML = '<option value="">No ' + targetType.toLowerCase() + 's found</option>';
+        return;
+      }
+      var html = '<option value="">Select a ' + targetType.toLowerCase() + '...</option>';
+      items.forEach(function(item) {
+        var id = item.ProductID || item.BusinessID || item.PropertyID || "";
+        var title = item.Title || item.Name || item.BusinessName || "Untitled";
+        html += '<option value="' + id + '">' + escapeHtml(title) + '</option>';
       });
+      select.innerHTML = html;
 
-    return;
-
-  } else if (PROMO_STEP === 6) {
-    // Step 6: Confirm & Activate
-    html += '<div class="promo-hij-step">';
-    html += '<div class="promo-hij-stepTitle"><span class="promo-hij-stepNumber">6</span> Confirm & Activate</div>';
-
-    html += '<div class="promo-hij-summary">';
-    html += '<p><strong>Target:</strong> ' + PROMO_SELECTIONS.targetType + ' (' + PROMO_SELECTIONS.targetId + ')</p>';
-    html += '<p><strong>Type:</strong> ' + PROMO_SELECTIONS.promotionType + '</p>';
-    html += '<p><strong>Radius:</strong> ' + PROMO_SELECTIONS.radius + ' KM</p>';
-    html += '<p><strong>Duration:</strong> ' + PROMO_SELECTIONS.duration + ' day(s)</p>';
-    html += '<h2 style="color:var(--primary);margin-top:10px;">Total: ' + PROMO_SELECTIONS.totalPrice + ' Coins</h2>';
-    html += '</div>';
-
-    html += '<button class="promo-hij-submit" onclick="activatePromotion()" style="background:#e65100;">Activate Campaign</button>';
-    html += '<button class="productCard-btnSecondary" onclick="promoPrevStep()" style="width:100%;margin-top:8px;">Back</button>';
-    html += '</div>';
-  }
-
-  html += '</div>'; // promo-hij-wizard
-  container.innerHTML = html;
+      // Auto-select if only one
+      if (items.length === 1) {
+        select.value = items[0].ProductID || items[0].BusinessID || items[0].PropertyID || "";
+        PROMO_WIZARD.targetId = select.value;
+        PROMO_WIZARD.targetTitle = items[0].Title || items[0].Name || items[0].BusinessName || "Untitled";
+      }
+    })
+    .catch(function(err) {
+      console.log("loadUserItems error:", err);
+      var select = document.getElementById("promoWizardTargetSelect");
+      if (select) {
+        select.innerHTML = '<option value="">Error loading items</option>';
+      }
+    });
 }
 
-
-/*
-============================================================
-PROMOTION WIZARD NAVIGATION (Preserved)
-============================================================
-*/
-
-function promoNextStep() {
-  // Save selections
-  if (PROMO_STEP === 1) {
-    var targetType = document.getElementById("promoWizTargetType");
-    var targetId = document.getElementById("promoWizTargetId");
-    if (targetType) PROMO_SELECTIONS.targetType = targetType.value;
-    if (targetId) PROMO_SELECTIONS.targetId = targetId.value;
-  } else if (PROMO_STEP === 2) {
-    var radius = document.getElementById("promoWizRadius");
-    if (radius) PROMO_SELECTIONS.radius = radius.value;
-  } else if (PROMO_STEP === 3) {
-    var duration = document.getElementById("promoWizDuration");
-    if (duration) PROMO_SELECTIONS.duration = duration.value;
-  }
-
-  PROMO_STEP++;
-  renderPromotionWizard([]);
+/* ==========================================================
+   PRICE CALCULATION
+   ========================================================== */
+function getBasePrice() {
+  var prices = PROMO_PRICES[PROMO_WIZARD.promotionType];
+  if (!prices) return 0;
+  return prices[PROMO_WIZARD.radius] || 0;
 }
 
-
-function promoPrevStep() {
-  PROMO_STEP--;
-  if (PROMO_STEP < 1) PROMO_STEP = 1;
-  renderPromotionWizard([]);
+function calculateWizardPrice() {
+  var basePrice = getBasePrice();
+  if (basePrice === 0) return 0;
+  var multiplier = PROMO_DURATION_MULTIPLIER[PROMO_WIZARD.duration] || 1;
+  return basePrice * multiplier;
 }
 
-
-function selectPromoType(type) {
-  PROMO_SELECTIONS.promotionType = type;
-  renderPromotionWizard([]);
-}
-
-
-/*
-============================================================
-ACTIVATE PROMOTION (Preserved — canonical economy logic)
-============================================================
-*/
-
-function activatePromotion() {
+/* ==========================================================
+   LAUNCH CAMPAIGN
+   ========================================================== */
+function launchCampaign() {
   var userId = getUserId();
   if (!userId) {
     requireLogin();
     return;
   }
 
-  var url = getApiUrl() +
-    "?action=createpromotion" +
-    "&userId=" + encodeURIComponent(userId) +
-    "&promotionType=" + encodeURIComponent(PROMO_SELECTIONS.promotionType) +
-    "&targetType=" + encodeURIComponent(PROMO_SELECTIONS.targetType) +
-    "&targetId=" + encodeURIComponent(PROMO_SELECTIONS.targetId) +
-    "&radius=" + encodeURIComponent(PROMO_SELECTIONS.radius) +
-    "&duration=" + encodeURIComponent(PROMO_SELECTIONS.duration);
-
-  fetch(url)
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
-      if (res && res.success) {
-        alert("Promotion activated successfully! Coins spent: " + (res.data ? res.data.coinsSpent : ""));
-        PROMO_STEP = 1;
-        openPage("dashboard");
-      } else {
-        alert(res.message || "Failed to create promotion");
-      }
-    })
-    .catch(function(err) {
-      console.log("Activate promotion error:", err);
-      alert("Error creating promotion");
-    });
-}
-
-
-/*
-============================================================
-LOAD MY PROMOTIONS — Stage 4HIJ Redesign
-============================================================
-*/
-
-function loadMyPromotions() {
-  var userId = getUserId();
-  if (!userId) return;
-
-  var container = document.getElementById("myPromotionsList");
-  if (!container) return;
-
-  container.innerHTML = '<div class="hij-loading"><i class="material-icons">trending_up</i><p>Loading promotions...</p></div>';
-
-  var url = getApiUrl() + "?action=getuserpromotions&userId=" + encodeURIComponent(userId);
-
-  fetch(url)
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
-      if (res && res.success && res.data) {
-        renderMyPromotions(res.data);
-      } else {
-        container.innerHTML = '<div class="hij-empty"><i class="material-icons">trending_up</i><p>No promotions yet</p></div>';
-      }
-    })
-    .catch(function(err) {
-      console.log("My promotions error:", err);
-      container.innerHTML = '<div class="hij-error"><i class="material-icons">error_outline</i><p>Error loading promotions</p></div>';
-    });
-}
-
-
-/*
-============================================================
-RENDER MY PROMOTIONS — Stage 4HIJ Redesign
-============================================================
-*/
-
-function renderMyPromotions(data) {
-  var container = document.getElementById("myPromotionsList");
-  if (!container) return;
-
-  var promotions = data.data || [];
-
-  if (promotions.length === 0) {
-    container.innerHTML = '<div class="hij-empty"><i class="material-icons">trending_up</i><p>No promotions yet</p></div>';
+  var totalPrice = calculateWizardPrice();
+  if (totalPrice <= 0) {
+    showToast("Invalid campaign cost");
     return;
   }
 
-  var html = "";
-  promotions.forEach(function(p) {
-    var status = p.Status || "";
-    var statusClass = "";
-    if (status === "Active") statusClass = "active";
-    else if (status === "Pending") statusClass = "pending";
-    else if (status === "Stopped" || status === "Expired" || status === "Completed") statusClass = "completed";
+  if (PROMO_WALLET_BALANCE < totalPrice) {
+    showToast("Insufficient balance. Please add more coins to your wallet.");
+    openPage("wallet");
+    return;
+  }
 
-    html += '<div class="promotion-hij-card">';
-    html += '<div class="promotion-hij-header">';
-    html += '<div class="promotion-hij-title">' + (p.PromotionType || "Promotion") + ' — ' + (p.TargetType || "") + '</div>';
-    html += '<span class="promotion-hij-status ' + statusClass + '">' + status + '</span>';
-    html += '</div>';
+  var url = getApiUrl() +
+    "?action=createpromotion" +
+    "&userId=" + encodeURIComponent(userId) +
+    "&promotionType=" + encodeURIComponent(PROMO_WIZARD.promotionType) +
+    "&targetType=" + encodeURIComponent(PROMO_WIZARD.targetType) +
+    "&targetId=" + encodeURIComponent(PROMO_WIZARD.targetId) +
+    "&radius=" + encodeURIComponent(PROMO_WIZARD.radius) +
+    "&duration=" + encodeURIComponent(PROMO_WIZARD.duration);
 
-    html += '<div class="promotion-hij-details">';
-    html += '<span>📍 Radius: ' + (p.Radius || "") + ' KM</span>';
-    html += '<span>📅 Duration: ' + (p.Duration || "") + ' day(s)</span>';
-    html += '<span>💰 Spent: ' + (p.CoinsSpent || "0") + ' coins</span>';
-    html += '</div>';
-
-    html += '<div class="promotion-hij-meta">' + (p.CreatedDate || "") + '</div>';
-
-    if (status === "Active") {
-      html += '<button class="btn-danger" onclick="stopPromotion(\'' + p.PromotionID + '\')" style="margin-top:8px;font-size:12px;padding:8px;">Stop Promotion</button>';
-    }
-
-    html += '</div>';
-  });
-
-  container.innerHTML = html;
-}
-
-
-/*
-============================================================
-STOP PROMOTION (Preserved)
-============================================================
-*/
-
-function stopPromotion(promotionId) {
-  if (!confirm("Are you sure you want to stop this promotion?")) return;
-
-  var url = getApiUrl() + "?action=stoppromotion&promotionId=" + encodeURIComponent(promotionId);
+  // Show launching state
+  var container = document.getElementById("promotionsContent");
+  if (container) {
+    container.innerHTML = '<div class="promo-loading-state"><i class="material-icons" style="font-size:48px;">rocket_launch</i><h3>Launching Campaign...</h3><p>Please wait while we process your campaign.</p></div>';
+  }
 
   fetch(url)
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res && res.success) {
-        loadMyPromotions();
+        showToast("Campaign launched successfully! 🎉");
+        PROMO_WIZARD_STEP = 1;
+        PROMO_VIEW = "list";
+        loadPromotionsData();
       } else {
-        alert(res.message || "Failed to stop promotion");
+        showToast(res.message || "Failed to launch campaign");
+        PROMO_VIEW = "create";
+        renderPromotionsPage();
       }
     })
     .catch(function(err) {
-      console.log("Stop promotion error:", err);
+      console.log("Launch campaign error:", err);
+      showToast("Error launching campaign");
+      PROMO_VIEW = "create";
+      renderPromotionsPage();
     });
+}
+
+/* ==========================================================
+   EMPTY STATE
+   ========================================================== */
+function renderEmptyState() {
+  var html = '<div class="promo-empty-state">';
+  html += '<div class="promo-empty-icon"><i class="material-icons" style="font-size:64px;">campaign</i></div>';
+  html += '<h3>Promote Your First Listing</h3>';
+  html += '<p>Get more visibility for your products, businesses, and properties. Reach more customers and grow your presence on Ekka1km.</p>';
+  html += '<ul class="promo-benefits-list">';
+  html += '<li><i class="material-icons" style="font-size:18px;color:#0f9d58;">visibility</i> Increased visibility in search results</li>';
+  html += '<li><i class="material-icons" style="font-size:18px;color:#0f9d58;">location_on</i> Targeted reach based on location</li>';
+  html += '<li><i class="material-icons" style="font-size:18px;color:#0f9d58;">trending_up</i> Real-time performance analytics</li>';
+  html += '<li><i class="material-icons" style="font-size:18px;color:#0f9d58;">redeem</i> Reward viewers with coins</li>';
+  html += '</ul>';
+  html += '<button class="promo-btn-primary promo-btn-lg" onclick="openCreateWizard()"><i class="material-icons" style="font-size:20px;vertical-align:middle;">add_circle</i> Create Campaign</button>';
+  html += '<button class="promo-btn-secondary promo-btn-lg" onclick="openPage(\'myContent\')" style="margin-top:10px;"><i class="material-icons" style="font-size:20px;vertical-align:middle;">folder</i> Browse My Listings</button>';
+  html += '</div>';
+  return html;
+}
+
+/* ==========================================================
+   LOADING SKELETON
+   ========================================================== */
+function renderSkeleton(container) {
+  var html = '<div class="promo-skeleton-grid">';
+  for (var i = 0; i < 6; i++) {
+    html += '<div class="promo-skeleton-card"><div class="promo-skeleton-shimmer"></div></div>';
+  }
+  html += '</div>';
+  html += '<div class="promo-skeleton-list">';
+  for (var j = 0; j < 3; j++) {
+    html += '<div class="promo-skeleton-item"><div class="promo-skeleton-shimmer"></div></div>';
+  }
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+/* ==========================================================
+   ERROR STATE
+   ========================================================== */
+function renderError(container) {
+  var html = '<div class="promo-error-state">';
+  html += '<div class="promo-error-icon"><i class="material-icons" style="font-size:64px;color:#c62828;">error_outline</i></div>';
+  html += '<h3>Something went wrong</h3>';
+  html += '<p>' + (PROMO_ERROR || "Failed to load promotions. Please try again.") + '</p>';
+  html += '<button class="promo-btn-primary" onclick="loadPromotionsData()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">refresh</i> Retry</button>';
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+/* ==========================================================
+   TOAST NOTIFICATION
+   ========================================================== */
+function showToast(message) {
+  var existing = document.getElementById("promoToast");
+  if (existing) existing.remove();
+
+  var toast = document.createElement("div");
+  toast.id = "promoToast";
+  toast.style.cssText = "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 24px;border-radius:12px;font-size:14px;z-index:999999;box-shadow:0 4px 20px rgba(0,0,0,0.3);max-width:90%;text-align:center;animation:promoFadeIn 0.3s;";
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(function() {
+    toast.style.opacity = "0";
+    toast.style.transition = "opacity 0.3s";
+    setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+  }, 3000);
+}
+
+/* ==========================================================
+   UTILITY FUNCTIONS
+   ========================================================== */
+function formatDate(dateStr) {
+  if (!dateStr) return "—";
+  try {
+    var d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  } catch (e) {
+    return dateStr;
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  var s = String(str);
+  var amp = String.fromCharCode(38) + "amp;";
+  var lt = String.fromCharCode(38) + "lt;";
+  var gt = String.fromCharCode(38) + "gt;";
+  var qt = String.fromCharCode(38) + "quot;";
+  var ap = String.fromCharCode(38) + "#39;";
+  return s.replace(/&/g, amp).replace(/</g, lt).replace(/>/g, gt).replace(/"/g, qt).replace(/'/g, ap);
+}
+
+/* ==========================================================
+   BACKWARD COMPATIBILITY
+   Preserve old function names so existing navigation works
+   ========================================================== */
+function openPromotionWizard() {
+  openPromotionsPage();
+}
+
+function loadMyPromotions() {
+  // This is now handled by loadPromotionsData
+  // Keep for backward compatibility
+  if (document.getElementById("promotionsContent")) {
+    openPromotionsPage();
+  }
 }
