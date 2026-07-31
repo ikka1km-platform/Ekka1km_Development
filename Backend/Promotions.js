@@ -213,7 +213,8 @@ function createPromotion(e) {
     } else if (targetType === "Business") {
       var business = getRowById("Businesses", "BusinessID", targetId);
       if (!business) return error("Business not found");
-      if (String(business.UserID) !== String(userId)) return error("You can only promote your own businesses");
+      var ownerId = business.UserID || business.OwnerUserID || "";
+      if (String(ownerId) !== String(userId)) return error("You can only promote your own businesses");
     } else if (targetType === "Property") {
       var property = getRowById("Properties", "PropertyID", targetId);
       if (!property) return error("Property not found");
