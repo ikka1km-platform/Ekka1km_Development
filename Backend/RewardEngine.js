@@ -1,6 +1,7 @@
 /**
  * ============================================================
- * Reward Engine V4.2.2 FINAL
+ * Reward Engine V4.2.3
+ * Promotion Economy V2 - Wallet Foundation Integration
  * ============================================================
  */
 
@@ -62,6 +63,191 @@ function getReward(e) {
 
   } catch (err) {
     return exception(err);
+  }
+}
+
+
+/**
+ * ============================================================
+ * VALIDATE REWARD PAYOUT
+ * Promotion Economy V2 - Wallet Foundation Integration
+ * Validates reward amount and wallet state before payout
+ * ============================================================
+ */
+function validateRewardPayout(userId, rewardAmount) {
+  // Validate reward amount
+  if (!userId || rewardAmount <= 0) {
+    return {
+      valid: false,
+      error: "Invalid reward parameters",
+      code: "INVALID_REWARD"
+    };
+  }
+
+  // Validate wallet exists
+  const wallet = getWalletRow(userId);
+  if (!wallet) {
+    return {
+      valid: false,
+      error: "Wallet not found",
+      code: "WALLET_NOT_FOUND"
+    };
+  }
+
+  // Validate current balance
+  const currentBalance = Number(wallet.Balance || 0);
+  
+  // Calculate what balance would be after credit (always positive for credit)
+  const afterCredit = currentBalance + rewardAmount;
+  
+  if (afterCredit < 0) {
+    return {
+      valid: false,
+      error: "Reward would result in negative balance",
+      code: "NEGATIVE_BALANCE"
+    };
+  }
+
+  return {
+    valid: true,
+    currentBalance: currentBalance,
+    afterCredit: afterCredit,
+    rewardAmount: rewardAmount
+  };
+}
+
+
+/**
+ * ============================================================
+ * VALIDATE CAMPAIGN FUEL
+ * Promotion Economy V2 - Wallet Foundation Integration
+ * Validates campaign has enough PromotionFuel for reward
+ * ============================================================
+ */
+function validateCampaignFuel(campaignId, requiredFuel) {
+  if (!campaignId || requiredFuel <= 0) {
+    return {
+      valid: false,
+      error: "Invalid campaign or fuel amount",
+      code: "INVALID_CAMPAIGN_FUEL"
+    };
+  }
+
+  const campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
+  if (!campaign) {
+    return {
+      valid: false,
+      error: "Campaign not found",
+      code: "CAMPAIGN_NOT_FOUND"
+    };
+  }
+
+  const remainingFuel = Number(campaign.RemainingFuel || campaign.RemainingRewardPool || 0);
+  
+  if (remainingFuel <= 0) {
+    return {
+      valid: false,
+      error: "Campaign fuel exhausted",
+      code: "FUEL_EXHAUSTED",
+      remainingFuel: 0
+    };
+  }
+
+  if (remainingFuel < requiredFuel) {
+    return {
+      valid: false,
+      error: "Insufficient campaign fuel. Required: " + requiredFuel + ", Available: " + remainingFuel,
+      code: "INSUFFICIENT_FUEL",
+      remainingFuel: remainingFuel,
+      shortfall: requiredFuel - remainingFuel
+    };
+  }
+
+  return {
+    valid: true,
+    remainingFuel: remainingFuel,
+    afterDeduction: remainingFuel - requiredFuel,
+    required: requiredFuel
+  };
+}
+
+
+/**
+ * ============================================================
+ * CLAIM CAMPAIGN REWARD
+ * Promotion Economy V2 - Wallet Foundation Integration
+ * Coordinates wallet credit, campaign fuel deduction, and transaction logging
+ * ============================================================
+ */
+function claimCampaignReward(userId, campaignId, rewardAmount, reason) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+
+  try {
+    
+    // 1. Validate reward payout
+    const rewardValidation = validateRewardPayout(userId, rewardAmount);
+    if (!rewardValidation.valid) {
+      return error(rewardValidation.error);
+    }
+
+    // 2. Validate campaign fuel
+    const fuelValidation = validateCampaignFuel(campaignId, rewardAmount);
+    if (!fuelValidation.valid) {
+      return error(fuelValidation.error);
+    }
+
+    // 3. Get campaign for logging
+    const campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
+
+    // 4. Credit wallet (reuses existing creditWallet function)
+    const wallet = getWalletRow(userId);
+    const beforeBalance = Number(wallet.Balance || 0);
+    const afterBalance = beforeBalance + rewardAmount;
+
+    const walletOk = creditWallet(
+      userId,
+      rewardAmount,
+      campaignId,
+      reason || "Campaign Reward"
+    );
+
+    if (!walletOk) {
+      return error("Wallet not found or credit failed");
+    }
+
+    // 5. Update campaign RemainingFuel (V2)
+    const newRemainingFuel = fuelValidation.afterDeduction;
+    updateRow("PromotionCampaigns", "CampaignID", campaignId, {
+      RemainingFuel: newRemainingFuel,
+      RemainingRewardCoins: newRemainingFuel, // Legacy alias
+      CoinsConsumed: Number(campaign.CoinsConsumed || 0) + rewardAmount,
+      TotalRewardPaid: Number(campaign.TotalRewardPaid || 0) + rewardAmount,
+      RewardedUsersCount: Number(campaign.RewardedUsersCount || 0) + 1,
+      Views: Number(campaign.Views || 0) + 1
+    });
+
+    // 6. Determine campaign status
+    const completedStatus = newRemainingFuel <= 0 ? "Completed" : "Active";
+
+    updateRow("PromotionCampaigns", "CampaignID", campaignId, {
+      Status: completedStatus
+    });
+
+    return success({
+      userId: userId,
+      campaignId: campaignId,
+      coinsEarned: rewardAmount,
+      beforeBalance: beforeBalance,
+      afterBalance: afterBalance,
+      remainingFuel: newRemainingFuel,
+      campaignStatus: completedStatus
+    }, "Reward claimed: " + rewardAmount + " coins");
+
+  } catch (err) {
+    return exception(err);
+  } finally {
+    lock.releaseLock();
   }
 }
 
@@ -265,6 +451,12 @@ function claimReward(e) {
       newCoins = remaining;
     }
 
+    // Wallet Foundation Integration: Validate reward payout
+    const walletValidation = validateRewardPayout(userId, newCoins);
+    if (!walletValidation.valid) {
+      return error(walletValidation.error);
+    }
+
     const walletOk =
       creditWallet(
         userId,
@@ -392,4 +584,3 @@ function disableAdRewards(adId) {
     }
   );
 }
-
