@@ -98,9 +98,15 @@ function updateWallet(e) {
       return error("Wallet not found");
     }
 
+    const currentBalance =
+      Number(wallet.Balance || 0);
     const newBalance =
-      Number(wallet.Balance || 0)
-      + amount;
+      currentBalance + amount;
+
+    // Negative balance protection
+    if (newBalance < 0) {
+      return error("Insufficient balance. Current: " + currentBalance + ", Required: " + Math.abs(amount));
+    }
 
     updateRow(
       "Wallet",
@@ -122,6 +128,102 @@ function updateWallet(e) {
   } catch (err) {
     return exception(err);
   }
+}
+
+
+/**
+ * ============================================================
+ * PROMOTION ECONOMY V2 - WALLET VALIDATION
+ * ============================================================
+ */
+
+/**
+ * Check if user can afford a PromotionFuel cost
+ * Used by Promotion.js createPromotionCampaign
+ * @param {string} userId - User ID
+ * @param {number} promotionFuel - Required PromotionFuel amount
+ * @returns {object} { canAfford: boolean, balance: number, shortfall: number }
+ */
+function canAffordCampaign(userId, promotionFuel) {
+  const wallet = getWalletRow(userId);
+  
+  if (!wallet) {
+    return {
+      canAfford: false,
+      balance: 0,
+      shortfall: promotionFuel,
+      reason: "Wallet not found"
+    };
+  }
+
+  const balance = Number(wallet.Balance || 0);
+  const cost = Number(promotionFuel || 0);
+
+  return {
+    canAfford: balance >= cost,
+    balance: balance,
+    shortfall: Math.max(0, cost - balance),
+    reason: balance >= cost ? "Sufficient balance" : "Insufficient balance"
+  };
+}
+
+
+/**
+ * Validate wallet for PromotionFuel deduction
+ * Returns detailed validation result
+ * @param {string} userId - User ID
+ * @param {number} promotionFuel - Required PromotionFuel amount
+ * @returns {object} Validation result
+ */
+function validateWalletForPromotion(userId, promotionFuel) {
+  const wallet = getWalletRow(userId);
+
+  if (!wallet) {
+    return {
+      valid: false,
+      error: "Wallet not found. Please contact support.",
+      code: "WALLET_NOT_FOUND"
+    };
+  }
+
+  const balance = Number(wallet.Balance || 0);
+  const required = Number(promotionFuel || 0);
+
+  if (required <= 0) {
+    return {
+      valid: false,
+      error: "Invalid PromotionFuel amount.",
+      code: "INVALID_FUEL_AMOUNT"
+    };
+  }
+
+  if (balance < required) {
+    return {
+      valid: false,
+      error: "Insufficient EkkaCoins. Required: " + required + ", Available: " + balance,
+      code: "INSUFFICIENT_BALANCE",
+      balance: balance,
+      required: required,
+      shortfall: required - balance
+    };
+  }
+
+  // Negative balance protection check
+  const afterDeduction = balance - required;
+  if (afterDeduction < 0) {
+    return {
+      valid: false,
+      error: "Transaction would result in negative balance.",
+      code: "NEGATIVE_BALANCE_PROTECTION"
+    };
+  }
+
+  return {
+    valid: true,
+    balance: balance,
+    afterDeduction: afterDeduction,
+    required: required
+  };
 }
 
 
@@ -227,4 +329,3 @@ function createWalletTransaction(
     "SYSTEM"
   ]);
 }
-
