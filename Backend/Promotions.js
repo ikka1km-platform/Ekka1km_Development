@@ -126,6 +126,10 @@ function createPromotionTransaction(userId, promotionType, targetType, targetId,
     }
   }
   
+  // Convert duration from days to seconds for V2 engine
+  var durationInSeconds = parseInt(duration) * 86400;
+  var endDate = new Date(Date.now() + parseInt(duration) * 24 * 60 * 60 * 1000);
+  
   var v2Result = createPromotionCampaign({
     parameter: {
       userId: userId,
@@ -134,14 +138,16 @@ function createPromotionTransaction(userId, promotionType, targetType, targetId,
       promotedEntityID: targetId,
       campaignBudget: String(totalCoins),
       rewardCoins: String(Math.floor(totalCoins * 0.7)),
-      duration: duration,
+      duration: String(durationInSeconds),
+      endDate: endDate.toISOString(),
       targetRadius: targetRadius,
       targetCategory: targetCategory,
       targetCity: targetCity,
       targetState: targetState,
       pipEnabled: "Yes",
       featured: "No",
-      creativeType: "IMAGE"
+      creativeType: "IMAGE",
+      promotionTier: promotionType
     }
   });
   
@@ -242,11 +248,11 @@ function getPromotion(e) {
       return success({
         PromotionID: normalized.CampaignID,
         UserID: normalized.UserID,
-        PromotionType: normalized.CampaignType,
+        PromotionType: v2Campaign.PromotionTier || normalized.CampaignType,
         TargetType: normalized.TargetType,
         TargetID: normalized.TargetID,
         Radius: normalized.TargetRadius,
-        Duration: normalized.Duration,
+        Duration: String(Math.ceil(Number(normalized.Duration || 1) / 86400)),
         CoinsSpent: Number(normalized.CoinsConsumed || 0),
         RewardPool: Number(normalized.PromotionFuel || 0),
         RemainingRewardCoins: Number(normalized.RemainingFuel || 0),
@@ -294,11 +300,11 @@ function getUserPromotions(e) {
           result.push({
             PromotionID: normalized.CampaignID,
             UserID: normalized.UserID,
-            PromotionType: normalized.CampaignType || "Silver",
+            PromotionType: c.PromotionTier || normalized.CampaignType || "Silver",
             TargetType: normalized.TargetType || "",
             TargetID: normalized.TargetID || "",
             Radius: normalized.TargetRadius || "All India",
-            Duration: String(normalized.Duration || "1"),
+            Duration: String(Math.ceil(Number(normalized.Duration || 1) / 86400)),
             CoinsSpent: Number(normalized.CoinsConsumed || 0),
             RewardPool: Number(normalized.PromotionFuel || 0),
             RemainingRewardCoins: Number(normalized.RemainingFuel || 0),
@@ -553,7 +559,7 @@ function getPromotionAnalytics(e) {
         promotionId: normalized.CampaignID,
         targetType: normalized.TargetType,
         targetId: normalized.TargetID,
-        promotionType: normalized.CampaignType,
+        promotionType: v2Campaign.PromotionTier || normalized.CampaignType,
         views: views,
         clicks: clicks,
         interested: interested,

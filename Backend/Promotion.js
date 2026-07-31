@@ -73,7 +73,7 @@ function ensurePromotionSheets() {
         s.appendRow(["AnalyticsID", "CampaignID", "Impressions", "Views", "UniqueViewers", "Skips", "Completions", "CompletionRate", "RewardsPaid", "TotalRewardPaid", "RemainingFuel", "RewardedUsersCount", "CTR", "UpdatedAt"]);
       } else if (name === "PromotionCampaigns") {
         // Promotion Engine V2 schema - Fuel economy
-        s.appendRow(["CampaignID", "CampaignType", "OwnerUserID", "TargetType", "TargetID", "CoinsConsumed", "PromotionFuel", "RemainingFuel", "Radius", "City", "District", "State", "Country", "Latitude", "Longitude", "Views", "Clicks", "Interested", "Shares", "StartDate", "EndDate", "Status", "CreatedDate", "ImageURL", "VideoURL", "ExternalURL", "Duration", "RewardCoins", "RewardRatePerSecond", "EstimatedViewSeconds", "EstimatedViews", "CreativeType", "CTA", "DestinationType", "PageContent", "Priority", "Featured", "PIPEnabled"]);
+        s.appendRow(["CampaignID", "CampaignType", "OwnerUserID", "TargetType", "TargetID", "CoinsConsumed", "PromotionFuel", "RemainingFuel", "Radius", "City", "District", "State", "Country", "Latitude", "Longitude", "Views", "Clicks", "Interested", "Shares", "StartDate", "EndDate", "Status", "CreatedDate", "ImageURL", "VideoURL", "ExternalURL", "Duration", "RewardCoins", "RewardRatePerSecond", "EstimatedViewSeconds", "EstimatedViews", "CreativeType", "CTA", "DestinationType", "PageContent", "Priority", "Featured", "PIPEnabled", "PromotionTier"]);
       }
     }
   });
@@ -1848,7 +1848,8 @@ function createPromotionCampaign(e) {
         p.pageContent || "",             // PageContent
         p.priority || "0",               // Priority
         p.featured || "No",              // Featured
-        p.pipEnabled || "Yes"            // PIPEnabled
+        p.pipEnabled || "Yes",           // PIPEnabled
+        p.promotionTier || ""            // PromotionTier
       ]);
 
       return success({
