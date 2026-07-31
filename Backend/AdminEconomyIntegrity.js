@@ -2,10 +2,77 @@
  * ============================================================
  * EKKA1KM BACKEND
  * AdminEconomyIntegrity.js
- * PHASE 5.7B - ECONOMY RECONCILIATION & INTEGRITY MONITORING
+ * PHASE 5.7C - PROMOTION ECONOMY V2 INTEGRATION
  * READ-ONLY economy validation, detection, and anomaly visibility
+ * Consumes Promotion Engine V2
  * ============================================================
  */
+
+/**
+ * ============================================================
+ * NORMALIZE CAMPAIGN - Promotion Economy V2
+ * Maps legacy Reward Economy fields to new PromotionFuel economy
+ * Provides backward compatibility for existing campaign records
+ * ============================================================
+ */
+function normalizeCampaignForIntegrity(c) {
+  if (!c) return c;
+
+  // ============================================================
+  // LEGACY TO V2 FIELD MAPPING
+  // ============================================================
+
+  // CoinsConsumed (V2) - from legacy CoinsSpent
+  if (!c.CoinsConsumed) {
+    c.CoinsConsumed = Number(c.CoinsSpent || 0);
+  }
+
+  // PromotionFuel (V2) - from legacy RewardPool or CampaignBudget
+  if (!c.PromotionFuel) {
+    c.PromotionFuel = Number(c.RewardPool || c.CampaignBudget || 0);
+  }
+
+  // RemainingFuel (V2) - from legacy RemainingRewardCoins
+  if (c.RemainingFuel === undefined && c.RemainingRewardCoins !== undefined) {
+    c.RemainingFuel = Number(c.RemainingRewardCoins || 0);
+  }
+
+  // RewardCoins (V2) - from legacy RewardCoins
+  if (!c.RewardCoins) {
+    c.RewardCoins = Number(c.RewardCoins || 0);
+  }
+
+  // RewardRatePerSecond (V2) - calculate if missing
+  if (!c.RewardRatePerSecond) {
+    var dur = Number(c.Duration || c.DurationSeconds || 10);
+    var rc = Number(c.RewardCoins || 5);
+    c.RewardRatePerSecond = dur > 0 ? Math.round((rc / dur) * 100) / 100 : 1;
+  }
+
+  // EstimatedViewSeconds (V2) - calculate: PromotionFuel / RewardRatePerSecond
+  if (!c.EstimatedViewSeconds) {
+    var fuel = Number(c.PromotionFuel || 0);
+    var rate = Number(c.RewardRatePerSecond || 1);
+    c.EstimatedViewSeconds = rate > 0 ? Math.floor(fuel / rate) : 0;
+  }
+
+  // EstimatedViews (V2) - calculate: EstimatedViewSeconds / Duration
+  if (!c.EstimatedViews) {
+    var estSec = Number(c.EstimatedViewSeconds || 0);
+    var d = Number(c.Duration || c.DurationSeconds || 10);
+    c.EstimatedViews = d > 0 ? Math.floor(estSec / d) : 0;
+  }
+
+  // ============================================================
+  // LEGACY ALIASES (for backward compatibility)
+  // ============================================================
+
+  if (!c.CoinsSpent) c.CoinsSpent = Number(c.CoinsConsumed || 0);
+  if (!c.RewardPool) c.RewardPool = Number(c.PromotionFuel || 0);
+  if (!c.RemainingRewardCoins && c.RemainingFuel !== undefined) c.RemainingRewardCoins = Number(c.RemainingFuel || 0);
+
+  return c;
+}
 
 /**
  * ============================================================
@@ -23,10 +90,6 @@ function _safeTimestamp(val) {
 
 function _compareDatesDesc(a, b) {
   return _safeTimestamp(b) - _safeTimestamp(a);
-}
-
-function _compareDatesAsc(a, b) {
-  return _safeTimestamp(a) - _safeTimestamp(b);
 }
 
 /**
@@ -158,6 +221,7 @@ function _buildIntegrityMaps() {
  * ADMIN: ECONOMY INTEGRITY SUMMARY
  * High-level health indicators for the Integrity Monitor
  * ?action=economyintegritysummary&session=TOKEN
+ * PROMOTION ECONOMY V2 - Validates new fuel economy
  * ============================================================
  */
 function getEconomyIntegritySummary(e) {
@@ -219,17 +283,36 @@ function getEconomyIntegritySummary(e) {
       }
     });
 
-    // Campaign accounting
+    // Campaign accounting - PROMOTION ECONOMY V2
     var campaignsChecked = maps.campaignData.length;
     var campMismatches = 0;
     maps.campaignData.forEach(function(c) {
-      var rp = Number(c.RewardPool || 0);
-      var rem = Number(c.RemainingRewardCoins || 0);
-      if (rp > 0) {
-        var used = rp - rem;
-        if (used < -0.01 || rem < -0.01 || rem > rp + 0.01) {
-          campMismatches++;
-        }
+      // Normalize to V2
+      c = normalizeCampaignForIntegrity(c);
+      
+      var promotionFuel = Number(c.PromotionFuel || 0);
+      var remainingFuel = Number(c.RemainingFuel || 0);
+      var coinsConsumed = Number(c.CoinsConsumed || 0);
+      
+      // V2 validation: RemainingFuel should not be negative
+      if (remainingFuel < 0) {
+        campMismatches++;
+      }
+      
+      // V2 validation: RemainingFuel should not exceed PromotionFuel
+      if (remainingFuel > promotionFuel && promotionFuel > 0) {
+        campMismatches++;
+      }
+      
+      // V2 validation: CoinsConsumed should not exceed PromotionFuel
+      if (coinsConsumed > promotionFuel && promotionFuel > 0) {
+        campMismatches++;
+      }
+      
+      // V2 validation: CoinsConsumed + RemainingFuel should equal PromotionFuel
+      var fuelBalance = coinsConsumed + remainingFuel;
+      if (Math.abs(fuelBalance - promotionFuel) > 0.01 && promotionFuel > 0) {
+        campMismatches++;
       }
     });
 
@@ -538,7 +621,7 @@ function getTransactionAnomalies(e) {
 
     for (var wid in txByWalletSorted) {
       var walletTxs = txByWalletSorted[wid].sort(function(a, b) {
-        return _compareDatesAsc(a, b);
+        return _compareDatesDesc(a, b);
       });
 
       for (var ti = 0; ti < walletTxs.length; ti++) {
@@ -798,7 +881,7 @@ function getRewardAnomalies(e) {
       var sa = sev[a.Severity] || 0;
       var sb = sev[b.Severity] || 0;
       if (sa !== sb) return sa - sb;
-      return _compareDatesAsc({ CreatedDate: a.Timestamp }, { CreatedDate: b.Timestamp });
+      return _compareDatesDesc({ CreatedDate: a.Timestamp }, { CreatedDate: b.Timestamp });
     });
 
     var total = deduped.length;
@@ -823,7 +906,7 @@ function getRewardAnomalies(e) {
 /**
  * ============================================================
  * ADMIN: DUPLICATE REWARD DETECTION
- * Explicit duplicate detection using actual uniqueness rules:
+ * Explicit duplicate detection using actual uniqueness rules
  * - PIP: UserID + CampaignID (AdWatchHistory with status completed/rewarded)
  * - Legacy: UserID + AdID (AdRewardHistory)
  * ?action=duplicaterewards&session=TOKEN&page=1&limit=50
@@ -948,6 +1031,7 @@ function getDuplicateRewards(e) {
  * Validate promotion campaign accounting
  * ?action=campaignreconciliation&session=TOKEN&search=TERM&page=1&limit=50
  * Statuses: HEALTHY, WARNING, MISMATCH, INSUFFICIENT_DATA
+ * PROMOTION ECONOMY V2 - Validates new fuel economy
  * ============================================================
  */
 function getCampaignReconciliation(e) {
@@ -965,104 +1049,107 @@ function getCampaignReconciliation(e) {
 
     maps.campaignData.forEach(function(c) {
       var cid = c.CampaignID || "";
-      var rp = Number(c.RewardPool || 0);
-      var reserve = Number(c.PlatformReserve || 0);
-      var remaining = Number(c.RemainingRewardCoins || 0);
-      var spent = Number(c.CoinsSpent || 0);
+      
+      // Normalize to V2
+      c = normalizeCampaignForIntegrity(c);
+      
+      var promotionFuel = Number(c.PromotionFuel || 0);
+      var remainingFuel = Number(c.RemainingFuel || 0);
+      var coinsConsumed = Number(c.CoinsConsumed || 0);
       var rewardCoins = Number(c.RewardCoins || 0);
       var views = Number(c.Views || 0);
       var status = c.Status || "";
 
-      // Calculate expected remaining based on reward pool and known distributions
-      var expectedDistributed = rp - remaining;
-      var expectedRemaining = rp - expectedDistributed;
+      // Calculate expected remaining based on PromotionFuel and known distributions
+      var expectedRemaining = promotionFuel - coinsConsumed;
+      var fuelUsed = promotionFuel - remainingFuel;
 
       var campStatus = "HEALTHY";
       var campIssues = [];
 
-      // Check: RemainingRewardCoins < 0
-      if (remaining < 0) {
-        campIssues.push("RemainingRewardCoins below zero: " + remaining);
+      // V2 Check: RemainingFuel should not be negative
+      if (remainingFuel < 0) {
+        campIssues.push("RemainingFuel below zero: " + remainingFuel);
         campStatus = "MISMATCH";
       }
 
-      // Check: RemainingRewardCoins > RewardPool
-      if (remaining > rp && rp > 0) {
-        campIssues.push("RemainingRewardCoins (" + remaining + ") > RewardPool (" + rp + ")");
+      // V2 Check: RemainingFuel should not exceed PromotionFuel
+      if (remainingFuel > promotionFuel && promotionFuel > 0) {
+        campIssues.push("RemainingFuel (" + remainingFuel + ") > PromotionFuel (" + promotionFuel + ")");
         campStatus = "MISMATCH";
       }
 
-      // Check: CoinsSpent vs RewardPool + PlatformReserve
-      if (spent > 0 && rp > 0) {
-        var initialAccounting = spent - (rp + reserve);
-        if (Math.abs(initialAccounting) > 0.01) {
-          var warn = "CoinsSpent (" + spent + ") ≠ RewardPool (" + rp + ") + PlatformReserve (" + reserve + ") = " + (rp + reserve);
-          campIssues.push(warn);
-          if (campStatus === "HEALTHY") campStatus = "WARNING";
-        }
+      // V2 Check: CoinsConsumed should not exceed PromotionFuel
+      if (coinsConsumed > promotionFuel && promotionFuel > 0) {
+        campIssues.push("CoinsConsumed (" + coinsConsumed + ") > PromotionFuel (" + promotionFuel + ")");
+        campStatus = "MISMATCH";
       }
 
-      // Check: Negative expected distributed = negative remaining excess
-      if (expectedDistributed < 0 && rp > 0) {
-        campIssues.push("Reward pool appears to have increased (negative distribution: " + expectedDistributed + ")");
-        if (campStatus !== "MISMATCH") campStatus = "WARNING";
+      // V2 Check: CoinsConsumed + RemainingFuel should equal PromotionFuel
+      var fuelBalance = coinsConsumed + remainingFuel;
+      if (Math.abs(fuelBalance - promotionFuel) > 0.01 && promotionFuel > 0) {
+        campIssues.push("Fuel balance mismatch: CoinsConsumed (" + coinsConsumed + ") + RemainingFuel (" + remainingFuel + ") ≠ PromotionFuel (" + promotionFuel + ")");
+        campStatus = "MISMATCH";
       }
 
-      // If no transactions and no views, mark as INSUFFICIENT_DATA for accounting validation
-      if (rp === 0 && remaining === 0 && spent === 0) {
-        campStatus = "INSUFFICIENT_DATA";
+      // Legacy check: Views should be reasonable
+      if (views < 0) {
+        campIssues.push("Negative views: " + views);
+        if (campStatus === "HEALTHY") campStatus = "WARNING";
       }
 
-      // Get total rewards distributed from wallet transactions referencing this campaign
-      var refTxs = maps.txByRef[cid] || [];
-      var totalRewarded = 0;
-      var rewardedTxCount = 0;
-      refTxs.forEach(function(tx) {
-        var coins = _getTxCoins(tx);
-        if (coins > 0) {
-          totalRewarded += coins;
-          rewardedTxCount++;
-        }
-      });
+      // Legacy check: RewardCoins should be positive
+      if (rewardCoins < 0) {
+        campIssues.push("Negative RewardCoins: " + rewardCoins);
+        if (campStatus === "HEALTHY") campStatus = "WARNING";
+      }
+
+      if (campIssues.length === 0) {
+        campIssues.push("No issues detected");
+      }
 
       var entry = {
         CampaignID: cid,
-        OwnerUserID: c.OwnerUserID || "",
         CampaignType: c.CampaignType || "",
-        CoinsSpent: spent,
-        RewardPool: rp,
-        PlatformReserve: reserve,
-        RemainingRewardCoins: remaining,
+        OwnerUserID: c.OwnerUserID || "",
+        // V2 fields
+        PromotionFuel: promotionFuel,
+        RemainingFuel: remainingFuel,
+        CoinsConsumed: coinsConsumed,
+        RewardRatePerSecond: Number(c.RewardRatePerSecond || 0),
+        EstimatedViewSeconds: Number(c.EstimatedViewSeconds || 0),
+        EstimatedViews: Number(c.EstimatedViews || 0),
+        // Legacy aliases
+        RewardPool: promotionFuel,
+        RemainingRewardCoins: remainingFuel,
+        CoinsSpent: coinsConsumed,
         RewardCoins: rewardCoins,
-        ExpectedRemaining: Math.max(0, expectedRemaining),
-        Variance: remaining - Math.max(0, expectedRemaining),
-        RewardsDistributed: totalRewarded,
-        RewardTxCount: rewardedTxCount,
         Views: views,
-        Status: c.Status || "",
-        AccountingStatus: campStatus,
-        Issues: campIssues
+        Status: status,
+        Issues: campIssues,
+        HealthStatus: campStatus,
+        StartDate: c.StartDate || "",
+        EndDate: c.EndDate || "",
+        CreatedDate: c.CreatedDate || ""
       };
 
-      // Search filter
       if (search) {
         if ((cid || "").toLowerCase().indexOf(search) === -1 &&
             (c.OwnerUserID || "").toLowerCase().indexOf(search) === -1 &&
             (c.CampaignType || "").toLowerCase().indexOf(search) === -1) {
-          return;
+          continue;
         }
       }
 
       results.push(entry);
     });
 
-    // Sort: MISMATCH first, then WARNING, then by variance
     results.sort(function(a, b) {
-      var sev = { "MISMATCH": 0, "WARNING": 1, "HEALTHY": 2, "INSUFFICIENT_DATA": 3 };
-      var sa = sev[a.AccountingStatus] || 3;
-      var sb = sev[b.AccountingStatus] || 3;
+      var sev = { "MISMATCH": 0, "WARNING": 1, "HEALTHY": 2 };
+      var sa = sev[a.HealthStatus] || 0;
+      var sb = sev[b.HealthStatus] || 0;
       if (sa !== sb) return sa - sb;
-      return Math.abs(b.Variance) - Math.abs(a.Variance);
+      return _compareDatesDesc(a.CreatedDate, b.CreatedDate);
     });
 
     var total = results.length;
@@ -1086,494 +1173,135 @@ function getCampaignReconciliation(e) {
 
 /**
  * ============================================================
- * ADMIN: CONSOLIDATED ANOMALY EXPLORER
- * One consolidated view with search/filter capabilities
- * ?action=anomalyexplorer&session=TOKEN&category=WALLET&severity=HIGH&search=TERM&page=1&limit=50
- * Categories: WALLET, TRANSACTION, REWARD, CAMPAIGN
+ * ADMIN: REWARD RECONCILIATION
+ * Validate reward distribution against campaigns and wallets
+ * ?action=rewardreconciliation&session=TOKEN&search=TERM&page=1&limit=50
  * ============================================================
  */
-function getAnomalyExplorer(e) {
+function getRewardReconciliation(e) {
   try {
     const sessionResult = requireAdminSession(e);
     if (!sessionResult.valid) return sessionResult.response;
 
-    var filterCategory = (e.parameter.category || "").toUpperCase();
-    var filterSeverity = (e.parameter.severity || "").toUpperCase();
-    var filterSearch = (e.parameter.search || "").trim().toLowerCase();
-    var filterUserId = (e.parameter.userId || "").trim();
-    var filterWalletId = (e.parameter.walletId || "").trim();
-    var filterCampaignId = (e.parameter.campaignId || "").trim();
-    var filterTxId = (e.parameter.transactionId || "").trim();
-    var filterRewardId = (e.parameter.rewardId || "").trim();
-
+    const search = (e.parameter.search || "").trim().toLowerCase();
     const page = parseInt(e.parameter.page || "1");
     const limit = parseInt(e.parameter.limit || "50");
 
-    var allAnomalies = [];
+    const maps = _buildIntegrityMaps();
+    var results = [];
 
-    // Gather wallet anomalies (mismatches are WALLET category)
-    var walletMaps = _buildIntegrityMaps();
-    walletMaps.walletData.forEach(function(w) {
-      var wid = w.WalletID;
-      var txs = walletMaps.txByWallet[wid] || [];
-      var txDerived = 0;
-      txs.forEach(function(tx) { txDerived += _signedTxCoins(tx); });
-      var storedBalance = Number(w.Balance || 0);
-      var variance = txDerived - storedBalance;
+    maps.rewardData.forEach(function(r) {
+      var rewardId = r.RewardID || "";
+      var userId = r.UserID || "";
+      var adId = r.AdID || "";
+      var coinsEarned = Number(r.CoinsEarned || 0);
+      var completed = String(r.Completed || "").toLowerCase();
+      var createdAt = r.CreatedAt || r.LastWatchedAt || "";
 
-      if (txs.length > 0 && Math.abs(variance) > 0.01) {
-        allAnomalies.push({
-          Category: "WALLET",
-          Severity: Math.abs(variance) > 100 ? "HIGH" : "MEDIUM",
-          EntityID: wid || "",
-          RelatedUser: w.UserID || "",
-          RelatedWallet: wid || "",
-          RelatedCampaign: "",
-          Issue: "Wallet balance mismatch: stored=" + storedBalance + ", derived=" + txDerived,
-          Expected: "" + storedBalance,
-          Actual: "" + txDerived,
-          Difference: "" + variance,
-          Timestamp: w.LastUpdated || ""
-        });
+      // Find corresponding campaign
+      var campaign = maps.campaignMap[adId] || null;
+      var campaignStatus = "UNKNOWN";
+      var fuelStatus = "UNKNOWN";
+      
+      if (campaign) {
+        // Normalize campaign to V2
+        campaign = normalizeCampaignForIntegrity(campaign);
+        campaignStatus = campaign.Status || "UNKNOWN";
+        
+        var remainingFuel = Number(campaign.RemainingFuel || 0);
+        fuelStatus = remainingFuel >= 0 ? "VALID" : "NEGATIVE_FUEL";
       }
+
+      // Find corresponding transaction
+      var txs = maps.txByRef[adId] || [];
+      var txFound = false;
+      var txCoins = 0;
+      txs.forEach(function(tx) {
+        if (String(tx.UserID) === String(userId)) {
+          txFound = true;
+          txCoins = _getTxCoins(tx);
+        }
+      });
+
+      // Determine status
+      var rewardStatus = "OK";
+      var issues = [];
+
+      if (completed === "yes" && !txFound) {
+        rewardStatus = "MISSING_TRANSACTION";
+        issues.push("Completed reward without wallet transaction");
+      }
+
+      if (txFound && Math.abs(txCoins - coinsEarned) > 0.01) {
+        rewardStatus = "AMOUNT_MISMATCH";
+        issues.push("Reward coins (" + coinsEarned + ") ≠ Transaction coins (" + txCoins + ")");
+      }
+
+      if (campaign && campaignStatus !== "active" && campaignStatus !== "Active") {
+        rewardStatus = "CAMPAIGN_INACTIVE";
+        issues.push("Reward from inactive campaign");
+      }
+
+      if (fuelStatus === "NEGATIVE_FUEL") {
+        rewardStatus = "NEGATIVE_FUEL";
+        issues.push("Campaign has negative RemainingFuel");
+      }
+
+      if (coinsEarned <= 0 && completed === "yes") {
+        rewardStatus = "ZERO_REWARD";
+        issues.push("Completed reward with zero or negative coins");
+      }
+
+      var user = maps.userMap[userId] || {};
+      var entry = {
+        RewardID: rewardId,
+        UserID: userId,
+        UserName: user.FullName || user.Name || "",
+        AdID: adId,
+        CampaignID: adId,
+        CoinsEarned: coinsEarned,
+        Completed: completed,
+        CampaignStatus: campaignStatus,
+        FuelStatus: fuelStatus,
+        TransactionFound: txFound,
+        TransactionCoins: txCoins,
+        RewardStatus: rewardStatus,
+        Issues: issues,
+        Timestamp: createdAt
+      };
+
+      if (search) {
+        if ((rewardId || "").toLowerCase().indexOf(search) === -1 &&
+            (userId || "").toLowerCase().indexOf(search) === -1 &&
+            (adId || "").toLowerCase().indexOf(search) === -1 &&
+            (entry.UserName || "").toLowerCase().indexOf(search) === -1) {
+          continue;
+        }
+      }
+
+      results.push(entry);
     });
 
-    // Gather transaction anomalies
-    var txMaps = walletMaps;
-    var seenTids = {};
-    txMaps.txData.forEach(function(tx) {
-      var tid = tx.TransactionID || "";
-      if (!tid) {
-        allAnomalies.push({
-          Category: "TRANSACTION",
-          Severity: "HIGH",
-          EntityID: "MISSING",
-          RelatedUser: tx.UserID || "",
-          RelatedWallet: tx.WalletID || "",
-          RelatedCampaign: "",
-          Issue: "Missing TransactionID",
-          Expected: "TransactionID must not be empty",
-          Actual: "(empty)",
-          Difference: "",
-          Timestamp: tx.CreatedDate || tx.CreatedAt || ""
-        });
-        return;
-      }
-      if (!seenTids[tid]) seenTids[tid] = 0;
-      seenTids[tid]++;
-      if (seenTids[tid] === 2) {
-        allAnomalies.push({
-          Category: "TRANSACTION",
-          Severity: "HIGH",
-          EntityID: tid,
-          RelatedUser: tx.UserID || "",
-          RelatedWallet: tx.WalletID || "",
-          RelatedCampaign: "",
-          Issue: "Duplicate TransactionID",
-          Expected: "Unique TransactionID",
-          Actual: "Appears " + seenTids[tid] + " times",
-          Difference: "",
-          Timestamp: tx.CreatedDate || tx.CreatedAt || ""
-        });
-      }
-      if (!tx.UserID) {
-        allAnomalies.push({
-          Category: "TRANSACTION",
-          Severity: "HIGH",
-          EntityID: tid,
-          RelatedUser: "",
-          RelatedWallet: tx.WalletID || "",
-          RelatedCampaign: "",
-          Issue: "Missing UserID",
-          Expected: "UserID required",
-          Actual: "(empty)",
-          Difference: "",
-          Timestamp: tx.CreatedDate || tx.CreatedAt || ""
-        });
-      }
-    });
-
-    // Gather reward anomalies
-    var rewardMaps = walletMaps;
-    var seenPairs = {};
-    rewardMaps.rewardData.forEach(function(r) {
-      var key = String(r.UserID || "") + "|" + String(r.AdID || "");
-      if (!seenPairs[key]) seenPairs[key] = 0;
-      seenPairs[key]++;
-      if (seenPairs[key] === 2) {
-        allAnomalies.push({
-          Category: "REWARD",
-          Severity: "HIGH",
-          EntityID: r.RewardID || "",
-          RelatedUser: r.UserID || "",
-          RelatedWallet: "",
-          RelatedCampaign: r.AdID || "",
-          Issue: "Duplicate reward (UserID+AdID)",
-          Expected: "Unique (UserID, AdID) pair",
-          Actual: "Multiple records found",
-          Difference: "",
-          Timestamp: r.CreatedAt || r.LastWatchedAt || ""
-        });
-      }
-    });
-
-    // Gather campaign anomalies
-    var campMaps = walletMaps;
-    campMaps.campaignData.forEach(function(c) {
-      var rp = Number(c.RewardPool || 0);
-      var remaining = Number(c.RemainingRewardCoins || 0);
-      if (remaining < 0) {
-        allAnomalies.push({
-          Category: "CAMPAIGN",
-          Severity: "HIGH",
-          EntityID: c.CampaignID || "",
-          RelatedUser: c.OwnerUserID || "",
-          RelatedWallet: "",
-          RelatedCampaign: c.CampaignID || "",
-          Issue: "RemainingRewardCoins below zero",
-          Expected: ">= 0",
-          Actual: "" + remaining,
-          Difference: "" + remaining,
-          Timestamp: c.CreatedDate || ""
-        });
-      }
-      if (remaining > rp && rp > 0) {
-        allAnomalies.push({
-          Category: "CAMPAIGN",
-          Severity: "HIGH",
-          EntityID: c.CampaignID || "",
-          RelatedUser: c.OwnerUserID || "",
-          RelatedWallet: "",
-          RelatedCampaign: c.CampaignID || "",
-          Issue: "RemainingRewardCoins exceeds RewardPool",
-          Expected: "<= " + rp,
-          Actual: "" + remaining,
-          Difference: "" + (remaining - rp),
-          Timestamp: c.CreatedDate || ""
-        });
-      }
-    });
-
-    // Apply filters
-    var filtered = allAnomalies;
-    if (filterCategory) {
-      filtered = filtered.filter(function(a) { return a.Category === filterCategory; });
-    }
-    if (filterSeverity) {
-      filtered = filtered.filter(function(a) { return a.Severity === filterSeverity; });
-    }
-    if (filterSearch) {
-      filtered = filtered.filter(function(a) {
-        return (a.EntityID || "").toLowerCase().indexOf(filterSearch) !== -1 ||
-               (a.RelatedUser || "").toLowerCase().indexOf(filterSearch) !== -1 ||
-               (a.Issue || "").toLowerCase().indexOf(filterSearch) !== -1;
-      });
-    }
-    if (filterUserId) {
-      filtered = filtered.filter(function(a) {
-        return (a.RelatedUser || "").toLowerCase().indexOf(filterUserId.toLowerCase()) !== -1;
-      });
-    }
-    if (filterWalletId) {
-      filtered = filtered.filter(function(a) {
-        return (a.RelatedWallet || "").toLowerCase().indexOf(filterWalletId.toLowerCase()) !== -1;
-      });
-    }
-    if (filterCampaignId) {
-      filtered = filtered.filter(function(a) {
-        return (a.RelatedCampaign || "").toLowerCase().indexOf(filterCampaignId.toLowerCase()) !== -1;
-      });
-    }
-    if (filterTxId) {
-      filtered = filtered.filter(function(a) {
-        return (a.EntityID || "").toLowerCase().indexOf(filterTxId.toLowerCase()) !== -1;
-      });
-    }
-    if (filterRewardId) {
-      filtered = filtered.filter(function(a) {
-        return (a.EntityID || "").toLowerCase().indexOf(filterRewardId.toLowerCase()) !== -1;
-      });
-    }
-
-    // Sort by severity then category
-    filtered.sort(function(a, b) {
-      var sev = { "HIGH": 0, "MEDIUM": 1, "LOW": 2 };
-      var sa = sev[a.Severity] || 2;
-      var sb = sev[b.Severity] || 2;
+    results.sort(function(a, b) {
+      var sev = { "MISSING_TRANSACTION": 0, "AMOUNT_MISMATCH": 1, "NEGATIVE_FUEL": 2, "ZERO_REWARD": 3, "CAMPAIGN_INACTIVE": 4, "OK": 5 };
+      var sa = sev[a.RewardStatus] || 0;
+      var sb = sev[b.RewardStatus] || 0;
       if (sa !== sb) return sa - sb;
-      return a.Category.localeCompare(b.Category);
+      return _compareDatesDesc(a.Timestamp, b.Timestamp);
     });
 
-    var total = filtered.length;
+    var total = results.length;
     var totalPages = Math.ceil(total / limit);
     var start = (page - 1) * limit;
-    var paged = filtered.slice(start, start + limit);
+    var paged = results.slice(start, start + limit);
 
     return success({
       count: total,
       totalPages: totalPages,
       page: page,
       limit: limit,
-      data: paged,
-      filters: {
-        categories: ["WALLET", "TRANSACTION", "REWARD", "CAMPAIGN"],
-        severities: ["HIGH", "MEDIUM", "LOW"]
-      }
-    }, "Anomaly Explorer Loaded");
-
-  } catch (err) {
-    return exception(err);
-  }
-}
-
-
-/**
- * ============================================================
- * ADMIN: WALLET DETAIL INTEGRITY
- * Extended wallet detail with integrity section
- * ?action=adminwalletdetailintegrity&session=TOKEN&userId=U001
- * ============================================================
- */
-function getAdminWalletDetailIntegrity(e) {
-  try {
-    const sessionResult = requireAdminSession(e);
-    if (!sessionResult.valid) return sessionResult.response;
-
-    const userId = (e.parameter.userId || "").trim();
-    if (!userId) {
-      return error("userId required");
-    }
-
-    const maps = _buildIntegrityMaps();
-
-    // Get wallet
-    var wallet = maps.walletMap[userId];
-    if (!wallet) {
-      return error("Wallet not found for user: " + userId);
-    }
-
-    // Get transactions for this wallet
-    var wid = wallet.WalletID;
-    var txs = (maps.txByWallet[wid] || []).sort(function(a, b) {
-      return _compareDatesAsc(a, b);
-    });
-
-    // Calculate derived balance
-    var txDerived = 0;
-    var credits = 0;
-    var debits = 0;
-    txs.forEach(function(tx) {
-      var amt = _signedTxCoins(tx);
-      txDerived += amt;
-      if (amt > 0) credits += amt;
-      else debits += Math.abs(amt);
-    });
-
-    var storedBalance = Number(wallet.Balance || 0);
-    var variance = txDerived - storedBalance;
-
-    // Wallet reconciliation status
-    var walletStatus = "INSUFFICIENT_DATA";
-    if (txs.length === 0) {
-      walletStatus = storedBalance === 0 ? "MATCHED" : "INSUFFICIENT_DATA";
-    } else if (Math.abs(variance) < 0.01) {
-      walletStatus = "MATCHED";
-    } else {
-      walletStatus = "MISMATCH";
-    }
-
-    // Transaction chain status
-    var chainBroken = false;
-    var chainIssues = [];
-    for (var i = 0; i < txs.length - 1; i++) {
-      if (txs[i].After && txs[i + 1].Before &&
-          Number(txs[i].After) !== Number(txs[i + 1].Before) &&
-          (Number(txs[i].After) !== 0 || Number(txs[i + 1].Before) !== 0)) {
-        chainBroken = true;
-        chainIssues.push({
-          TransactionID: txs[i + 1].TransactionID,
-          Issue: "Before (" + txs[i + 1].Before + ") ≠ previous After (" + txs[i].After + ")"
-        });
-      }
-    }
-
-    // Reward consistency
-    var rewards = maps.rewardByUser[userId] || [];
-    var rewardTotal = 0;
-    rewards.forEach(function(r) {
-      rewardTotal += Number(r.CoinsEarned || 0);
-    });
-
-    var rewardsInTransactions = 0;
-    txs.forEach(function(tx) {
-      if (String(tx.Type || "").toUpperCase() === "REWARD" && _getTxCoins(tx) > 0) {
-        rewardsInTransactions += _getTxCoins(tx);
-      }
-    });
-
-    var rewardConsistent = Math.abs(rewardTotal - rewardsInTransactions) < 0.01;
-
-    // Anomalies for this wallet/user
-    var walletAnomalies = [];
-    if (walletStatus === "MISMATCH") {
-      walletAnomalies.push({
-        Category: "WALLET",
-        Severity: Math.abs(variance) > 100 ? "HIGH" : "MEDIUM",
-        EntityID: wid,
-        Issue: "Balance mismatch: stored=" + storedBalance + ", derived=" + txDerived,
-        Expected: "" + storedBalance,
-        Actual: "" + txDerived,
-        Difference: "" + variance
-      });
-    }
-    if (chainBroken) {
-      walletAnomalies.push({
-        Category: "TRANSACTION",
-        Severity: "MEDIUM",
-        EntityID: wid,
-        Issue: "Balance chain broken in " + chainIssues.length + " place(s)",
-        Expected: "Before=previous After",
-        Actual: chainIssues[0].Issue,
-        Difference: ""
-      });
-    }
-    if (!rewardConsistent && (rewardTotal > 0 || rewardsInTransactions > 0)) {
-      walletAnomalies.push({
-        Category: "REWARD",
-        Severity: "MEDIUM",
-        EntityID: userId,
-        Issue: "Reward total (" + rewardTotal + ") doesn't match reward transactions (" + rewardsInTransactions + ")",
-        Expected: "" + rewardsInTransactions,
-        Actual: "" + rewardTotal,
-        Difference: "" + (rewardTotal - rewardsInTransactions)
-      });
-    }
-
-    return success({
-      wallet: {
-        WalletID: wallet.WalletID || "",
-        UserID: wallet.UserID || "",
-        Balance: storedBalance,
-        TotalEarned: Number(wallet.TotalEarned || 0),
-        TotalSpent: Number(wallet.TotalSpent || 0),
-        LastUpdated: wallet.LastUpdated || ""
-      },
-      reconciliation: {
-        Status: walletStatus,
-        StoredBalance: storedBalance,
-        DerivedBalance: txDerived,
-        Variance: variance,
-        Credits: credits,
-        Debits: debits,
-        TransactionCount: txs.length,
-        ChainStatus: chainBroken ? "BROKEN" : "OK",
-        ChainIssues: chainIssues,
-        RewardConsistency: rewardConsistent ? "CONSISTENT" : "INCONSISTENT",
-        RewardTotal: rewardTotal,
-        RewardTransactionTotal: rewardsInTransactions
-      },
-      anomalies: walletAnomalies,
-      transactionCount: txs.length,
-      rewardCount: rewards.length
-    }, "Wallet Detail Integrity Loaded");
-
-  } catch (err) {
-    return exception(err);
-  }
-}
-
-
-/**
- * ============================================================
- * ADMIN: CAMPAIGN ECONOMY INTEGRITY
- * Extended campaign economy with integrity per campaign
- * ?action=campaigneconomyintegrity&session=TOKEN&campaignId=C001
- * ============================================================
- */
-function getCampaignEconomyIntegrity(e) {
-  try {
-    const sessionResult = requireAdminSession(e);
-    if (!sessionResult.valid) return sessionResult.response;
-
-    const campaignId = (e.parameter.campaignId || "").trim();
-    if (!campaignId) {
-      return error("campaignId required");
-    }
-
-    const maps = _buildIntegrityMaps();
-
-    var campaign = maps.campaignMap[campaignId];
-    if (!campaign) {
-      return error("Campaign not found: " + campaignId);
-    }
-
-    var rp = Number(campaign.RewardPool || 0);
-    var reserve = Number(campaign.PlatformReserve || 0);
-    var remaining = Number(campaign.RemainingRewardCoins || 0);
-    var spent = Number(campaign.CoinsSpent || 0);
-    var rewardCoins = Number(campaign.RewardCoins || 0);
-    var views = Number(campaign.Views || 0);
-
-    // Get actual rewards distributed via wallet transactions
-    var refTxs = maps.txByRef[campaignId] || [];
-    var totalRewarded = 0;
-    var rewardedUsers = {};
-    refTxs.forEach(function(tx) {
-      var coins = _getTxCoins(tx);
-      if (coins > 0) {
-        totalRewarded += coins;
-        if (tx.UserID) rewardedUsers[tx.UserID] = true;
-      }
-    });
-
-    // Expected remaining based on reward pool
-    var expectedDistributed = Math.min(totalRewarded, rp);
-    var expectedRemaining = Math.max(0, rp - expectedDistributed);
-    var variance = remaining - expectedRemaining;
-
-    // Accounting issues
-    var issues = [];
-    if (remaining < 0) issues.push("RemainingRewardCoins is negative");
-    if (remaining > rp && rp > 0) issues.push("RemainingRewardCoins exceeds RewardPool");
-    if (Math.abs(variance) > 0.01) issues.push("Remaining differs from expected by " + variance);
-    if (totalRewarded > rp && rp > 0) issues.push("Total rewarded (" + totalRewarded + ") exceeds RewardPool (" + rp + ")");
-
-    var accountingStatus = "HEALTHY";
-    if (issues.length > 0) {
-      var hasCritical = issues.some(function(i) {
-        return i.indexOf("negative") !== -1 || i.indexOf("exceeds") !== -1;
-      });
-      accountingStatus = hasCritical ? "MISMATCH" : "WARNING";
-    }
-    if (rp === 0 && remaining === 0 && spent === 0) {
-      accountingStatus = "INSUFFICIENT_DATA";
-    }
-
-    return success({
-      campaign: {
-        CampaignID: campaignId,
-        CampaignType: campaign.CampaignType || "",
-        OwnerUserID: campaign.OwnerUserID || "",
-        Status: campaign.Status || "",
-        StartDate: campaign.StartDate || "",
-        EndDate: campaign.EndDate || ""
-      },
-      accounting: {
-        CoinsSpent: spent,
-        RewardPool: rp,
-        PlatformReserve: reserve,
-        RemainingRewardCoins: remaining,
-        RewardCoins: rewardCoins,
-        RewardsDistributed: totalRewarded,
-        UniqueUsersRewarded: Object.keys(rewardedUsers).length,
-        ExpectedRemaining: expectedRemaining,
-        ExpectedDistributed: expectedDistributed,
-        Variance: variance,
-        Views: views,
-        AccountingStatus: accountingStatus,
-        Issues: issues
-      }
-    }, "Campaign Economy Integrity Loaded");
+      data: paged
+    }, "Reward Reconciliation Loaded");
 
   } catch (err) {
     return exception(err);
