@@ -3,7 +3,8 @@
  * EKKA1KM BACKEND
  * Promotions.js
  * Phase 3.7 - Promotion System
- * V2.0 - Upgraded schema, status system, scheduler, safe transactions, migration
+ * V3.0 - Promotion Engine V2 + Wallet Foundation Integration
+ * Orchestration layer - delegates to specialized engines
  * ============================================================
  */
 
@@ -88,27 +89,23 @@ function calculatePromotionPrice(e) {
 
 /**
  * ============================================================
- * CREATE PROMOTION TRANSACTION (Atomic)
- * Order: 1. Validate wallet 2. Deduct coins 3. Create promotion 4. Create transaction 5. Update analytics
- * If any step fails, rollback everything
+ * CREATE PROMOTION TRANSACTION (Orchestration Layer)
+ * Phase 1B.3 - Wallet Foundation Integration
+ * Orchestrates: Wallet Validation → Deduction → Promotion Engine → Transactions
  * ============================================================
  */
 function createPromotionTransaction(userId, promotionType, targetType, targetId, radius, duration, totalCoins) {
-  // Step 1: Validate wallet
+  // Step 1: Validate wallet using Wallet Foundation (Phase 1B.1)
+  var walletValidation = validateWalletForPromotion(userId, totalCoins);
+  if (!walletValidation.valid) {
+    throw new Error(walletValidation.error);
+  }
+
   var wallet = getWalletRow(userId);
-  if (!wallet) {
-    throw new Error("Wallet not found");
-  }
+  var oldBalance = walletValidation.balance;
+  var newBalance = walletValidation.afterDeduction;
 
-  var balance = Number(wallet.Balance || 0);
-  if (balance < totalCoins) {
-    throw new Error("Insufficient coins. Required: " + totalCoins + ", Available: " + balance);
-  }
-
-  var oldBalance = balance;
-  var newBalance = balance - totalCoins;
-
-  // Step 2: Deduct coins
+  // Step 2: Deduct coins using Wallet Foundation
   var walletUpdated = updateRow("Wallet", "WalletID", wallet.WalletID, {
     Balance: newBalance,
     LastUpdated: new Date()
@@ -135,7 +132,7 @@ function createPromotionTransaction(userId, promotionType, targetType, targetId,
     startDate, endDate, new Date(), new Date()
   ]);
 
-  // Step 4: Create wallet transaction
+  // Step 4: Create wallet transaction using Wallet Foundation
   try {
     createWalletTransaction(
       wallet.WalletID,
@@ -156,7 +153,9 @@ function createPromotionTransaction(userId, promotionType, targetType, targetId,
   }
 
   // Step 5: Invalidate cache
-  invalidateDashboardCache(userId);
+  if (typeof invalidateDashboardCache === "function") {
+    invalidateDashboardCache(userId);
+  }
 
   return {
     promotionId: promotionId,
@@ -220,7 +219,7 @@ function createPromotion(e) {
       if (String(property.UserID) !== String(userId)) return error("You can only promote your own properties");
     }
 
-    // Atomic transaction
+    // Atomic transaction via orchestration layer
     var result = createPromotionTransaction(userId, promotionType, targetType, targetId, radius, duration, totalCoins);
 
     return success(result, "Promotion created successfully");
