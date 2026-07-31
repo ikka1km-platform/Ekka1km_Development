@@ -95,74 +95,69 @@ function calculatePromotionPrice(e) {
  * ============================================================
  */
 function createPromotionTransaction(userId, promotionType, targetType, targetId, radius, duration, totalCoins) {
-  // Step 1: Validate wallet using Wallet Foundation (Phase 1B.1)
-  var walletValidation = validateWalletForPromotion(userId, totalCoins);
-  if (!walletValidation.valid) {
-    throw new Error(walletValidation.error);
+  // V2 Backend Migration: Delegate to Promotion Economy V2
+  var campaignType = "PROMOTE_" + targetType.toUpperCase();
+  
+  var targetRadius = radius;
+  var targetCategory = "";
+  var targetCity = "";
+  var targetState = "";
+  
+  if (targetType === "Product") {
+    var product = getRowById("Products", "ProductID", targetId);
+    if (product) {
+      targetCategory = product.Category || "";
+      targetCity = product.City || "";
+      targetState = product.State || "";
+    }
+  } else if (targetType === "Business") {
+    var business = getRowById("Businesses", "BusinessID", targetId);
+    if (business) {
+      targetCategory = business.Category || "";
+      targetCity = business.City || "";
+      targetState = business.State || "";
+    }
+  } else if (targetType === "Property") {
+    var property = getRowById("Properties", "PropertyID", targetId);
+    if (property) {
+      targetCategory = property.Category || "";
+      targetCity = property.City || "";
+      targetState = property.State || "";
+    }
   }
-
-  var wallet = getWalletRow(userId);
-  var oldBalance = walletValidation.balance;
-  var newBalance = walletValidation.afterDeduction;
-
-  // Step 2: Deduct coins using Wallet Foundation
-  var walletUpdated = updateRow("Wallet", "WalletID", wallet.WalletID, {
-    Balance: newBalance,
-    LastUpdated: new Date()
+  
+  var v2Result = createPromotionCampaign({
+    parameter: {
+      userId: userId,
+      campaignType: campaignType,
+      promotedEntityType: targetType,
+      promotedEntityID: targetId,
+      campaignBudget: String(totalCoins),
+      rewardCoins: String(Math.floor(totalCoins * 0.7)),
+      duration: duration,
+      targetRadius: targetRadius,
+      targetCategory: targetCategory,
+      targetCity: targetCity,
+      targetState: targetState,
+      pipEnabled: "Yes",
+      featured: "No",
+      creativeType: "IMAGE"
+    }
   });
-
-  if (!walletUpdated) {
-    throw new Error("Failed to update wallet");
+  
+  if (!v2Result || !v2Result.success) {
+    throw new Error((v2Result && v2Result.message) || "Failed to create V2 campaign");
   }
-
-  // Step 3: Create promotion record
-  var sheet = ensurePromotionsSheet();
-  var promotionId = "PR" + Utilities.getUuid().substring(0, 8);
-  var startDate = new Date();
-  var endDate = new Date(startDate.getTime() + parseInt(duration) * 24 * 60 * 60 * 1000);
-
-  var rewardPool = Math.floor(totalCoins * 0.7); // 70% goes to reward pool
-  var remainingRewardCoins = rewardPool;
-
-  sheet.appendRow([
-    promotionId, userId, promotionType, targetType, targetId,
-    radius, duration, totalCoins, rewardPool, remainingRewardCoins,
-    "", "", "", "", "",
-    "Active", 0, 0, 0, 0,
-    startDate, endDate, new Date(), new Date()
-  ]);
-
-  // Step 4: Create wallet transaction using Wallet Foundation
-  try {
-    createWalletTransaction(
-      wallet.WalletID,
-      userId,
-      -totalCoins,
-      oldBalance,
-      newBalance,
-      "PROMO_" + promotionId,
-      "Promotion - " + promotionType + " " + targetType
-    );
-  } catch (txErr) {
-    // Rollback wallet
-    updateRow("Wallet", "WalletID", wallet.WalletID, {
-      Balance: oldBalance,
-      LastUpdated: new Date()
-    });
-    throw new Error("Failed to create transaction: " + txErr.toString());
-  }
-
-  // Step 5: Invalidate cache
-  if (typeof invalidateDashboardCache === "function") {
-    invalidateDashboardCache(userId);
-  }
-
+  
+  var campaignData = v2Result.data || v2Result;
+  var promotionId = campaignData.campaignId || ("PR" + Utilities.getUuid().substring(0, 8));
+  
   return {
     promotionId: promotionId,
     coinsSpent: totalCoins,
-    remainingBalance: newBalance,
-    startDate: startDate,
-    endDate: endDate,
+    remainingBalance: campaignData.balanceRemaining || 0,
+    startDate: new Date(),
+    endDate: new Date(Date.now() + parseInt(duration) * 24 * 60 * 60 * 1000),
     status: "Active"
   };
 }
@@ -240,6 +235,33 @@ function getPromotion(e) {
     var promotionId = e && e.parameter ? e.parameter.promotionId || "" : "";
     if (!promotionId) return error("promotionId required");
 
+    // Try V2 first
+    var v2Campaign = getRowById("PromotionCampaigns", "CampaignID", promotionId);
+    if (v2Campaign) {
+      var normalized = normalizeCampaign(v2Campaign);
+      return success({
+        PromotionID: normalized.CampaignID,
+        UserID: normalized.UserID,
+        PromotionType: normalized.CampaignType,
+        TargetType: normalized.TargetType,
+        TargetID: normalized.TargetID,
+        Radius: normalized.TargetRadius,
+        Duration: normalized.Duration,
+        CoinsSpent: Number(normalized.CoinsConsumed || 0),
+        RewardPool: Number(normalized.PromotionFuel || 0),
+        RemainingRewardCoins: Number(normalized.RemainingFuel || 0),
+        Status: normalized.Status,
+        Views: Number(normalized.Views || 0),
+        Clicks: Number(normalized.Clicks || 0),
+        Interested: Number(normalized.Interested || 0),
+        StartDate: normalized.StartDate,
+        EndDate: normalized.EndDate,
+        CreatedDate: normalized.CreatedAt || normalized.CreatedDate,
+        UpdatedDate: normalized.UpdatedAt || normalized.UpdatedDate
+      }, "Promotion loaded (V2)");
+    }
+    
+    // Fallback to V1
     var promotion = getRowById("Promotions", "PromotionID", promotionId);
     if (!promotion) return error("Promotion not found");
 
@@ -261,16 +283,57 @@ function getUserPromotions(e) {
     var userId = e && e.parameter ? e.parameter.userId || "" : "";
     if (!userId) return error("userId required");
 
-    var promotions = getSheetData("Promotions") || [];
+    // Read from V2 sheet first, then V1 for backward compatibility
     var result = [];
-
-    promotions.forEach(function(p) {
+    
+    try {
+      var v2Campaigns = getSheetData("PromotionCampaigns") || [];
+      v2Campaigns.forEach(function(c) {
+        if (String(c.OwnerUserID) === String(userId)) {
+          var normalized = normalizeCampaign(c);
+          result.push({
+            PromotionID: normalized.CampaignID,
+            UserID: normalized.UserID,
+            PromotionType: normalized.CampaignType || "Silver",
+            TargetType: normalized.TargetType || "",
+            TargetID: normalized.TargetID || "",
+            Radius: normalized.TargetRadius || "All India",
+            Duration: String(normalized.Duration || "1"),
+            CoinsSpent: Number(normalized.CoinsConsumed || 0),
+            RewardPool: Number(normalized.PromotionFuel || 0),
+            RemainingRewardCoins: Number(normalized.RemainingFuel || 0),
+            City: normalized.TargetCity || "",
+            District: normalized.TargetCategory || "",
+            State: normalized.TargetState || "",
+            Latitude: normalized.Latitude || "",
+            Longitude: normalized.Longitude || "",
+            Status: normalized.Status || "Active",
+            Views: Number(normalized.Views || 0),
+            Clicks: Number(normalized.Clicks || 0),
+            Interested: Number(normalized.Interested || 0),
+            CTR: normalized.Clicks && normalized.Views ? Math.round((normalized.Clicks / normalized.Views) * 100) : 0,
+            StartDate: normalized.StartDate,
+            EndDate: normalized.EndDate,
+            CreatedDate: normalized.CreatedAt || normalized.CreatedDate || new Date(),
+            UpdatedDate: normalized.UpdatedAt || normalized.UpdatedDate || new Date()
+          });
+        }
+      });
+    } catch (v2Err) {
+      console.log("getUserPromotions: V2 sheet read error, falling back to V1");
+    }
+    
+    // Include V1 promotions for backward compatibility
+    var v1Promotions = getSheetData("Promotions") || [];
+    v1Promotions.forEach(function(p) {
       if (String(p.UserID) === String(userId)) {
         result.push(p);
       }
     });
-
-    result.sort(function(a, b) { return new Date(b.CreatedDate) - new Date(a.CreatedDate); });
+    
+    result.sort(function(a, b) { 
+      return new Date(b.CreatedDate || 0) - new Date(a.CreatedDate || 0); 
+    });
 
     return success({ count: result.length, data: result }, "User promotions loaded");
 
@@ -290,6 +353,16 @@ function stopPromotion(e) {
     var promotionId = e && e.parameter ? e.parameter.promotionId || "" : "";
     if (!promotionId) return error("promotionId required");
 
+    // Try V2 first
+    var v2Updated = updateRow("PromotionCampaigns", "CampaignID", promotionId, {
+      Status: "Cancelled"
+    });
+    
+    if (v2Updated) {
+      return success({ promotionId: promotionId, status: "Cancelled" }, "Promotion cancelled successfully");
+    }
+    
+    // Fallback to V1
     var updated = updateRow("Promotions", "PromotionID", promotionId, {
       Status: "Cancelled",
       UpdatedDate: new Date()
@@ -315,6 +388,20 @@ function pausePromotion(e) {
     var promotionId = e && e.parameter ? e.parameter.promotionId || "" : "";
     if (!promotionId) return error("promotionId required");
 
+    // Try V2 first
+    var v2Campaign = getRowById("PromotionCampaigns", "CampaignID", promotionId);
+    if (v2Campaign) {
+      if (String(v2Campaign.Status) !== "Active") return error("Only active campaigns can be paused");
+      var updated = updateRow("PromotionCampaigns", "CampaignID", promotionId, {
+        Status: "Paused"
+      });
+      if (updated) {
+        return success({ promotionId: promotionId, status: "Paused" }, "Campaign paused successfully");
+      }
+      return error("Campaign not found");
+    }
+    
+    // Fallback to V1
     var promotion = getRowById("Promotions", "PromotionID", promotionId);
     if (!promotion) return error("Promotion not found");
     if (String(promotion.Status) !== "Active") return error("Only active promotions can be paused");
@@ -342,6 +429,20 @@ function resumePromotion(e) {
     var promotionId = e && e.parameter ? e.parameter.promotionId || "" : "";
     if (!promotionId) return error("promotionId required");
 
+    // Try V2 first
+    var v2Campaign = getRowById("PromotionCampaigns", "CampaignID", promotionId);
+    if (v2Campaign) {
+      if (String(v2Campaign.Status) !== "Paused") return error("Only paused campaigns can be resumed");
+      var updated = updateRow("PromotionCampaigns", "CampaignID", promotionId, {
+        Status: "Active"
+      });
+      if (updated) {
+        return success({ promotionId: promotionId, status: "Active" }, "Campaign resumed successfully");
+      }
+      return error("Campaign not found");
+    }
+    
+    // Fallback to V1
     var promotion = getRowById("Promotions", "PromotionID", promotionId);
     if (!promotion) return error("Promotion not found");
     if (String(promotion.Status) !== "Paused") return error("Only paused promotions can be resumed");
@@ -369,6 +470,16 @@ function expirePromotion(e) {
     var promotionId = e && e.parameter ? e.parameter.promotionId || "" : "";
     if (!promotionId) return error("promotionId required");
 
+    // Try V2 first
+    var v2Updated = updateRow("PromotionCampaigns", "CampaignID", promotionId, {
+      Status: "Expired"
+    });
+    
+    if (v2Updated) {
+      return success({ promotionId: promotionId, status: "Expired" }, "Campaign expired successfully");
+    }
+    
+    // Fallback to V1
     var updated = updateRow("Promotions", "PromotionID", promotionId, {
       Status: "Expired",
       UpdatedDate: new Date()
@@ -394,6 +505,16 @@ function cancelPromotion(e) {
     var promotionId = e && e.parameter ? e.parameter.promotionId || "" : "";
     if (!promotionId) return error("promotionId required");
 
+    // Try V2 first
+    var v2Updated = updateRow("PromotionCampaigns", "CampaignID", promotionId, {
+      Status: "Cancelled"
+    });
+    
+    if (v2Updated) {
+      return success({ promotionId: promotionId, status: "Cancelled" }, "Campaign cancelled successfully");
+    }
+    
+    // Fallback to V1
     var updated = updateRow("Promotions", "PromotionID", promotionId, {
       Status: "Cancelled",
       UpdatedDate: new Date()
@@ -419,6 +540,34 @@ function getPromotionAnalytics(e) {
     var promotionId = e && e.parameter ? e.parameter.promotionId || "" : "";
     if (!promotionId) return error("promotionId required");
 
+    // Try V2 first
+    var v2Campaign = getRowById("PromotionCampaigns", "CampaignID", promotionId);
+    if (v2Campaign) {
+      var normalized = normalizeCampaign(v2Campaign);
+      var views = Number(normalized.Views || 0);
+      var clicks = Number(normalized.Clicks || 0);
+      var interested = Number(normalized.Interested || 0);
+      var ctr = views > 0 ? Math.round((clicks / views) * 100) : 0;
+      
+      return success({
+        promotionId: normalized.CampaignID,
+        targetType: normalized.TargetType,
+        targetId: normalized.TargetID,
+        promotionType: normalized.CampaignType,
+        views: views,
+        clicks: clicks,
+        interested: interested,
+        ctr: ctr + "%",
+        coinsSpent: Number(normalized.CoinsConsumed || 0),
+        rewardPool: Number(normalized.PromotionFuel || 0),
+        remainingRewardCoins: Number(normalized.RemainingFuel || 0),
+        status: normalized.Status,
+        startDate: normalized.StartDate,
+        endDate: normalized.EndDate
+      }, "Promotion analytics loaded (V2)");
+    }
+    
+    // Fallback to V1
     var promotion = getRowById("Promotions", "PromotionID", promotionId);
     if (!promotion) return error("Promotion not found");
 

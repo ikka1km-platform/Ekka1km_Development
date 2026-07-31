@@ -145,29 +145,34 @@ function loadPromotionsData() {
 function normalizePromotion(p) {
   if (!p) return p;
   var n = {};
-  n.PromotionID = p.PromotionID || p.promotionId || "";
-  n.UserID = p.UserID || p.userId || "";
-  n.PromotionType = p.PromotionType || p.promotionType || "Silver";
-  n.TargetType = p.TargetType || p.targetType || "";
-  n.TargetID = p.TargetID || p.targetId || "";
-  n.Radius = p.Radius || p.radius || "51";
-  n.Duration = p.Duration || p.duration || "1";
-  n.CoinsSpent = Number(p.CoinsSpent || p.coinsSpent || 0);
-  n.RewardPool = Number(p.RewardPool || p.rewardPool || 0);
-  n.RemainingRewardCoins = Number(p.RemainingRewardCoins || p.remainingRewardCoins || 0);
+  
+  // V2 field mapping (PromotionCampaigns sheet)
+  n.PromotionID = p.PromotionID || p.campaignId || p.CampaignID || "";
+  n.UserID = p.UserID || p.userId || p.OwnerUserID || "";
+  n.PromotionType = p.PromotionType || p.promotionType || p.CampaignType || "Silver";
+  n.TargetType = p.TargetType || p.targetType || p.PromotedEntityType || "";
+  n.TargetID = p.TargetID || p.targetId || p.PromotedEntityID || "";
+  n.Radius = p.Radius || p.radius || p.TargetRadius || "All India";
+  n.Duration = p.Duration || p.duration || String(p.Duration || "1");
+  
+  // V2: Map legacy V1 fields to V2 schema
+  n.CoinsSpent = Number(p.CoinsSpent || p.coinsSpent || p.CoinsConsumed || 0);
+  n.RewardPool = Number(p.RewardPool || p.rewardPool || p.PromotionFuel || 0);
+  n.RemainingRewardCoins = Number(p.RemainingRewardCoins || p.remainingRewardCoins || p.RemainingFuel || 0);
+  
   n.Views = Number(p.Views || p.views || 0);
   n.Clicks = Number(p.Clicks || p.clicks || 0);
   n.Interested = Number(p.Interested || p.interested || 0);
   n.CTR = Number(p.CTR || p.ctr || 0);
   n.Status = p.Status || p.status || "Pending";
-  n.StartDate = p.StartDate || p.startDate || p.CreatedDate || "";
+  n.StartDate = p.StartDate || p.startDate || p.CreatedDate || p.CreatedAt || "";
   n.EndDate = p.EndDate || p.endDate || "";
-  n.CreatedDate = p.CreatedDate || p.createdDate || "";
-  n.UpdatedDate = p.UpdatedDate || p.updatedDate || "";
-  n.City = p.City || p.city || "";
-  n.State = p.State || p.state || "";
-  n.Featured = "No"; // Legacy system doesn't have Featured
-  n.PIPEnabled = "No"; // Legacy system doesn't have PIPEnabled
+  n.CreatedDate = p.CreatedDate || p.CreatedAt || p.createdDate || "";
+  n.UpdatedDate = p.UpdatedDate || p.UpdatedAt || p.updatedDate || "";
+  n.City = p.City || p.city || p.TargetCity || "";
+  n.State = p.State || p.state || p.TargetState || "";
+  n.Featured = p.Featured || "No";
+  n.PIPEnabled = p.PIPEnabled || "No";
   n.ImageURL = p.ImageURL || p.imageURL || "";
   n.Title = p.Title || p.title || p.PromotionType || "Promotion";
   n.Description = p.Description || p.description || "";
