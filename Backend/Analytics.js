@@ -482,3 +482,200 @@ function getRetentionAnalytics(e) {
     return exception(err);
   }
 }
+
+
+/**
+ * ============================================================
+ * GET CAMPAIGN PERFORMANCE ANALYTICS
+ * Promotion Engine V2 - Uses new fuel economy fields
+ * ?action=campaignperformanceanalytics&session=TOKEN
+ * Reuses AdminEconomy and AdminManagement for all calculations
+ * ============================================================
+ */
+function getCampaignPerformanceAnalytics(e) {
+  try {
+    // Reuse AdminEconomy for campaign data - no duplication
+    let campaignData = { campaigns: [], economy: {} };
+    try {
+      if (typeof getAdminCampaignEconomy === "function") {
+        const result = getAdminCampaignEconomy({ parameter: { page: 1, limit: 100 } });
+        if (result.success && result.data) {
+          campaignData = {
+            campaigns: result.data.data || [],
+            economy: {
+              totalCampaigns: result.data.count || 0,
+              totalPromotionFuel: 0,
+              totalRemainingFuel: 0,
+              totalCoinsConsumed: 0
+            }
+          };
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // Reuse AdminEconomySummary for aggregated metrics
+    try {
+      if (typeof getAdminEconomySummary === "function") {
+        const econResult = getAdminEconomySummary({ parameter: {} });
+        if (econResult.success && econResult.data) {
+          campaignData.economy = {
+            totalCampaigns: econResult.data.totalCampaigns || 0,
+            activeCampaignCount: econResult.data.activeCampaignCount || 0,
+            totalPromotionFuel: econResult.data.totalPromotionFuel || 0,
+            totalRemainingFuel: econResult.data.totalRemainingFuel || 0,
+            totalCoinsConsumed: econResult.data.totalCoinsConsumed || 0
+          };
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // Calculate performance metrics from campaign data
+    var totalViews = 0;
+    var totalClicks = 0;
+    var totalInterested = 0;
+    var avgCTR = 0;
+    var campaignsWithViews = 0;
+
+    (campaignData.campaigns || []).forEach(function(c) {
+      totalViews += Number(c.Views || 0);
+      totalClicks += Number(c.Clicks || 0);
+      totalInterested += Number(c.Interested || 0);
+      if (Number(c.Views || 0) > 0) {
+        campaignsWithViews++;
+      }
+    });
+
+    if (totalViews > 0 && campaignsWithViews > 0) {
+      avgCTR = ((totalClicks / totalViews) * 100).toFixed(2);
+    }
+
+    return success({
+      // V2 economy metrics
+      totalCampaigns: campaignData.economy.totalCampaigns || 0,
+      activeCampaignCount: campaignData.economy.activeCampaignCount || 0,
+      totalPromotionFuel: campaignData.economy.totalPromotionFuel || 0,
+      totalRemainingFuel: campaignData.economy.totalRemainingFuel || 0,
+      totalCoinsConsumed: campaignData.economy.totalCoinsConsumed || 0,
+      fuelUtilizationRate: campaignData.economy.totalPromotionFuel > 0 
+        ? ((campaignData.economy.totalCoinsConsumed / campaignData.economy.totalPromotionFuel) * 100).toFixed(2) 
+        : 0,
+      // Performance metrics
+      totalViews: totalViews,
+      totalClicks: totalClicks,
+      totalInterested: totalInterested,
+      averageCTR: avgCTR,
+      campaignsAnalyzed: campaignsWithViews,
+      // V2 calculated fields
+      estimatedTotalViewSeconds: campaignData.campaigns.reduce(function(sum, c) {
+        return sum + Number(c.EstimatedViewSeconds || 0);
+      }, 0),
+      estimatedTotalViews: campaignData.campaigns.reduce(function(sum, c) {
+        return sum + Number(c.EstimatedViews || 0);
+      }, 0),
+      averageRewardRatePerSecond: campaignData.campaigns.length > 0 
+        ? (campaignData.campaigns.reduce(function(sum, c) {
+            return sum + Number(c.RewardRatePerSecond || 0);
+          }, 0) / campaignData.campaigns.length).toFixed(2)
+        : 0,
+      // Legacy aliases for backward compatibility
+      totalRewardPool: campaignData.economy.totalPromotionFuel || 0,
+      totalCoinsSpent: campaignData.economy.totalCoinsConsumed || 0,
+      totalRemainingRewardCoins: campaignData.economy.totalRemainingFuel || 0
+    }, "Campaign performance analytics loaded");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ============================================================
+ * GET CAMPAIGN FUEL ANALYTICS
+ * Promotion Engine V2 - Detailed fuel economy analysis
+ * ?action=campaignfuelanalytics&session=TOKEN
+ * Reuses AdminEconomy for all calculations
+ * ============================================================
+ */
+function getCampaignFuelAnalytics(e) {
+  try {
+    // Reuse AdminCampaignEconomy for per-campaign fuel data
+    let campaigns = [];
+    try {
+      if (typeof getAdminCampaignEconomy === "function") {
+        const result = getAdminCampaignEconomy({ parameter: { page: 1, limit: 100 } });
+        if (result.success && result.data) {
+          campaigns = result.data.data || [];
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // Aggregate fuel metrics
+    var totalPromotionFuel = 0;
+    var totalRemainingFuel = 0;
+    var totalCoinsConsumed = 0;
+    var campaignsByStatus = {};
+
+    campaigns.forEach(function(c) {
+      totalPromotionFuel += Number(c.PromotionFuel || 0);
+      totalRemainingFuel += Number(c.RemainingFuel || 0);
+      totalCoinsConsumed += Number(c.CoinsConsumed || 0);
+
+      var status = String(c.Status || "unknown").toLowerCase();
+      if (!campaignsByStatus[status]) {
+        campaignsByStatus[status] = {
+          count: 0,
+          totalFuel: 0,
+          totalRemaining: 0,
+          totalConsumed: 0
+        };
+      }
+      campaignsByStatus[status].count++;
+      campaignsByStatus[status].totalFuel += Number(c.PromotionFuel || 0);
+      campaignsByStatus[status].totalRemaining += Number(c.RemainingFuel || 0);
+      campaignsByStatus[status].totalConsumed += Number(c.CoinsConsumed || 0);
+    });
+
+    // Calculate efficiency metrics
+    var fuelUtilizationRate = totalPromotionFuel > 0 
+      ? ((totalCoinsConsumed / totalPromotionFuel) * 100).toFixed(2) 
+      : 0;
+    var fuelRemainingRate = totalPromotionFuel > 0 
+      ? ((totalRemainingFuel / totalPromotionFuel) * 100).toFixed(2) 
+      : 0;
+
+    return success({
+      // Overall fuel economy
+      totalCampaigns: campaigns.length,
+      totalPromotionFuel: totalPromotionFuel,
+      totalRemainingFuel: totalRemainingFuel,
+      totalCoinsConsumed: totalCoinsConsumed,
+      fuelUtilizationRate: fuelUtilizationRate,
+      fuelRemainingRate: fuelRemainingRate,
+      // V2 calculated metrics
+      averageFuelPerCampaign: campaigns.length > 0 
+        ? Math.round(totalPromotionFuel / campaigns.length) 
+        : 0,
+      estimatedTotalViewSeconds: campaigns.reduce(function(sum, c) {
+        return sum + Number(c.EstimatedViewSeconds || 0);
+      }, 0),
+      estimatedTotalViews: campaigns.reduce(function(sum, c) {
+        return sum + Number(c.EstimatedViews || 0);
+      }, 0),
+      averageRewardRatePerSecond: campaigns.length > 0 
+        ? (campaigns.reduce(function(sum, c) {
+            return sum + Number(c.RewardRatePerSecond || 0);
+          }, 0) / campaigns.length).toFixed(2)
+        : 0,
+      // Breakdown by status
+      campaignsByStatus: campaignsByStatus,
+      // Legacy aliases
+      totalRewardPool: totalPromotionFuel,
+      totalRemainingRewardCoins: totalRemainingFuel,
+      totalCoinsSpent: totalCoinsConsumed
+    }, "Campaign fuel analytics loaded");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
