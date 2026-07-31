@@ -796,7 +796,17 @@ function getAdminPromotionCampaigns(e) {
     }
 
     // Build response with owner name
+    // Promotion Engine V2: Support both legacy and new fuel economy fields
     var enriched = campaigns.map(function(c) {
+      // V2 compatibility mapping (same logic as normalizeCampaign in Promotion.js)
+      var coinsConsumed = Number(c.CoinsConsumed || c.CoinsSpent || 0);
+      var promotionFuel = Number(c.PromotionFuel || c.RewardPool || c.CampaignBudget || 0);
+      var remainingFuel = Number(c.RemainingFuel || c.RemainingRewardCoins || promotionFuel || 0);
+      var rewardRatePerSecond = Number(c.RewardRatePerSecond || 1);
+      var duration = Number(c.Duration || 10);
+      var estimatedViewSeconds = rewardRatePerSecond > 0 ? Math.floor(promotionFuel / rewardRatePerSecond) : 0;
+      var estimatedViews = duration > 0 ? Math.floor(estimatedViewSeconds / duration) : 0;
+
       return {
         CampaignID: c.CampaignID || "",
         CampaignType: c.CampaignType || "",
@@ -824,12 +834,19 @@ function getAdminPromotionCampaigns(e) {
         Clicks: Number(c.Clicks || 0),
         Interested: Number(c.Interested || 0),
         Shares: Number(c.Shares || 0),
-        CoinsSpent: Number(c.CoinsSpent || 0),
-        RewardPool: Number(c.RewardPool || 0),
-        PlatformReserve: Number(c.PlatformReserve || 0),
-        RemainingRewardCoins: Number(c.RemainingRewardCoins || 0),
+        // V2 fields (primary)
+        CoinsConsumed: coinsConsumed,
+        PromotionFuel: promotionFuel,
+        RemainingFuel: remainingFuel,
+        RewardRatePerSecond: rewardRatePerSecond,
+        EstimatedViewSeconds: estimatedViewSeconds,
+        EstimatedViews: estimatedViews,
+        // Legacy fields (backward compatible aliases)
+        CoinsSpent: coinsConsumed,
+        RewardPool: promotionFuel,
+        RemainingRewardCoins: remainingFuel,
         RewardCoins: Number(c.RewardCoins || 0),
-        Duration: Number(c.Duration || 0),
+        Duration: duration,
         StartDate: c.StartDate || "",
         EndDate: c.EndDate || "",
         Status: c.Status || "",
@@ -847,6 +864,7 @@ function getAdminPromotionCampaigns(e) {
     const paged = enriched.slice(start, start + limit);
 
     // Also compute summary stats
+    // Promotion Engine V2: Use V2 field names in stats
     var stats = {
       totalCampaigns: total,
       activeCount: 0,
@@ -860,7 +878,11 @@ function getAdminPromotionCampaigns(e) {
       totalShares: 0,
       totalCoinsSpent: 0,
       totalRewardPool: 0,
-      totalRemainingRewardCoins: 0
+      totalRemainingRewardCoins: 0,
+      // V2 stats fields
+      totalPromotionFuel: 0,
+      totalRemainingFuel: 0,
+      totalCoinsConsumed: 0
     };
 
     enriched.forEach(function(c) {
@@ -874,9 +896,13 @@ function getAdminPromotionCampaigns(e) {
       stats.totalClicks += c.Clicks;
       stats.totalInterested += c.Interested;
       stats.totalShares += c.Shares;
+      // V2 fields (also populate legacy aliases for backward compatibility)
       stats.totalCoinsSpent += c.CoinsSpent;
+      stats.totalCoinsConsumed += c.CoinsConsumed;
       stats.totalRewardPool += c.RewardPool;
+      stats.totalPromotionFuel += c.PromotionFuel;
       stats.totalRemainingRewardCoins += c.RemainingRewardCoins;
+      stats.totalRemainingFuel += c.RemainingFuel;
     });
 
     return success({
@@ -1124,6 +1150,62 @@ function adminTerminateCampaign(e) {
     });
 
     return success({ campaignId: campaignId, status: "Terminated" }, "Campaign terminated");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ADMIN: RESUME CAMPAIGN
+ * ?action=adminresumecampaign&session=TOKEN&campaignId=C001
+ * Promotion Engine V2: Resumes suspended/paused campaigns
+ */
+function adminResumeCampaign(e) {
+  try {
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+
+    const campaignId = (e.parameter.campaignId || "").trim();
+    if (!campaignId) return error("campaignId required");
+
+    const campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
+    if (!campaign) return error("Campaign not found");
+
+    const currentStatus = String(campaign.Status || "").toLowerCase();
+    if (currentStatus !== "suspended" && currentStatus !== "paused") {
+      return error("Only suspended or paused campaigns can be resumed. Current status: " + campaign.Status);
+    }
+
+    const updated = updateRow("PromotionCampaigns", "CampaignID", campaignId, {
+      Status: "Active"
+    });
+
+    if (!updated) return error("Failed to update campaign");
+
+    console.log("Admin Campaign Resume:", {
+      adminId: sessionResult.adminId,
+      campaignId: campaignId,
+      action: "resume",
+      previousStatus: campaign.Status,
+      newStatus: "Active",
+      timestamp: new Date()
+    });
+
+    // Promotion Engine V2: Return fuel integrity info
+    var coinsConsumed = Number(campaign.CoinsConsumed || campaign.CoinsSpent || 0);
+    var promotionFuel = Number(campaign.PromotionFuel || campaign.RewardPool || 0);
+    var remainingFuel = Number(campaign.RemainingFuel || campaign.RemainingRewardCoins || promotionFuel || 0);
+
+    return success({ 
+      campaignId: campaignId, 
+      status: "Active",
+      // V2 fuel economy fields (preserved from campaign)
+      promotionFuel: promotionFuel,
+      remainingFuel: remainingFuel,
+      coinsConsumed: coinsConsumed
+    }, "Campaign resumed and activated");
 
   } catch (err) {
     return exception(err);
