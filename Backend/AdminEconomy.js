@@ -2,10 +2,77 @@
  * ============================================================
  * EKKA1KM BACKEND
  * AdminEconomy.js
- * PHASE 5.7A - WALLET & REWARDS ADMIN VISIBILITY FOUNDATION
+ * PHASE 5.7C - PROMOTION ECONOMY V2 INTEGRATION
  * READ-ONLY economy inspection APIs for Super Admin
+ * Consumes Promotion Engine V2
  * ============================================================
  */
+
+/**
+ * ============================================================
+ * NORMALIZE CAMPAIGN - Promotion Economy V2
+ * Maps legacy Reward Economy fields to new PromotionFuel economy
+ * Provides backward compatibility for existing campaign records
+ * ============================================================
+ */
+function normalizeCampaignForAdmin(c) {
+  if (!c) return c;
+
+  // ============================================================
+  // LEGACY TO V2 FIELD MAPPING
+  // ============================================================
+
+  // CoinsConsumed (V2) - from legacy CoinsSpent
+  if (!c.CoinsConsumed) {
+    c.CoinsConsumed = Number(c.CoinsSpent || 0);
+  }
+
+  // PromotionFuel (V2) - from legacy RewardPool or CampaignBudget
+  if (!c.PromotionFuel) {
+    c.PromotionFuel = Number(c.RewardPool || c.CampaignBudget || 0);
+  }
+
+  // RemainingFuel (V2) - from legacy RemainingRewardCoins
+  if (c.RemainingFuel === undefined && c.RemainingRewardCoins !== undefined) {
+    c.RemainingFuel = Number(c.RemainingRewardCoins || 0);
+  }
+
+  // RewardCoins (V2) - from legacy RewardCoins
+  if (!c.RewardCoins) {
+    c.RewardCoins = Number(c.RewardCoins || 0);
+  }
+
+  // RewardRatePerSecond (V2) - calculate if missing
+  if (!c.RewardRatePerSecond) {
+    var dur = Number(c.Duration || c.DurationSeconds || 10);
+    var rc = Number(c.RewardCoins || 5);
+    c.RewardRatePerSecond = dur > 0 ? Math.round((rc / dur) * 100) / 100 : 1;
+  }
+
+  // EstimatedViewSeconds (V2) - calculate: PromotionFuel / RewardRatePerSecond
+  if (!c.EstimatedViewSeconds) {
+    var fuel = Number(c.PromotionFuel || 0);
+    var rate = Number(c.RewardRatePerSecond || 1);
+    c.EstimatedViewSeconds = rate > 0 ? Math.floor(fuel / rate) : 0;
+  }
+
+  // EstimatedViews (V2) - calculate: EstimatedViewSeconds / Duration
+  if (!c.EstimatedViews) {
+    var estSec = Number(c.EstimatedViewSeconds || 0);
+    var d = Number(c.Duration || c.DurationSeconds || 10);
+    c.EstimatedViews = d > 0 ? Math.floor(estSec / d) : 0;
+  }
+
+  // ============================================================
+  // LEGACY ALIASES (for backward compatibility)
+  // ============================================================
+
+  if (!c.CoinsSpent) c.CoinsSpent = Number(c.CoinsConsumed || 0);
+  if (!c.RewardPool) c.RewardPool = Number(c.PromotionFuel || 0);
+  if (!c.RemainingRewardCoins && c.RemainingFuel !== undefined) c.RemainingRewardCoins = Number(c.RemainingFuel || 0);
+
+  return c;
+}
 
 /**
  * Safely convert any date-like value to a numeric timestamp for sorting.
@@ -34,6 +101,7 @@ function compareDatesDesc(a, b) {
  * ADMIN: ECONOMY SUMMARY
  * Aggregated read-only economy overview
  * ?action=admineconomysummary&session=TOKEN
+ * PROMOTION ECONOMY V2 - Uses new fuel economy fields
  * ============================================================
  */
 function getAdminEconomySummary(e) {
@@ -81,24 +149,22 @@ function getAdminEconomySummary(e) {
       rewardCount++;
     });
 
-    // Campaign economy
-    let totalCoinsSpent = 0;
-    let totalRewardPool = 0;
-    let totalPlatformReserve = 0;
-    let totalRemainingRewardCoins = 0;
+    // Campaign economy - PROMOTION ECONOMY V2
+    let totalCoinsConsumed = 0;
+    let totalPromotionFuel = 0;
+    let totalRemainingFuel = 0;
     let activeCampaigns = 0;
     campaignData.forEach(function(c) {
-      totalCoinsSpent += Number(c.CoinsSpent || 0);
-      totalRewardPool += Number(c.RewardPool || 0);
-      totalPlatformReserve += Number(c.PlatformReserve || 0);
-      totalRemainingRewardCoins += Number(c.RemainingRewardCoins || 0);
+      // Normalize to V2
+      c = normalizeCampaignForAdmin(c);
+      
+      totalCoinsConsumed += Number(c.CoinsConsumed || 0);
+      totalPromotionFuel += Number(c.PromotionFuel || 0);
+      totalRemainingFuel += Number(c.RemainingFuel || 0);
       if (String(c.Status || "").toLowerCase() === "active") {
         activeCampaigns++;
       }
     });
-
-    // Platform Reserve (from all campaigns)
-    const platformReserve = totalPlatformReserve;
 
     // Total users count
     const totalUsers = usersData.length;
@@ -112,10 +178,16 @@ function getAdminEconomySummary(e) {
       totalDebits: totalDebits,
       rewardTransactionCount: rewardCount,
       totalRewardCoinsDistributed: totalRewardCoins,
-      totalCoinsSpent: totalCoinsSpent,
-      totalRewardPool: totalRewardPool,
-      totalPlatformReserve: platformReserve,
-      totalRemainingRewardCoins: totalRemainingRewardCoins,
+      // V2: Use PromotionFuel instead of RewardPool
+      totalPromotionFuel: totalPromotionFuel,
+      // V2: Use CoinsConsumed instead of CoinsSpent
+      totalCoinsConsumed: totalCoinsConsumed,
+      // V2: Use RemainingFuel instead of RemainingRewardCoins
+      totalRemainingFuel: totalRemainingFuel,
+      // Legacy aliases for backward compatibility
+      totalRewardPool: totalPromotionFuel,
+      totalCoinsSpent: totalCoinsConsumed,
+      totalRemainingRewardCoins: totalRemainingFuel,
       activeCampaignCount: activeCampaigns,
       totalCampaigns: campaignData.length
     }, "Economy Summary Loaded");
@@ -456,6 +528,7 @@ function getAdminRewardActivity(e) {
  * ADMIN: CAMPAIGN ECONOMY
  * Read-only campaign economy visibility
  * ?action=admincampaigneconomy&session=TOKEN&search=TERM&page=1&limit=50
+ * PROMOTION ECONOMY V2 - Uses new fuel economy fields
  * ============================================================
  */
 function getAdminCampaignEconomy(e) {
@@ -491,19 +564,33 @@ function getAdminCampaignEconomy(e) {
     const start = (page - 1) * limit;
     const paged = campaignData.slice(start, start + limit);
 
-    // Enrich with calculated fields
+    // Enrich with calculated fields - PROMOTION ECONOMY V2
     const enriched = paged.map(function(c) {
-      const rewardPoolUsed = Number(c.RewardPool || 0) - Number(c.RemainingRewardCoins || 0);
+      // Normalize to V2
+      c = normalizeCampaignForAdmin(c);
+      
+      const coinsConsumed = Number(c.CoinsConsumed || 0);
+      const promotionFuel = Number(c.PromotionFuel || 0);
+      const remainingFuel = Number(c.RemainingFuel || 0);
+      const fuelUsed = promotionFuel - remainingFuel;
+      
       return {
         CampaignID: c.CampaignID || "",
         CampaignType: c.CampaignType || "",
         OwnerUserID: c.OwnerUserID || "",
-        CoinsSpent: Number(c.CoinsSpent || 0),
-        RewardPool: Number(c.RewardPool || 0),
-        PlatformReserve: Number(c.PlatformReserve || 0),
-        RemainingRewardCoins: Number(c.RemainingRewardCoins || 0),
+        // V2 fields
+        CoinsConsumed: coinsConsumed,
+        PromotionFuel: promotionFuel,
+        RemainingFuel: remainingFuel,
+        RewardRatePerSecond: Number(c.RewardRatePerSecond || 0),
+        EstimatedViewSeconds: Number(c.EstimatedViewSeconds || 0),
+        EstimatedViews: Number(c.EstimatedViews || 0),
         RewardCoins: Number(c.RewardCoins || 0),
-        RewardPoolUsed: Math.max(0, rewardPoolUsed),
+        // Legacy aliases for backward compatibility
+        CoinsSpent: coinsConsumed,
+        RewardPool: promotionFuel,
+        RemainingRewardCoins: remainingFuel,
+        RewardPoolUsed: Math.max(0, fuelUsed),
         Views: Number(c.Views || 0),
         Clicks: Number(c.Clicks || 0),
         Status: c.Status || "",
