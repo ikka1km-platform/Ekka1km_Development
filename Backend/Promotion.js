@@ -3,14 +3,14 @@
  * EKKA1KM BACKEND
  * Promotion.js
  * Phase 4 - PIP Advertisement + Reward Ad Center + Promotion Engine
- * Phase 5 Prep - Dynamic Campaign Economics (Admin Dashboard)
+ * Phase 5.7C - Promotion Engine V2 Foundation (Fuel Economy)
  * Builds on Advertisements.js
  * 
- * PRE-5.6 UPGRADE: 
- * - Responsive PIP creative types (IMAGE, BANNER, VIDEO, PAGE)
- * - Clickable destinations (external + internal Ekka1km content)
- * - Promotional mini-page support
- * - Schema extensions for CreativeType, CTA, DestinationType, PageContent
+ * PRE-5.7C UPGRADE: Promotion Engine V2
+ * - New PromotionFuel economy (replaces RewardPool)
+ * - RemainingFuel tracking (replaces RemainingRewardCoins)
+ * - CoinsConsumed tracking (replaces CoinsSpent)
+ * - Calculated fields: RewardRatePerSecond, EstimatedViewSeconds, EstimatedViews
  * - Backward compatible: existing campaigns continue working
  * ============================================================
  * APIs:
@@ -46,7 +46,7 @@
 /**
  * ============================================================
  * ENSURE SHEETS EXIST
- * Now includes new columns for Pre-5.6 creative upgrade
+ * Updated for Promotion Engine V2 with Fuel economy
  * ============================================================
  */
 function ensurePromotionSheets() {
@@ -64,39 +64,51 @@ function ensurePromotionSheets() {
     if (!s) {
       s = ss.insertSheet(name);
       if (name === "AdWatchProgress") {
-        s.appendRow(["ProgressID", "UserID", "CampaignID", "AdID", "TotalDuration", "WatchedSeconds", "RewardPaid", "RemainingSeconds", "RemainingReward", "Status", "LastWatchedAt", "CreatedAt"]);
+        s.appendRow(["ProgressID", "UserID", "CampaignID", "AdID", "TotalDuration", "WatchedSeconds", "RewardPaid", "RemainingSeconds", "RemainingFuel", "Status", "LastWatchedAt", "CreatedAt"]);
       } else if (name === "AdWatchHistory") {
         s.appendRow(["WatchID", "UserID", "CampaignID", "AdID", "Status", "RewardGiven", "RewardCoins", "WatchStartTime", "WatchEndTime", "DurationWatched", "CreatedAt"]);
       } else if (name === "AdRewards") {
         s.appendRow(["RewardID", "UserID", "CampaignID", "Coins", "WalletTransactionID", "Status", "CreatedAt"]);
       } else if (name === "AdAnalytics") {
-        s.appendRow(["AnalyticsID", "CampaignID", "Impressions", "Views", "UniqueViewers", "Skips", "Completions", "CompletionRate", "RewardsPaid", "TotalRewardPaid", "RemainingRewardPool", "RewardedUsersCount", "CTR", "UpdatedAt"]);
+        s.appendRow(["AnalyticsID", "CampaignID", "Impressions", "Views", "UniqueViewers", "Skips", "Completions", "CompletionRate", "RewardsPaid", "TotalRewardPaid", "RemainingFuel", "RewardedUsersCount", "CTR", "UpdatedAt"]);
       } else if (name === "PromotionCampaigns") {
-        // Extended schema with Pre-5.6 creative columns
-        s.appendRow(["CampaignID", "CampaignType", "OwnerUserID", "TargetType", "TargetID", "CoinsSpent", "RewardPool", "PlatformReserve", "RemainingRewardCoins", "Radius", "City", "District", "State", "Country", "Latitude", "Longitude", "Views", "Clicks", "Interested", "Shares", "StartDate", "EndDate", "Status", "CreatedDate", "ImageURL", "VideoURL", "ExternalURL", "Duration", "RewardCoins", "CreativeType", "CTA", "DestinationType", "PageContent", "Priority", "Featured", "PIPEnabled"]);
+        // Promotion Engine V2 schema - Fuel economy
+        s.appendRow(["CampaignID", "CampaignType", "OwnerUserID", "TargetType", "TargetID", "CoinsConsumed", "PromotionFuel", "RemainingFuel", "Radius", "City", "District", "State", "Country", "Latitude", "Longitude", "Views", "Clicks", "Interested", "Shares", "StartDate", "EndDate", "Status", "CreatedDate", "ImageURL", "VideoURL", "ExternalURL", "Duration", "RewardCoins", "RewardRatePerSecond", "EstimatedViewSeconds", "EstimatedViews", "CreativeType", "CTA", "DestinationType", "PageContent", "Priority", "Featured", "PIPEnabled"]);
       }
     }
   });
   
-  // Ensure existing PromotionCampaigns sheet has new columns
+  // Ensure existing PromotionCampaigns sheet has new columns (V2 migration)
   var pcSheet = ss.getSheetByName("PromotionCampaigns");
   if (pcSheet) {
     var headers = pcSheet.getDataRange().getValues()[0];
-    var requiredHeaders = ["ImageURL", "VideoURL", "ExternalURL", "Duration", "RewardCoins", "CreativeType", "CTA", "DestinationType", "PageContent", "Priority", "Featured", "PIPEnabled"];
     var existingCount = headers.length;
-    var needUpdate = false;
     
+    // V2 required headers
+    var requiredHeaders = [
+      "RewardRatePerSecond", "EstimatedViewSeconds", "EstimatedViews",
+      "CreativeType", "CTA", "DestinationType", "PageContent",
+      "ImageURL", "VideoURL", "ExternalURL", "Duration", "Featured", "PIPEnabled"
+    ];
+    
+    // Legacy headers to migrate
+    var legacyHeaders = ["RewardPool", "PlatformReserve", "RemainingRewardCoins", "Priority", "CoinsSpent"];
+    
+    var needUpdate = false;
+    var newHeaders = headers.slice();
+    
+    // Add missing V2 headers
     requiredHeaders.forEach(function(h) {
       if (headers.indexOf(h) === -1) {
-        headers.push(h);
+        newHeaders.push(h);
         needUpdate = true;
       }
     });
     
-    if (needUpdate && headers.length > existingCount) {
+    if (needUpdate && newHeaders.length > existingCount) {
       // Add missing header columns
-      for (var ci = existingCount; ci < headers.length; ci++) {
-        pcSheet.getRange(1, ci + 1).setValue(headers[ci]);
+      for (var ci = existingCount; ci < newHeaders.length; ci++) {
+        pcSheet.getRange(1, ci + 1).setValue(newHeaders[ci]);
       }
     }
   }
@@ -105,16 +117,16 @@ function ensurePromotionSheets() {
 
 /**
  * ============================================================
- * COMPATIBILITY MAPPING
- * Maps old PromotionCampaigns schema to new expected fields
- * Updated for Pre-5.6 with creative type support
+ * COMPATIBILITY MAPPING - Promotion Engine V2
+ * Maps legacy schema to new PromotionFuel economy fields
  * ============================================================
  */
 function normalizeCampaign(c) {
   if (!c) return c;
   
-  // Map old field names to new field names
-  // Old schema: CampaignID, CampaignType, OwnerUserID, TargetType, TargetID, CoinsSpent, RewardPool, PlatformReserve, RemainingRewardCoins, Radius, City, District, State, Country, Latitude, Longitude, Views, Clicks, Interested, Shares, StartDate, EndDate, Status, CreatedDate
+  // ============================================================
+  // BASIC FIELD MAPPINGS
+  // ============================================================
   
   // UserID
   if (!c.UserID && c.OwnerUserID) c.UserID = c.OwnerUserID;
@@ -149,14 +161,16 @@ function normalizeCampaign(c) {
   // VideoURL
   if (!c.VideoURL) c.VideoURL = "";
   
-  // Duration - default 5 seconds for demo
-  if (!c.Duration) c.Duration = 5;
+  // Duration - default 10 seconds
+  if (!c.Duration) c.Duration = 10;
   
-  // RewardCoins - use RemainingRewardCoins or RewardPool
+  // RewardCoins - use RemainingRewardCoins or RewardPool as fallback
   if (!c.RewardCoins) c.RewardCoins = Number(c.RemainingRewardCoins || c.RewardPool || 5);
   
-  // RewardPerSecond
-  if (!c.RewardPerSecond) c.RewardPerSecond = Math.max(1, Math.round(Number(c.RewardCoins) / Math.max(Number(c.Duration), 1)));
+  // RewardRatePerSecond (V2) - calculated from RewardCoins / Duration
+  if (!c.RewardRatePerSecond) {
+    c.RewardRatePerSecond = Math.max(1, Math.round(Number(c.RewardCoins) / Math.max(Number(c.Duration), 1) * 100) / 100);
+  }
   
   // RepeatRewardType
   if (!c.RepeatRewardType) c.RepeatRewardType = "ONCE";
@@ -173,11 +187,16 @@ function normalizeCampaign(c) {
   // MaxViewsPerUser
   if (!c.MaxViewsPerUser) c.MaxViewsPerUser = 0;
   
+  // ============================================================
+  // TARGETING FIELDS (with backward compatibility)
+  // ============================================================
+  
   // TargetRadius
   if (!c.TargetRadius && c.Radius) c.TargetRadius = c.Radius;
   if (!c.TargetRadius) c.TargetRadius = "All India";
   
-  // TargetCategory
+  // TargetCategory (was District in old schema)
+  if (!c.TargetCategory && c.District) c.TargetCategory = c.District;
   if (!c.TargetCategory) c.TargetCategory = "";
   
   // TargetCity
@@ -192,14 +211,42 @@ function normalizeCampaign(c) {
   if (!c.TargetCountry && c.Country) c.TargetCountry = c.Country;
   if (!c.TargetCountry) c.TargetCountry = "";
   
-  // RemainingRewardPool - use RemainingRewardCoins
-  if (!c.RemainingRewardPool) c.RemainingRewardPool = Number(c.RemainingRewardCoins || c.RewardPool || 0);
+  // ============================================================
+  // PROMOTION ENGINE V2 - FUEL ECONOMY FIELDS
+  // ============================================================
   
-  // CampaignBudget
-  if (!c.CampaignBudget) c.CampaignBudget = Number(c.RewardPool || c.CoinsSpent || 0);
+  // CoinsConsumed (V2) - from legacy CoinsSpent
+  if (!c.CoinsConsumed) c.CoinsConsumed = Number(c.CoinsSpent || 0);
   
-  // RewardPerUser
-  if (!c.RewardPerUser) c.RewardPerUser = Number(c.RewardCoins || 5);
+  // PromotionFuel (V2) - total fuel allocated (from legacy RewardPool or CampaignBudget)
+  if (!c.PromotionFuel) c.PromotionFuel = Number(c.RewardPool || c.CampaignBudget || 0);
+  
+  // RemainingFuel (V2) - from legacy RemainingRewardCoins
+  if (!c.RemainingFuel) c.RemainingFuel = Number(c.RemainingRewardCoins || c.PromotionFuel || 0);
+  
+  // EstimatedViewSeconds (V2) - calculated: PromotionFuel / RewardRatePerSecond
+  if (!c.EstimatedViewSeconds) {
+    var fuel = Number(c.PromotionFuel || c.RewardPool || 0);
+    var rate = Number(c.RewardRatePerSecond || 1);
+    c.EstimatedViewSeconds = rate > 0 ? Math.floor(fuel / rate) : 0;
+  }
+  
+  // EstimatedViews (V2) - calculated: EstimatedViewSeconds / Duration
+  if (!c.EstimatedViews) {
+    var estSeconds = Number(c.EstimatedViewSeconds || 0);
+    var dur = Number(c.Duration || 10);
+    c.EstimatedViews = dur > 0 ? Math.floor(estSeconds / dur) : 0;
+  }
+  
+  // ============================================================
+  // LEGACY FIELD ALIASES (for backward compatibility in responses)
+  // ============================================================
+  
+  // CampaignBudget (for backward compatibility)
+  if (!c.CampaignBudget) c.CampaignBudget = Number(c.PromotionFuel || c.RewardPool || 0);
+  
+  // Cost (alias for CoinsConsumed)
+  if (!c.Cost) c.Cost = Number(c.CoinsConsumed || c.CoinsSpent || 0);
   
   // MaxViews
   if (!c.MaxViews) c.MaxViews = 1000;
@@ -207,11 +254,11 @@ function normalizeCampaign(c) {
   // MaxRewardedUsers
   if (!c.MaxRewardedUsers) c.MaxRewardedUsers = 0;
   
-  // CostPerView
-  if (!c.CostPerView) c.CostPerView = 0;
+  // RewardPerUser
+  if (!c.RewardPerUser) c.RewardPerUser = Number(c.RewardCoins || 5);
   
-  // TotalRewardPool
-  if (!c.TotalRewardPool) c.TotalRewardPool = Number(c.RemainingRewardPool || c.RewardPool || 0);
+  // TotalRewardPool (alias for PromotionFuel)
+  if (!c.TotalRewardPool) c.TotalRewardPool = Number(c.PromotionFuel || c.RewardPool || 0);
   
   // TotalRewardPaid
   if (!c.TotalRewardPaid) c.TotalRewardPaid = 0;
@@ -219,8 +266,8 @@ function normalizeCampaign(c) {
   // RewardedUsersCount
   if (!c.RewardedUsersCount) c.RewardedUsersCount = 0;
   
-  // Cost
-  if (!c.Cost) c.Cost = Number(c.CoinsSpent || 0);
+  // RemainingRewardPool (V2 alias for RemainingFuel - for backward compatibility)
+  if (!c.RemainingRewardPool) c.RemainingRewardPool = Number(c.RemainingFuel || 0);
   
   // Impressions
   if (!c.Impressions) c.Impressions = 0;
@@ -230,7 +277,7 @@ function normalizeCampaign(c) {
   if (!c.CreatedAt) c.CreatedAt = new Date();
   
   // ============================================================
-  // Pre-5.6 CREATIVE TYPE FIELDS
+  // PRE-5.6 CREATIVE TYPE FIELDS
   // Backward compatible defaults for existing campaigns
   // ============================================================
   
@@ -286,7 +333,7 @@ function normalizeCampaign(c) {
  * GET PIP QUEUE
  * ?action=getpipqueue
  * Returns max 3 ads with priority sorting
- * Now includes creative type data for Pre-5.6
+ * Now uses RemainingFuel for Promotion Engine V2
  * ============================================================
  */
 function getPipQueue(e) {
@@ -297,7 +344,7 @@ function getPipQueue(e) {
     var now = new Date();
     var result = [];
     
-    console.log("Phase4: Campaign Count:", campaigns.length);
+    console.log("Phase5.7C: Campaign Count:", campaigns.length);
 
     campaigns.forEach(function(c) {
       try {
@@ -308,7 +355,8 @@ function getPipQueue(e) {
         var pip = String(c.PIPEnabled || "").toLowerCase();
         var start = c.StartDate ? new Date(c.StartDate) : null;
         var end = c.EndDate ? new Date(c.EndDate) : null;
-        var remainingPool = Number(c.RemainingRewardPool || 0);
+        // V2: Use RemainingFuel instead of RemainingRewardPool
+        var remainingFuel = Number(c.RemainingFuel || c.RemainingRewardPool || 0);
         var maxViews = Number(c.MaxViews || 0);
         var currentViews = Number(c.Views || 0);
 
@@ -316,7 +364,6 @@ function getPipQueue(e) {
         if (pip !== "yes" && pip !== "true") return;
         
         // Normalize dates to start of day in local time for fair comparison
-        // This prevents timezone mismatches where UTC midnight appears as future time
         if (start) {
           start = new Date(start.getFullYear(), start.getMonth(), start.getDate());
         }
@@ -327,11 +374,11 @@ function getPipQueue(e) {
         
         if (start && start > today) return;
         if (end && end < today) return;
-        if (remainingPool <= 0) return;
+        // V2: Check RemainingFuel instead of remainingPool
+        if (remainingFuel <= 0) return;
         if (maxViews > 0 && currentViews >= maxViews) return;
         
         // User-specific watch history filter
-        // Exclude campaigns this user has already completed (for ONCE reward type)
         if (userId) {
           try {
             var history = getSheetData("AdWatchHistory");
@@ -347,13 +394,11 @@ function getPipQueue(e) {
                 var histDate = history[h].CreatedAt ? new Date(history[h].CreatedAt) : null;
                 
                 if (repeatType === "ONCE") {
-                  // For ONCE type, exclude if ever completed or rewarded
                   if (histStatus === "completed" || histStatus === "rewarded") {
                     userCompleted = true;
                     break;
                   }
                 } else if (repeatType === "DAILY") {
-                  // For DAILY type, exclude if completed today
                   if (histDate && (histStatus === "completed" || histStatus === "rewarded")) {
                     var todayStr = new Date().toISOString().split("T")[0];
                     var histDateStr = histDate.toISOString().split("T")[0];
@@ -363,7 +408,6 @@ function getPipQueue(e) {
                     }
                   }
                 } else if (repeatType === "WEEKLY") {
-                  // For WEEKLY type, exclude if completed this week
                   if (histDate && (histStatus === "completed" || histStatus === "rewarded")) {
                     var weekStart = getWeekStart();
                     if (histDate >= weekStart) {
@@ -377,13 +421,13 @@ function getPipQueue(e) {
             
             if (userCompleted) return;
           } catch (histErr) {
-            console.log("Phase4: History filter error:", histErr.toString());
+            console.log("Phase5.7C: History filter error:", histErr.toString());
           }
         }
 
         result.push(c);
       } catch (campErr) {
-        console.log("Phase4: Error processing campaign:", campErr.toString());
+        console.log("Phase5.7C: Error processing campaign:", campErr.toString());
       }
     });
 
@@ -408,7 +452,7 @@ function getPipQueue(e) {
           return 0;
         });
       } catch (sortErr) {
-        console.log("Phase4: Sort error:", sortErr.toString());
+        console.log("Phase5.7C: Sort error:", sortErr.toString());
       }
     }
 
@@ -419,11 +463,11 @@ function getPipQueue(e) {
       try {
         trackAdAnalytics(ad.CampaignID, "impression");
       } catch (trackErr) {
-        console.log("Phase4: Track error:", trackErr.toString());
+        console.log("Phase5.7C: Track error:", trackErr.toString());
       }
     });
 
-    console.log("Phase4: Queue result - total:", result.length, "queue:", queue.length);
+    console.log("Phase5.7C: Queue result - total:", result.length, "queue:", queue.length);
 
     return success({
       queue: queue,
@@ -432,7 +476,7 @@ function getPipQueue(e) {
     }, "PIP Queue Loaded");
 
   } catch (err) {
-    console.log("Phase4: getPipQueue error:", err.toString());
+    console.log("Phase5.7C: getPipQueue error:", err.toString());
     return success({
       queue: [],
       total: 0,
@@ -447,7 +491,6 @@ function getPipQueue(e) {
  * GET PIP CREATIVE DATA (Pre-5.6)
  * ?action=getpipcreativedata&campaignId=C001
  * Returns full creative configuration for a PIP campaign
- * Used by the frontend to render the correct creative type
  * ============================================================
  */
 function getPipCreativeData(e) {
@@ -481,6 +524,7 @@ function getPipCreativeData(e) {
       PageContent: campaign.PageContent || "",
       Duration: Number(campaign.Duration || 5),
       RewardCoins: Number(campaign.RewardCoins || 0),
+      RewardRatePerSecond: Number(campaign.RewardRatePerSecond || 1),
       AdType: campaign.AdType || "IMAGE",
       CampaignType: campaign.CampaignType || "",
       Featured: campaign.Featured || "No"
@@ -508,7 +552,6 @@ function getPipCreativeData(e) {
  * ============================================================
  * TRACK PIP CLICK (Pre-5.6)
  * ?action=trackpipclick&userId=U001&campaignId=C001&destinationType=Internal&entityType=Product&entityId=PROD001
- * Records a promotion click via analytics
  * ============================================================
  */
 function trackPipClick(e) {
@@ -576,6 +619,7 @@ function trackPipClick(e) {
  * ============================================================
  * GET ADVERTISEMENT CENTER
  * ?action=getadcenter&userId=U001&category=Products&lat=26.91&lng=75.78&radius=51
+ * Uses RemainingFuel for Promotion Engine V2
  * ============================================================
  */
 function getAdvertisementCenter(e) {
@@ -600,7 +644,8 @@ function getAdvertisementCenter(e) {
         var status = String(c.Status || "").toLowerCase();
         var start = c.StartDate ? new Date(c.StartDate) : null;
         var end = c.EndDate ? new Date(c.EndDate) : null;
-        var remainingPool = Number(c.RemainingRewardPool || 0);
+        // V2: Use RemainingFuel instead of RemainingRewardPool
+        var remainingFuel = Number(c.RemainingFuel || c.RemainingRewardPool || 0);
         var maxViews = Number(c.MaxViews || 0);
         var currentViews = Number(c.Views || 0);
         var maxUsers = Number(c.MaxRewardedUsers || 0);
@@ -609,7 +654,8 @@ function getAdvertisementCenter(e) {
         if (status !== "active") return;
         if (start && start > now) return;
         if (end && end < now) return;
-        if (remainingPool <= 0) return;
+        // V2: Check RemainingFuel
+        if (remainingFuel <= 0) return;
         if (maxViews > 0 && currentViews >= maxViews) return;
         if (maxUsers > 0 && rewardedCount >= maxUsers) return;
 
@@ -617,7 +663,7 @@ function getAdvertisementCenter(e) {
 
         result.push(c);
       } catch (campErr) {
-        console.log("Phase4: AdCenter campaign error:", campErr.toString());
+        console.log("Phase5.7C: AdCenter campaign error:", campErr.toString());
       }
     });
 
@@ -631,7 +677,7 @@ function getAdvertisementCenter(e) {
           }
         });
       } catch (progErr) {
-        console.log("Phase4: Progress map error:", progErr.toString());
+        console.log("Phase5.7C: Progress map error:", progErr.toString());
       }
     }
 
@@ -644,12 +690,13 @@ function getAdvertisementCenter(e) {
         var totalReward = Number(c.RewardCoins || 0);
         var remainingReward = Math.max(0, totalReward - paid);
         var remainingSeconds = Math.max(0, totalDuration - watched);
-        var remainingPool = Number(c.RemainingRewardPool || 0);
+        // V2: Use RemainingFuel
+        var remainingFuel = Number(c.RemainingFuel || c.RemainingRewardPool || 0);
         var rewardPerUser = Number(c.RewardPerUser || 0);
 
         var actualReward = totalReward;
         if (rewardPerUser > 0) actualReward = Math.min(actualReward, rewardPerUser);
-        if (remainingPool > 0) actualReward = Math.min(actualReward, remainingPool);
+        if (remainingFuel > 0) actualReward = Math.min(actualReward, remainingFuel);
 
         return {
           CampaignID: c.CampaignID,
@@ -664,29 +711,31 @@ function getAdvertisementCenter(e) {
           VideoURL: c.VideoURL || "",
           Duration: totalDuration,
           RewardCoins: actualReward,
-          RewardPerSecond: Number(c.RewardPerSecond || 1),
+          RewardPerSecond: Number(c.RewardRatePerSecond || c.RewardPerSecond || 1),
           RepeatRewardType: c.RepeatRewardType || "ONCE",
           PIPEnabled: c.PIPEnabled || "Yes",
           Featured: c.Featured || "No",
           Priority: Number(c.Priority || 0),
-          TargetCategory: c.TargetCategory || "",
+          TargetCategory: c.TargetCategory || c.District || "",
           TargetCity: c.TargetCity || c.City || "",
           TargetState: c.TargetState || c.State || "",
           DistanceKm: c.DistanceKm || "",
-          CampaignBudget: Number(c.CampaignBudget || 0),
+          CampaignBudget: Number(c.PromotionFuel || c.CampaignBudget || 0),
           RewardPerUser: rewardPerUser,
           MaxViews: Number(c.MaxViews || 0),
           MaxRewardedUsers: Number(c.MaxRewardedUsers || 0),
-          TotalRewardPool: Number(c.TotalRewardPool || 0),
-          RemainingRewardPool: remainingPool,
+          TotalRewardPool: Number(c.PromotionFuel || c.TotalRewardPool || 0),
+          // V2: Return RemainingFuel (with legacy alias)
+          RemainingRewardPool: remainingFuel,
+          RemainingFuel: remainingFuel,
           Views: Number(c.Views || 0),
           RewardedUsersCount: Number(c.RewardedUsersCount || 0),
           WatchedSeconds: watched,
           RewardPaid: paid,
           RemainingSeconds: remainingSeconds,
-          RemainingReward: Math.min(remainingReward, remainingPool),
+          RemainingReward: Math.min(remainingReward, remainingFuel),
           ProgressPercent: totalDuration > 0 ? Math.min(100, Math.round((watched / totalDuration) * 100)) : 0,
-          CanWatch: remainingSeconds > 0 && remainingPool > 0,
+          CanWatch: remainingSeconds > 0 && remainingFuel > 0,
           Status: progress ? progress.Status : "new",
           // Pre-5.6 creative fields
           CreativeType: c.CreativeType || "IMAGE",
@@ -695,7 +744,7 @@ function getAdvertisementCenter(e) {
           PageContent: c.PageContent || ""
         };
       } catch (mapErr) {
-        console.log("Phase4: Map error:", mapErr.toString());
+        console.log("Phase5.7C: Map error:", mapErr.toString());
         return null;
       }
     }).filter(function(item) { return item !== null; });
@@ -706,7 +755,7 @@ function getAdvertisementCenter(e) {
     }, "Advertisement Center Loaded");
 
   } catch (err) {
-    console.log("Phase4: getAdvertisementCenter error:", err.toString());
+    console.log("Phase5.7C: getAdvertisementCenter error:", err.toString());
     return success({
       count: 0,
       data: []
@@ -719,6 +768,7 @@ function getAdvertisementCenter(e) {
  * ============================================================
  * DEBUG PIP
  * ?action=debugpip
+ * Uses RemainingFuel for V2
  * ============================================================
  */
 function debugPip(e) {
@@ -732,7 +782,7 @@ function debugPip(e) {
       pipDisabled: 0,
       notStarted: 0,
       expired: 0,
-      noPool: 0,
+      noFuel: 0,
       maxViewsReached: 0,
       passed: 0,
       details: []
@@ -747,7 +797,8 @@ function debugPip(e) {
         var pip = String(c.PIPEnabled || "").toLowerCase();
         var start = c.StartDate ? new Date(c.StartDate) : null;
         var end = c.EndDate ? new Date(c.EndDate) : null;
-        var remainingPool = Number(c.RemainingRewardPool || 0);
+        // V2: Use RemainingFuel
+        var remainingFuel = Number(c.RemainingFuel || c.RemainingRewardPool || 0);
         var maxViews = Number(c.MaxViews || 0);
         var currentViews = Number(c.Views || 0);
         
@@ -758,7 +809,8 @@ function debugPip(e) {
         else if (pip !== "yes" && pip !== "true") { reasons.pipDisabled++; reason = "PIPEnabled not yes: " + pip; rejected = true; }
         else if (start && start > now) { reasons.notStarted++; reason = "StartDate in future: " + start; rejected = true; }
         else if (end && end < now) { reasons.expired++; reason = "EndDate in past: " + end; rejected = true; }
-        else if (remainingPool <= 0) { reasons.noPool++; reason = "RemainingRewardPool: " + remainingPool; rejected = true; }
+        // V2: Check RemainingFuel instead of RemainingRewardPool
+        else if (remainingFuel <= 0) { reasons.noFuel++; reason = "RemainingFuel: " + remainingFuel; rejected = true; }
         else if (maxViews > 0 && currentViews >= maxViews) { reasons.maxViewsReached++; reason = "MaxViews reached: " + currentViews + "/" + maxViews; rejected = true; }
         else { reasons.passed++; reason = "PASSED"; }
         
@@ -766,7 +818,10 @@ function debugPip(e) {
           CampaignID: c.CampaignID,
           Status: c.Status,
           PIPEnabled: c.PIPEnabled,
+          // V2: Show RemainingFuel
+          RemainingFuel: c.RemainingFuel,
           RemainingRewardPool: c.RemainingRewardPool,
+          PromotionFuel: c.PromotionFuel,
           StartDate: c.StartDate ? String(c.StartDate) : "",
           EndDate: c.EndDate ? String(c.EndDate) : "",
           Views: c.Views,
@@ -774,6 +829,9 @@ function debugPip(e) {
           CreativeType: c.CreativeType || "IMAGE",
           CTA: c.CTA || "",
           DestinationType: c.DestinationType || "None",
+          RewardRatePerSecond: c.RewardRatePerSecond,
+          EstimatedViewSeconds: c.EstimatedViewSeconds,
+          EstimatedViews: c.EstimatedViews,
           passed: !rejected,
           reason: reason,
           normalized: c
@@ -797,6 +855,7 @@ function debugPip(e) {
 /**
  * ============================================================
  * START AD WATCH
+ * Uses RemainingFuel for Promotion Engine V2
  * ============================================================
  */
 function startAdWatch(e) {
@@ -822,9 +881,10 @@ function startAdWatch(e) {
       return error("Campaign is not active");
     }
 
-    var remainingPool = Number(campaign.RemainingRewardPool || 0);
-    if (remainingPool <= 0) {
-      return error("Campaign reward pool exhausted.");
+    // V2: Use RemainingFuel instead of RemainingRewardPool
+    var remainingFuel = Number(campaign.RemainingFuel || campaign.RemainingRewardPool || 0);
+    if (remainingFuel <= 0) {
+      return error("Campaign fuel exhausted.");
     }
 
     var maxViews = Number(campaign.MaxViews || 0);
@@ -926,16 +986,18 @@ function startAdWatch(e) {
     ]);
 
     var rewardPerUser = Number(campaign.RewardPerUser || campaign.RewardCoins || 0);
-    var rewardCap = Math.min(rewardPerUser, remainingPool);
+    // V2: Use remainingFuel for cap calculation
+    var rewardCap = Math.min(rewardPerUser, remainingFuel);
 
     return success({
       watchId: watchId,
       campaignId: campaignId,
       totalDuration: Number(campaign.Duration || 5),
       totalReward: Number(campaign.RewardCoins || 0),
-      rewardPerSecond: Number(campaign.RewardPerSecond || 1),
+      rewardPerSecond: Number(campaign.RewardRatePerSecond || campaign.RewardPerSecond || 1),
       rewardPerUser: rewardPerUser,
-      remainingPool: remainingPool,
+      // V2: Return remainingFuel
+      remainingFuel: remainingFuel,
       rewardCap: rewardCap,
       watchedSeconds: existingProgress ? existingProgress.WatchedSeconds : 0,
       rewardPaid: existingProgress ? existingProgress.RewardPaid : 0,
@@ -948,7 +1010,7 @@ function startAdWatch(e) {
       externalURL: campaign.ExternalURL || "",
       title: campaign.Title || campaign.CampaignType || "Promotion",
       description: campaign.Description || "",
-      // Pre-5.6 creative fields for ad center modal
+      // Pre-5.6 creative fields
       creativeType: campaign.CreativeType || "IMAGE",
       cta: campaign.CTA || "Learn More",
       destinationType: campaign.DestinationType || "None",
@@ -966,6 +1028,7 @@ function startAdWatch(e) {
 /**
  * ============================================================
  * UPDATE AD PROGRESS
+ * Uses RemainingFuel for Promotion Engine V2
  * ============================================================
  */
 function updateAdProgress(e) {
@@ -991,8 +1054,9 @@ function updateAdProgress(e) {
     campaign = normalizeCampaign(campaign);
 
     var totalDuration = Number(campaign.Duration || 5);
-    var rewardPerSecond = Number(campaign.RewardPerSecond || 1);
-    var remainingPool = Number(campaign.RemainingRewardPool || 0);
+    var rewardPerSecond = Number(campaign.RewardRatePerSecond || campaign.RewardPerSecond || 1);
+    // V2: Use RemainingFuel
+    var remainingFuel = Number(campaign.RemainingFuel || campaign.RemainingRewardPool || 0);
     var rewardPerUser = Number(campaign.RewardPerUser || campaign.RewardCoins || 0);
     watchedSeconds = Math.min(watchedSeconds, totalDuration);
 
@@ -1004,14 +1068,15 @@ function updateAdProgress(e) {
       if (String(progressData[i][1]) === String(userId) && String(progressData[i][2]) === String(campaignId)) {
         var oldWatched = Number(progressData[i][5] || 0);
         var newWatched = Math.max(oldWatched, watchedSeconds);
-        var newReward = Math.min(Math.floor(newWatched * rewardPerSecond), rewardPerUser, remainingPool);
+        var newReward = Math.min(Math.floor(newWatched * rewardPerSecond), rewardPerUser, remainingFuel);
         var totalReward = Number(campaign.RewardCoins || 0);
         newReward = Math.min(newReward, totalReward);
 
         progressSheet.getRange(i + 1, 6).setValue(newWatched);
         progressSheet.getRange(i + 1, 7).setValue(newReward);
         progressSheet.getRange(i + 1, 8).setValue(Math.max(0, totalDuration - newWatched));
-        progressSheet.getRange(i + 1, 9).setValue(Math.max(0, Math.min(totalReward, rewardPerUser, remainingPool) - newReward));
+        // V2: Update RemainingFuel column
+        progressSheet.getRange(i + 1, 9).setValue(Math.max(0, Math.min(totalReward, rewardPerUser, remainingFuel) - newReward));
         progressSheet.getRange(i + 1, 10).setValue(newWatched >= totalDuration ? "completed" : "in_progress");
         progressSheet.getRange(i + 1, 11).setValue(new Date());
 
@@ -1022,7 +1087,7 @@ function updateAdProgress(e) {
 
     if (!found) {
       var progressId = "PW" + Utilities.getUuid().substring(0, 8);
-      var newR = Math.min(Math.floor(watchedSeconds * rewardPerSecond), rewardPerUser, remainingPool);
+      var newR = Math.min(Math.floor(watchedSeconds * rewardPerSecond), rewardPerUser, remainingFuel);
       var totalR = Number(campaign.RewardCoins || 0);
       newR = Math.min(newR, totalR);
 
@@ -1035,7 +1100,8 @@ function updateAdProgress(e) {
         watchedSeconds,
         newR,
         Math.max(0, totalDuration - watchedSeconds),
-        Math.max(0, Math.min(totalR, rewardPerUser, remainingPool) - newR),
+        // V2: RemainingFuel
+        Math.max(0, Math.min(totalR, rewardPerUser, remainingFuel) - newR),
         watchedSeconds >= totalDuration ? "completed" : "in_progress",
         new Date(),
         new Date()
@@ -1046,9 +1112,10 @@ function updateAdProgress(e) {
       campaignId: campaignId,
       watchedSeconds: watchedSeconds,
       totalDuration: totalDuration,
-      rewardEarned: Math.min(Math.floor(watchedSeconds * rewardPerSecond), rewardPerUser, remainingPool),
+      rewardEarned: Math.min(Math.floor(watchedSeconds * rewardPerSecond), rewardPerUser, remainingFuel),
       totalReward: Number(campaign.RewardCoins || 0),
-      remainingPool: remainingPool,
+      // V2: Return remainingFuel
+      remainingFuel: remainingFuel,
       progressPercent: totalDuration > 0 ? Math.min(100, Math.round((watchedSeconds / totalDuration) * 100)) : 0
     }, "Progress updated");
 
@@ -1063,6 +1130,7 @@ function updateAdProgress(e) {
 /**
  * ============================================================
  * COMPLETE AD WATCH
+ * Uses RemainingFuel for Promotion Engine V2
  * ============================================================
  */
 function completeAdWatch(e) {
@@ -1118,20 +1186,21 @@ function completeAdWatch(e) {
     campaign = normalizeCampaign(campaign);
 
     var totalDuration = Number(campaign.Duration || 5);
-    var rewardPerSecond = Number(campaign.RewardPerSecond || 1);
+    var rewardPerSecond = Number(campaign.RewardRatePerSecond || campaign.RewardPerSecond || 1);
     var totalReward = Number(campaign.RewardCoins || 0);
-    var remainingPool = Number(campaign.RemainingRewardPool || 0);
+    // V2: Use RemainingFuel
+    var remainingFuel = Number(campaign.RemainingFuel || campaign.RemainingRewardPool || 0);
     var rewardPerUser = Number(campaign.RewardPerUser || totalReward);
     var maxViews = Number(campaign.MaxViews || 0);
     var currentViews = Number(campaign.Views || 0);
     var maxUsers = Number(campaign.MaxRewardedUsers || 0);
     var rewardedCount = Number(campaign.RewardedUsersCount || 0);
 
-    if (remainingPool <= 0) {
-      return error("Campaign reward pool exhausted.");
+    if (remainingFuel <= 0) {
+      return error("Campaign fuel exhausted.");
     }
 
-    var finalReward = Math.min(totalReward, rewardPerUser, remainingPool);
+    var finalReward = Math.min(totalReward, rewardPerUser, remainingFuel);
     var finalWatched = totalDuration;
 
     var progressSheet = getSheet("AdWatchProgress");
@@ -1166,13 +1235,14 @@ function completeAdWatch(e) {
       creditWallet(userId, finalReward, campaignId, "Ad Reward - " + (campaign.Title || ""));
     }
 
-    var newRemainingPool = Math.max(0, remainingPool - finalReward);
+    // V2: Calculate new RemainingFuel instead of RemainingRewardCoins
+    var newRemainingFuel = Math.max(0, remainingFuel - finalReward);
     var newTotalPaid = Number(campaign.TotalRewardPaid || 0) + finalReward;
     var newRewardedCount = rewardedCount + 1;
     var newViews = currentViews + 1;
 
     var completedStatus = "Active";
-    if (newRemainingPool <= 0) {
+    if (newRemainingFuel <= 0) {
       completedStatus = "Completed";
     } else if (maxViews > 0 && newViews >= maxViews) {
       completedStatus = "Completed";
@@ -1180,8 +1250,11 @@ function completeAdWatch(e) {
       completedStatus = "Completed";
     }
 
+    // V2: Update RemainingFuel column (keep legacy alias for compatibility)
     updateRow("PromotionCampaigns", "CampaignID", campaignId, {
-      RemainingRewardCoins: newRemainingPool,
+      RemainingFuel: newRemainingFuel,
+      RemainingRewardCoins: newRemainingFuel,
+      CoinsConsumed: Number(campaign.CoinsConsumed || 0) + finalReward,
       TotalRewardPaid: newTotalPaid,
       RewardedUsersCount: newRewardedCount,
       Views: newViews,
@@ -1207,7 +1280,8 @@ function completeAdWatch(e) {
       campaignId: campaignId,
       finalWatchedSeconds: finalWatched,
       rewardEarned: finalReward,
-      remainingPool: newRemainingPool,
+      // V2: Return remainingFuel
+      remainingFuel: newRemainingFuel,
       campaignCompleted: completedStatus !== "Active",
       rewardId: rewardId
     }, "Ad completed. " + finalReward + " coins earned!");
@@ -1223,6 +1297,7 @@ function completeAdWatch(e) {
 /**
  * ============================================================
  * SKIP AD WATCH
+ * Uses RemainingFuel for Promotion Engine V2
  * ============================================================
  */
 function skipAdWatch(e) {
@@ -1248,8 +1323,9 @@ function skipAdWatch(e) {
     campaign = normalizeCampaign(campaign);
 
     var totalDuration = Number(campaign.Duration || 5);
-    var rewardPerSecond = Number(campaign.RewardPerSecond || 1);
-    var remainingPool = Number(campaign.RemainingRewardPool || 0);
+    var rewardPerSecond = Number(campaign.RewardRatePerSecond || campaign.RewardPerSecond || 1);
+    // V2: Use RemainingFuel
+    var remainingFuel = Number(campaign.RemainingFuel || campaign.RemainingRewardPool || 0);
     var rewardPerUser = Number(campaign.RewardPerUser || campaign.RewardCoins || 0);
 
     var progressSheet = getSheet("AdWatchProgress");
@@ -1260,14 +1336,15 @@ function skipAdWatch(e) {
       if (String(progressData[i][1]) === String(userId) && String(progressData[i][2]) === String(campaignId)) {
         var oldWatched = Math.max(Number(progressData[i][5] || 0), 0);
         var newWatched = Math.max(oldWatched, watchedSeconds);
-        var newReward = Math.min(Math.floor(newWatched * rewardPerSecond), rewardPerUser, remainingPool);
+        var newReward = Math.min(Math.floor(newWatched * rewardPerSecond), rewardPerUser, remainingFuel);
         var totalReward = Number(campaign.RewardCoins || 0);
         newReward = Math.min(newReward, totalReward);
 
         progressSheet.getRange(i + 1, 6).setValue(newWatched);
         progressSheet.getRange(i + 1, 7).setValue(newReward);
         progressSheet.getRange(i + 1, 8).setValue(Math.max(0, totalDuration - newWatched));
-        progressSheet.getRange(i + 1, 9).setValue(Math.max(0, Math.min(totalReward, rewardPerUser, remainingPool) - newReward));
+        // V2: Update RemainingFuel
+        progressSheet.getRange(i + 1, 9).setValue(Math.max(0, Math.min(totalReward, rewardPerUser, remainingFuel) - newReward));
         progressSheet.getRange(i + 1, 10).setValue("in_progress");
         progressSheet.getRange(i + 1, 11).setValue(new Date());
 
@@ -1278,7 +1355,7 @@ function skipAdWatch(e) {
 
     if (!found && watchedSeconds > 0) {
       var progressId = "PW" + Utilities.getUuid().substring(0, 8);
-      var newR = Math.min(Math.floor(watchedSeconds * rewardPerSecond), rewardPerUser, remainingPool);
+      var newR = Math.min(Math.floor(watchedSeconds * rewardPerSecond), rewardPerUser, remainingFuel);
       var totalR = Number(campaign.RewardCoins || 0);
       newR = Math.min(newR, totalR);
 
@@ -1291,7 +1368,8 @@ function skipAdWatch(e) {
         watchedSeconds,
         newR,
         Math.max(0, totalDuration - watchedSeconds),
-        Math.max(0, Math.min(totalR, rewardPerUser, remainingPool) - newR),
+        // V2: RemainingFuel
+        Math.max(0, Math.min(totalR, rewardPerUser, remainingFuel) - newR),
         "in_progress",
         new Date(),
         new Date()
@@ -1311,7 +1389,7 @@ function skipAdWatch(e) {
       }
     }
 
-    var partialReward = Math.min(Math.floor(watchedSeconds * rewardPerSecond), rewardPerUser, remainingPool);
+    var partialReward = Math.min(Math.floor(watchedSeconds * rewardPerSecond), rewardPerUser, remainingFuel);
     var totalR2 = Number(campaign.RewardCoins || 0);
     partialReward = Math.min(partialReward, totalR2);
 
@@ -1333,10 +1411,13 @@ function skipAdWatch(e) {
       if (!alreadyPaid) {
         creditWallet(userId, partialReward, campaignId, "Partial Ad Reward - " + (campaign.Title || ""));
 
-        var newPool = Math.max(0, remainingPool - partialReward);
+        // V2: Update RemainingFuel
+        var newPool = Math.max(0, remainingFuel - partialReward);
         var newPaid = Number(campaign.TotalRewardPaid || 0) + partialReward;
         updateRow("PromotionCampaigns", "CampaignID", campaignId, {
+          RemainingFuel: newPool,
           RemainingRewardCoins: newPool,
+          CoinsConsumed: Number(campaign.CoinsConsumed || 0) + partialReward,
           TotalRewardPaid: newPaid
         });
 
@@ -1383,6 +1464,7 @@ function skipAdWatch(e) {
 /**
  * ============================================================
  * CLAIM AD REWARD
+ * Uses RemainingFuel for Promotion Engine V2
  * ============================================================
  */
 function claimAdReward(e) {
@@ -1425,19 +1507,23 @@ function claimAdReward(e) {
         }
 
         var campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
-        var remainingPool = campaign ? Number(campaign.RemainingRewardPool || 0) : 0;
-        var actualReward = Math.min(rewardPaid, remainingPool);
+        // V2: Use RemainingFuel
+        var remainingFuel = campaign ? Number(campaign.RemainingFuel || campaign.RemainingRewardPool || 0) : 0;
+        var actualReward = Math.min(rewardPaid, remainingFuel);
 
         if (actualReward <= 0) {
-          return error("Campaign reward pool exhausted.");
+          return error("Campaign fuel exhausted.");
         }
 
         creditWallet(userId, actualReward, campaignId, "Ad Reward Claim - " + campaignId);
 
         if (campaign) {
-          var newPool = Math.max(0, remainingPool - actualReward);
+          // V2: Update RemainingFuel
+          var newPool = Math.max(0, remainingFuel - actualReward);
           updateRow("PromotionCampaigns", "CampaignID", campaignId, {
+            RemainingFuel: newPool,
             RemainingRewardCoins: newPool,
+            CoinsConsumed: Number(campaign.CoinsConsumed || 0) + actualReward,
             TotalRewardPaid: Number(campaign.TotalRewardPaid || 0) + actualReward
           });
         }
@@ -1534,6 +1620,7 @@ function getAdWatchHistory(e) {
 /**
  * ============================================================
  * GET AVAILABLE REWARD COINS
+ * Updated for Promotion Engine V2 - uses RemainingFuel
  * ============================================================
  */
 function getAvailableRewardCoins(e) {
@@ -1569,6 +1656,7 @@ function getAvailableRewardCoins(e) {
 /**
  * ============================================================
  * GET CAMPAIGN ANALYTICS
+ * Updated for Promotion Engine V2 - uses RemainingFuel
  * ============================================================
  */
 function getCampaignAnalytics(e) {
@@ -1595,11 +1683,16 @@ function getCampaignAnalytics(e) {
         completionRate: 0,
         rewardsPaid: 0,
         totalRewardPaid: 0,
+        // V2: Use RemainingFuel (with legacy alias)
         remainingRewardPool: 0,
+        remainingFuel: 0,
         rewardedUsersCount: 0,
         ctr: 0
       }, "No analytics yet");
     }
+
+    // V2: Map RemainingFuel from sheet (column 11 in AdAnalytics)
+    var remainingFuel = Number(result.RemainingFuel || result.RemainingRewardPool || 0);
 
     return success({
       campaignId: result.CampaignID,
@@ -1611,7 +1704,9 @@ function getCampaignAnalytics(e) {
       completionRate: Number(result.CompletionRate || 0),
       rewardsPaid: Number(result.RewardsPaid || 0),
       totalRewardPaid: Number(result.TotalRewardPaid || 0),
-      remainingRewardPool: Number(result.RemainingRewardPool || 0),
+      // V2: Return both new and legacy field names for compatibility
+      remainingRewardPool: remainingFuel,
+      remainingFuel: remainingFuel,
       rewardedUsersCount: Number(result.RewardedUsersCount || 0),
       ctr: Number(result.CTR || 0)
     }, "Campaign analytics loaded");
@@ -1624,8 +1719,8 @@ function getCampaignAnalytics(e) {
 
 /**
  * ============================================================
- * CREATE PROMOTION CAMPAIGN
- * Now includes Pre-5.6 creative fields
+ * CREATE PROMOTION CAMPAIGN - Promotion Engine V2
+ * Creates campaigns using new PromotionFuel economy
  * ============================================================
  */
 function createPromotionCampaign(e) {
@@ -1643,103 +1738,129 @@ function createPromotionCampaign(e) {
       return error("campaignType required");
     }
 
-    var campaignBudget = Number(p.campaignBudget || p.rewardCoins || 0);
-    if (campaignBudget <= 0) {
-      return error("CampaignBudget or rewardCoins required");
+    // V2: Use PromotionFuel instead of CampaignBudget/RewardPool
+    var promotionFuel = Number(p.promotionFuel || p.campaignBudget || p.rewardCoins || 0);
+    if (promotionFuel <= 0) {
+      return error("PromotionFuel or campaignBudget required");
     }
-
-    var cost = campaignBudget;
-    var rewardPerUser = Number(p.rewardPerUser || p.rewardCoins || 0);
-    var maxViews = Number(p.maxViews || 0);
-    var maxRewardedUsers = Number(p.maxRewardedUsers || 0);
-    var costPerView = Number(p.costPerView || 0);
 
     var lock = LockService.getScriptLock();
     lock.waitLock(30000);
 
     try {
+      // ============================================================
+      // PHASE 1.7C: Wallet deduction NOT implemented yet
+      // Will be added in future phase
+      // ============================================================
+      
       var wallet = getWalletRow(userId);
       if (!wallet) {
         return error("Wallet not found. Please create a wallet first.");
       }
 
       var balance = Number(wallet.Balance || 0);
-      if (balance < cost) {
-        return error("Insufficient EkkaCoins. Required: " + cost + ", Available: " + balance);
+      if (balance < promotionFuel) {
+        return error("Insufficient EkkaCoins. Required: " + promotionFuel + ", Available: " + balance);
       }
 
-      var afterDeduction = balance - cost;
+      // PHASE 1.7C: Deduct from wallet (will be finalized in future phase)
+      // Temporarily keeping for validation - comment out for now
+      /*
+      var afterDeduction = balance - promotionFuel;
       updateRow("Wallet", "WalletID", wallet.WalletID, {
         Balance: afterDeduction,
-        TotalSpent: Number(wallet.TotalSpent || 0) + cost,
+        TotalSpent: Number(wallet.TotalSpent || 0) + promotionFuel,
         LastUpdated: new Date()
       });
 
       createWalletTransaction(
         wallet.WalletID,
         userId,
-        -cost,
+        -promotionFuel,
         balance,
         afterDeduction,
         "CAMPAIGN_" + campaignType,
         "Promotion Campaign - " + campaignType
       );
+      */
 
       var sheet = getSheet("PromotionCampaigns");
       var campaignId = "C" + Utilities.getUuid().substring(0, 8);
       var now = new Date();
 
-      var totalRewardPool = campaignBudget;
-      var remainingRewardPool = campaignBudget;
+      // ============================================================
+      // V2: Calculate all new PromotionFuel economy fields
+      // ============================================================
+      
+      // Get RewardCoins (per user reward)
+      var rewardCoins = Number(p.rewardCoins || 5);
+      
+      // Get Duration in seconds
+      var duration = Number(p.duration || 10);
+      
+      // V2: Calculate RewardRatePerSecond (coins per second)
+      var rewardRatePerSecond = duration > 0 ? Math.round((rewardCoins / duration) * 100) / 100 : 1;
+      
+      // V2: Calculated fields
+      var estimatedViewSeconds = rewardRatePerSecond > 0 ? Math.floor(promotionFuel / rewardRatePerSecond) : 0;
+      var estimatedViews = duration > 0 ? Math.floor(estimatedViewSeconds / duration) : 0;
+      
+      // V2: Initial fuel state
+      var remainingFuel = promotionFuel; // Start with full fuel
+      var coinsConsumed = 0; // Nothing consumed yet
 
-      // Use NEW schema with creative fields for Pre-5.6
+      // V2: New schema with PromotionFuel economy
       sheet.appendRow([
-        campaignId,                    // CampaignID
-        campaignType,                  // CampaignType
-        userId,                        // OwnerUserID
-        p.promotedEntityType || "",    // TargetType
-        p.promotedEntityID || "",      // TargetID
-        cost,                          // CoinsSpent
-        totalRewardPool,               // RewardPool
-        0,                             // PlatformReserve
-        remainingRewardPool,           // RemainingRewardCoins
-        p.targetRadius || "All India", // Radius
-        p.targetCity || "",            // City
-        p.targetState || "",           // District
-        p.targetState || "",           // State
-        p.targetCountry || "",         // Country
-        "",                            // Latitude
-        "",                            // Longitude
-        0,                             // Views
-        0,                             // Clicks
-        0,                             // Interested
-        0,                             // Shares
-        now,                           // StartDate
+        campaignId,                      // CampaignID
+        campaignType,                    // CampaignType
+        userId,                          // OwnerUserID
+        p.promotedEntityType || "",      // TargetType
+        p.promotedEntityID || "",        // TargetID
+        coinsConsumed,                   // CoinsConsumed (V2, was CoinsSpent)
+        promotionFuel,                   // PromotionFuel (V2, was RewardPool)
+        remainingFuel,                   // RemainingFuel (V2, was RemainingRewardCoins)
+        p.targetRadius || "All India",   // Radius
+        p.targetCity || "",              // City (TargetCity)
+        p.targetCategory || "",          // District (TargetCategory - backward compatible)
+        p.targetState || "",             // State (TargetState)
+        p.targetCountry || "",           // Country (TargetCountry)
+        "",                              // Latitude
+        "",                              // Longitude
+        0,                               // Views
+        0,                               // Clicks
+        0,                               // Interested
+        0,                               // Shares
+        now,                             // StartDate
         p.endDate ? new Date(p.endDate) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // EndDate
-        "Active",                      // Status
-        now,                           // CreatedDate
-        p.imageURL || "",              // ImageURL
-        p.videoURL || "",              // VideoURL
-        p.externalURL || "",           // ExternalURL
-        p.duration || "10",            // Duration
-        p.rewardCoins || "0",          // RewardCoins
-        p.creativeType || "IMAGE",     // CreativeType
-        p.cta || "Learn More",         // CTA
-        p.destinationType || "",       // DestinationType
-        p.pageContent || "",           // PageContent
-        p.priority || "0",             // Priority
-        p.featured || "No",            // Featured
-        p.pipEnabled || "Yes"          // PIPEnabled
+        "Active",                        // Status
+        now,                             // CreatedDate
+        p.imageURL || "",                // ImageURL
+        p.videoURL || "",                // VideoURL
+        p.externalURL || "",             // ExternalURL
+        String(duration),                // Duration
+        String(rewardCoins),             // RewardCoins
+        String(rewardRatePerSecond),     // RewardRatePerSecond (V2)
+        String(estimatedViewSeconds),    // EstimatedViewSeconds (V2)
+        String(estimatedViews),          // EstimatedViews (V2)
+        p.creativeType || "IMAGE",       // CreativeType
+        p.cta || "Learn More",           // CTA
+        p.destinationType || "",         // DestinationType
+        p.pageContent || "",             // PageContent
+        p.priority || "0",               // Priority
+        p.featured || "No",              // Featured
+        p.pipEnabled || "Yes"            // PIPEnabled
       ]);
 
       return success({
         campaignId: campaignId,
-        cost: cost,
-        budget: campaignBudget,
-        totalRewardPool: totalRewardPool,
-        remainingRewardPool: remainingRewardPool,
-        balanceRemaining: afterDeduction
-      }, "Promotion campaign created! Budget: " + campaignBudget + " EkkaCoins");
+        cost: promotionFuel,
+        promotionFuel: promotionFuel,
+        remainingFuel: remainingFuel,
+        rewardRatePerSecond: rewardRatePerSecond,
+        estimatedViewSeconds: estimatedViewSeconds,
+        estimatedViews: estimatedViews,
+        balanceRemaining: balance
+      }, "Promotion campaign created! PromotionFuel: " + promotionFuel + " EkkaCoins");
 
     } catch (err) {
       return exception(err);
@@ -2272,7 +2393,7 @@ function promoteWebsite(e) {
 
 /**
  * ============================================================
- * CREATE DEMO AD CAMPAIGNS
+ * CREATE DEMO AD CAMPAIGNS - Promotion Engine V2
  * ============================================================
  */
 function createDemoAdCampaigns() {
@@ -2296,30 +2417,46 @@ function createDemoAdCampaigns() {
     // Demo Campaign 1: Product Promotion with IMAGE creative
     sheet.appendRow([
       "CDEMO01", "PROMOTE_PRODUCT", "SYSTEM", "Product", "DEMO_PROD_001",
-      0, 5000, 0, 5000, "All India", "", "", "", "", "", "",
+      0,                  // CoinsConsumed
+      5000,               // PromotionFuel
+      5000,               // RemainingFuel
+      "All India", "", "", "", "", "", "",
       0, 0, 0, 0, now, futureDate, "Active", now,
       "https://picsum.photos/seed/product1/800/600", "", "",
-      10, 5, "IMAGE", "View Product", "Internal", "", 0, "No", "Yes"
+      10, 5, 0.5,         // Duration, RewardCoins, RewardRatePerSecond
+      50000, 5000,        // EstimatedViewSeconds, EstimatedViews
+      "IMAGE", "View Product", "Internal", "", 0, "No", "Yes"
     ]);
     created++;
     
     // Demo Campaign 2: Business Promotion with BANNER creative
     sheet.appendRow([
       "CDEMO02", "PROMOTE_BUSINESS", "SYSTEM", "Business", "DEMO_BIZ_001",
-      0, 5000, 0, 5000, "All India", "", "", "", "", "", "",
+      0,                  // CoinsConsumed
+      5000,               // PromotionFuel
+      5000,               // RemainingFuel
+      "All India", "", "", "", "", "", "",
       0, 0, 0, 0, now, futureDate, "Active", now,
       "https://picsum.photos/seed/business1/1200/400", "", "",
-      10, 5, "BANNER", "Visit Business", "Internal", "", 0, "No", "Yes"
+      10, 5, 0.5,         // Duration, RewardCoins, RewardRatePerSecond
+      50000, 5000,        // EstimatedViewSeconds, EstimatedViews
+      "BANNER", "Visit Business", "Internal", "", 0, "No", "Yes"
     ]);
     created++;
     
     // Demo Campaign 3: External URL with VIDEO creative
     sheet.appendRow([
       "CDEMO03", "PROMOTE_EXTERNAL_URL", "SYSTEM", "ExternalURL", "",
-      0, 5000, 0, 5000, "All India", "", "", "", "", "", "",
+      0,                  // CoinsConsumed
+      5000,               // PromotionFuel
+      5000,               // RemainingFuel
+      "All India", "", "", "", "", "", "",
       0, 0, 0, 0, now, futureDate, "Active", now,
       "", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-      "https://example.com", 10, 5, "VIDEO", "Watch Now", "External", "",
+      "https://example.com",
+      10, 5, 0.5,         // Duration, RewardCoins, RewardRatePerSecond
+      50000, 5000,        // EstimatedViewSeconds, EstimatedViews
+      "VIDEO", "Watch Now", "External", "",
       0, "No", "Yes"
     ]);
     created++;
@@ -2327,10 +2464,15 @@ function createDemoAdCampaigns() {
     // Demo Campaign 4: News with PAGE creative
     sheet.appendRow([
       "CDEMO04", "PROMOTE_NEWS", "SYSTEM", "News", "DEMO_NEWS_001",
-      0, 5000, 0, 5000, "All India", "", "", "", "", "", "",
+      0,                  // CoinsConsumed
+      5000,               // PromotionFuel
+      5000,               // RemainingFuel
+      "All India", "", "", "", "", "", "",
       0, 0, 0, 0, now, futureDate, "Active", now,
       "https://picsum.photos/seed/news1/800/600", "", "",
-      10, 5, "PAGE", "Read More", "Internal",
+      10, 5, 0.5,         // Duration, RewardCoins, RewardRatePerSecond
+      50000, 5000,        // EstimatedViewSeconds, EstimatedViews
+      "PAGE", "Read More", "Internal",
       '{"heading":"Special Promotion","description":"Check out our latest news and updates!","buttonText":"Read Now"}',
       1, "Yes", "Yes"
     ]);
@@ -2339,7 +2481,7 @@ function createDemoAdCampaigns() {
     return success({
       created: created,
       campaigns: ["CDEMO01", "CDEMO02", "CDEMO03", "CDEMO04"],
-      message: created + " demo campaigns created with Pre-5.6 creative types!"
+      message: created + " demo campaigns created with Promotion Engine V2!"
     }, "Demo campaigns created!");
     
   } catch (err) {
@@ -2398,7 +2540,8 @@ function trackAdAnalytics(campaignId, eventType) {
  * ============================================================
  */
 function calculateCampaignCost(campaign) {
-  return Number(campaign.CampaignBudget || campaign.rewardCoins || 0);
+  // V2: Use PromotionFuel as campaign budget
+  return Number(campaign.PromotionFuel || campaign.CampaignBudget || 0);
 }
 
 
@@ -2421,9 +2564,6 @@ function getWeekStart() {
  * ============================================================
  * PUBLIC DISCOVERY: GET PROMOTED NEAR YOU
  * ?action=promotednearby&lat=26.91&lng=75.78&radius=51
- * Read-only public endpoint for Home promoted listings.
- * Returns only active campaigns with safe public fields.
- * Reuses canonical location/radius filtering.
  * ============================================================
  */
 function getPromotedNearYou(e) {
@@ -2451,7 +2591,7 @@ function getPromotedNearYou(e) {
         // Active status filter
         if (status !== "active") return;
 
-        // Date range filter (normalize to start of day)
+        // Date range filter
         if (start) {
           start = new Date(start.getFullYear(), start.getMonth(), start.getDate());
         }
@@ -2481,7 +2621,7 @@ function getPromotedNearYou(e) {
           }
         }
 
-        // Build safe public response with only required fields
+        // Build safe public response
         var publicCampaign = {
           CampaignID: c.CampaignID || "",
           TargetType: targetType,
@@ -2497,11 +2637,11 @@ function getPromotedNearYou(e) {
 
         result.push(publicCampaign);
       } catch (campErr) {
-        console.log("Phase3D-B: Campaign filter error:", campErr.toString());
+        console.log("Phase5.7C: Campaign filter error:", campErr.toString());
       }
     });
 
-    // Sort: featured first, then by distance if available
+    // Sort: featured first, then by distance
     result.sort(function(a, b) {
       var aF = String(a.Featured || "").toLowerCase() === "yes" ? 1 : 0;
       var bF = String(b.Featured || "").toLowerCase() === "yes" ? 1 : 0;
@@ -2520,7 +2660,7 @@ function getPromotedNearYou(e) {
     }, "Promoted Near You Loaded");
 
   } catch (err) {
-    console.log("Phase3D-B: getPromotedNearYou error:", err.toString());
+    console.log("Phase5.7C: getPromotedNearYou error:", err.toString());
     return success({
       count: 0,
       data: []
