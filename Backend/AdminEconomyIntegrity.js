@@ -1137,7 +1137,7 @@ function getCampaignReconciliation(e) {
         if ((cid || "").toLowerCase().indexOf(search) === -1 &&
             (c.OwnerUserID || "").toLowerCase().indexOf(search) === -1 &&
             (c.CampaignType || "").toLowerCase().indexOf(search) === -1) {
-          continue;
+          return;
         }
       }
 
@@ -1275,7 +1275,7 @@ function getRewardReconciliation(e) {
             (userId || "").toLowerCase().indexOf(search) === -1 &&
             (adId || "").toLowerCase().indexOf(search) === -1 &&
             (entry.UserName || "").toLowerCase().indexOf(search) === -1) {
-          continue;
+          return;
         }
       }
 
