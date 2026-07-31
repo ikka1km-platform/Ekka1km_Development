@@ -31,6 +31,22 @@ function getAdminDashboardSummary(e) {
     const health = getHealthData();
     const live = getLiveData();
 
+    // Promotion Engine V2: Reuse AdminEconomy for campaign KPIs
+    let economy = { totalPromotionFuel: 0, totalRemainingFuel: 0, totalCoinsConsumed: 0, activeCampaignCount: 0 };
+    try {
+      if (typeof getAdminEconomySummary === "function") {
+        const econResult = getAdminEconomySummary({ parameter: {} });
+        if (econResult.success && econResult.data) {
+          economy = {
+            totalPromotionFuel: econResult.data.totalPromotionFuel || 0,
+            totalRemainingFuel: econResult.data.totalRemainingFuel || 0,
+            totalCoinsConsumed: econResult.data.totalCoinsConsumed || 0,
+            activeCampaignCount: econResult.data.activeCampaignCount || 0
+          };
+        }
+      }
+    } catch (e) { /* ignore */ }
+
     return success(
       {
         cards: {
@@ -42,7 +58,12 @@ function getAdminDashboardSummary(e) {
           coinsDistributed: revenue.coinsDistributed || 0,
           liveUsers: live.liveUsers || 0,
           activeCities: overview.activeCities || 0,
-          pendingApprovals: overview.pendingApprovals || 0
+          pendingApprovals: overview.pendingApprovals || 0,
+          // Promotion Engine V2 cards
+          totalPromotionFuel: economy.totalPromotionFuel,
+          totalRemainingFuel: economy.totalRemainingFuel,
+          totalCoinsConsumed: economy.totalCoinsConsumed,
+          activeCampaignCount: economy.activeCampaignCount
         },
         systemHealth: health,
         admin: {
@@ -326,10 +347,31 @@ function getDashboardUsers(e) {
 
 function getDashboardRevenue(e) {
   const data = getRevenueData();
+  
+  // Promotion Engine V2: Add campaign economy from AdminEconomy
+  let promotionData = { totalPromotionFuel: 0, totalCoinsConsumed: 0, totalRemainingFuel: 0, totalCampaigns: 0 };
+  try {
+    if (typeof getAdminEconomySummary === "function") {
+      const econResult = getAdminEconomySummary({ parameter: {} });
+      if (econResult.success && econResult.data) {
+        promotionData = {
+          totalPromotionFuel: econResult.data.totalPromotionFuel || 0,
+          totalCoinsConsumed: econResult.data.totalCoinsConsumed || 0,
+          totalRemainingFuel: econResult.data.totalRemainingFuel || 0,
+          totalCampaigns: econResult.data.totalCampaigns || 0
+        };
+      }
+    }
+  } catch (e) { /* ignore */ }
+  
   return success({
     totalWalletRecords: 0,
     totalRewardCoins: data.coinsDistributed,
-    totalPromotions: 0
+    totalPromotions: promotionData.totalCampaigns,
+    // Promotion Engine V2 fields
+    totalPromotionFuel: promotionData.totalPromotionFuel,
+    totalCoinsConsumed: promotionData.totalCoinsConsumed,
+    totalRemainingFuel: promotionData.totalRemainingFuel
   }, "Dashboard Revenue");
 }
 
