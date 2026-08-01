@@ -72,6 +72,33 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
 </header>
 
+<style>
+#appHeader {
+  background: linear-gradient(135deg, #0f9d58 0%, #1a1a1a 100%);
+  border-radius: 0 0 24px 24px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+#appHeader .header-brand {
+  color: #4ade80;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+#appHeader .header-tagline {
+  color: rgba(255,255,255,0.9);
+}
+
+#appHeader .header-menu-icon,
+#appHeader .header-notif-icon {
+  color: #fff;
+}
+
+#appHeader .header-menu-icon:hover,
+#appHeader .header-notif-icon:hover {
+  background: rgba(255,255,255,0.15);
+}
+</style>
+
 <!-- ===================================================== -->
 <!-- SEARCH LOCATION MODAL -->
 <!-- ===================================================== -->
@@ -319,11 +346,15 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
         <div class="locationCard-info">
 
           <div class="locationCard-label">
-            Your Location
+            City / Area
           </div>
 
           <div class="locationCard-value" id="gpsText">
-            GPS: Detecting...
+            Civil Lines, Raipur
+          </div>
+
+          <div class="locationCard-subtitle" id="locationSubtitle">
+            Chhattisgarh, India
           </div>
 
         </div>
@@ -354,7 +385,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
         </span>
 
         <input
-          placeholder="Search Ekka1km...">
+          placeholder="Search Ekka1km (products, businesses, news...)">
 
       </div>
 
@@ -363,10 +394,10 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
         <select id="radius">
 
           <option value="1">1 KM</option>
-          <option value="5">5 KM</option>
+          <option value="5" selected>5 KM</option>
           <option value="10">10 KM</option>
           <option value="25">25 KM</option>
-          <option value="51" selected>51 KM</option>
+          <option value="51">51 KM</option>
           <option value="100">100 KM</option>
           <option value="All India">All India</option>
 
@@ -408,7 +439,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
         onclick="openPage('properties')">
 
         <div class="catItem-icon">
-          <span class="material-icons">real_estate_agent</span>
+          <span class="material-icons">home</span>
         </div>
 
         <span class="catItem-label">Properties</span>
@@ -420,7 +451,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
         onclick="openPage('news')">
 
         <div class="catItem-icon">
-          <span class="material-icons">newspaper</span>
+          <span class="material-icons">article</span>
         </div>
 
         <span class="catItem-label">News</span>
@@ -432,7 +463,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
         onclick="openPage('live')">
 
         <div class="catItem-icon">
-          <span class="material-icons">live_tv</span>
+          <span class="material-icons">videocam</span>
         </div>
 
         <span class="catItem-label">Live</span>
@@ -1645,6 +1676,8 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   id="bottomNav">
 
   <div
+    class="bottomNav-item"
+    data-page="home"
     onclick="openPage('home')">
 
     <i class="material-icons">
@@ -1656,46 +1689,53 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   </div>
 
   <div
+    class="bottomNav-item"
+    data-page="discover"
     onclick="openPage('products')">
 
     <i class="material-icons">
-      shopping_bag
+      explore
     </i>
 
-    <span>Products</span>
+    <span>Discover</span>
 
   </div>
 
   <div
-    onclick="openPage('news')">
+    class="bottomNav-item bottomNav-center"
+    onclick="toggleFloatingMenu()">
 
-    <i class="material-icons">
-      newspaper
-    </i>
-
-    <span>News</span>
-
-  </div>
-
-  <div
-    onclick="openPage('live')">
-
-    <i class="material-icons">
-      live_tv
-    </i>
-
-    <span>Live</span>
+    <div class="bottomNav-postBtn">
+      <i class="material-icons">
+        add
+      </i>
+    </div>
 
   </div>
 
   <div
-    onclick="openPage('profile')">
+    class="bottomNav-item"
+    data-page="activity"
+    onclick="openPage('dashboard')">
 
     <i class="material-icons">
-      person
+      timeline
     </i>
 
-    <span>Profile</span>
+    <span>Activity</span>
+
+  </div>
+
+  <div
+    class="bottomNav-item"
+    data-page="wallet"
+    onclick="openPage('wallet')">
+
+    <i class="material-icons">
+      account_balance_wallet
+    </i>
+
+    <span>Wallet</span>
 
   </div>
 

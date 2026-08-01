@@ -151,6 +151,9 @@ function openPage(pageId) {
       "globalDisco"
     );
 
+  // Update Bottom Navigation Active State
+  updateBottomNavActiveState(pageId);
+
   if (disco) {
     const discoPages = ["home"];
     const compactPages = ["products","businesses","properties","news","live"];
@@ -226,6 +229,48 @@ function openPage(pageId) {
   }
 
   window.scrollTo(0, 0);
+}
+
+/*
+BOTTOM NAVIGATION ACTIVE STATE
+*/
+
+function updateBottomNavActiveState(pageId) {
+  const bottomNav = document.getElementById("bottomNav");
+  if (!bottomNav) return;
+
+  // Remove active class from all items
+  const allItems = bottomNav.querySelectorAll(".bottomNav-item");
+  allItems.forEach(item => {
+    item.classList.remove("active");
+  });
+
+  // Map pageId to bottom nav tab
+  let activeTab = null;
+  
+  if (pageId === "home") {
+    activeTab = "home";
+  } else if (["products", "businesses", "properties"].includes(pageId)) {
+    activeTab = "discover";
+  } else if (pageId === "dashboard" || pageId === "myContent" || pageId === "orders") {
+    activeTab = "activity";
+  } else if (pageId === "wallet" || pageId === "promotions") {
+    activeTab = "wallet";
+  } else if (pageId === "profile" || pageId === "notifications" || pageId === "announcements") {
+    // These pages don't have a dedicated bottom nav tab, keep current active or default to home
+    activeTab = null;
+  } else if (["login", "register", "postProduct", "postProperty", "postBusiness", "postNews", "postAdvertisement", "postPromotion", "postAnnouncement"].includes(pageId)) {
+    // Post forms - keep current active or default to home
+    activeTab = null;
+  }
+
+  // Set active state
+  if (activeTab) {
+    const activeItem = bottomNav.querySelector(`[data-page="${activeTab}"]`);
+    if (activeItem) {
+      activeItem.classList.add("active");
+    }
+  }
 }
 
 
@@ -581,166 +626,182 @@ function renderDashboard(data) {
     ? '<span class="dashboardBadge verified">Verified</span>'
     : '<span class="dashboardBadge pending">Pending</span>';
 
+  // Wallet derived values
+  var totalCoins = Number(profile.coins || 0);
+  var availableCoins = Number(wallet.balance || 0);
+  var reservedCoins = Math.max(0, totalCoins - availableCoins);
+
   var html = '';
 
-  // 1. USER SUMMARY
+  // 1. PROFILE CARD
   html += '<div class="dashboardSection">';
   html += '<div class="dashboardProfileCard">';
   html += '<div class="dashboardProfileHeader">';
   html += profilePhotoHtml;
   html += '<div class="dashboardProfileInfo">';
-  html += '<h3>' + escapeHtml(profile.name || "User") + '</h3>';
-  html += '<p>' + escapeHtml(profile.mobile || "") + ' ' + verifBadge + '</p>';
-  html += '<p class="dashboardMemberSince">Member since ' + escapeHtml(profile.memberSince || "") + '</p>';
+  html += '<h3>' + escapeHtml(profile.name || "User") + ' ' + verifBadge + '</h3>';
+  html += '<p class="dashboardProfileContact"><i class="material-icons">phone</i> ' + escapeHtml(profile.mobile || "") + '</p>';
+  html += '<p class="dashboardProfileContact"><i class="material-icons">email</i> ' + escapeHtml(profile.email || "") + '</p>';
+  html += '<p class="dashboardMemberSince"><i class="material-icons">calendar_today</i> Member since ' + escapeHtml(profile.memberSince || "") + '</p>';
   html += '</div></div>';
   html += '</div>';
   html += '</div>';
 
-  // 2. KPI SUMMARY
+  // 2. KPI SUMMARY (Connected Card)
   html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">Overview</h3>';
+  html += '<div class="dashboardKpiCard dashboardKpiCardConnected">';
   html += '<div class="dashboardKpiGrid">';
-  html += '<div class="dashboardKpiCard">';
+  html += '<div class="dashboardKpiItem">';
   html += '<div class="dashboardKpiIcon"><i class="material-icons">account_balance_wallet</i></div>';
-  html += '<div class="dashboardKpiInfo">';
-  html += '<div class="dashboardKpiValue">' + (profile.coins || 0) + '</div>';
+  html += '<div class="dashboardKpiValue">' + totalCoins + '</div>';
   html += '<div class="dashboardKpiLabel">Coins</div>';
-  html += '</div></div>';
-  
-  html += '<div class="dashboardKpiCard">';
+  html += '</div>';
+  html += '<div class="dashboardKpiItem">';
   html += '<div class="dashboardKpiIcon"><i class="material-icons">folder</i></div>';
-  html += '<div class="dashboardKpiInfo">';
   html += '<div class="dashboardKpiValue">' + myPosts + '</div>';
   html += '<div class="dashboardKpiLabel">My Posts</div>';
-  html += '</div></div>';
-  
-  html += '<div class="dashboardKpiCard">';
-  html += '<div class="dashboardKpiIcon"><i class="material-icons">receipt_long</i></div>';
-  html += '<div class="dashboardKpiInfo">';
-  html += '<div class="dashboardKpiValue">' + (quickStats.orders || 0) + '</div>';
-  html += '<div class="dashboardKpiLabel">Orders</div>';
-  html += '</div></div>';
-  
-  html += '<div class="dashboardKpiCard">';
+  html += '</div>';
+  html += '<div class="dashboardKpiItem">';
   html += '<div class="dashboardKpiIcon"><i class="material-icons">handshake</i></div>';
-  html += '<div class="dashboardKpiInfo">';
   html += '<div class="dashboardKpiValue">' + (quickStats.leads || 0) + '</div>';
   html += '<div class="dashboardKpiLabel">Leads</div>';
-  html += '</div></div>';
-  html += '</div></div>';
+  html += '</div>';
+  html += '<div class="dashboardKpiItem">';
+  html += '<div class="dashboardKpiIcon"><i class="material-icons">receipt_long</i></div>';
+  html += '<div class="dashboardKpiValue">' + (quickStats.orders || 0) + '</div>';
+  html += '<div class="dashboardKpiLabel">Orders</div>';
+  html += '</div>';
+  html += '</div></div></div>';
 
-  // 3. QUICK ACTIONS
+  // 3. QUICK ACTIONS (8 actions, 4x2 grid)
   html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">Quick Actions</h3>';
   html += '<div class="dashboardQuickActions">';
-  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'product\')"><i class="material-icons">shopping_bag</i><span>Post Product</span></div>';
-  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'business\')"><i class="material-icons">store</i><span>Post Business</span></div>';
-  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'property\')"><i class="material-icons">real_estate_agent</i><span>Post Property</span></div>';
-  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'news\')"><i class="material-icons">newspaper</i><span>Post News</span></div>';
-  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'live\')"><i class="material-icons">live_tv</i><span>Go Live</span></div>';
-  html += '<div class="dashboardQuickAction" onclick="openPage(\'promotions\')"><i class="material-icons">trending_up</i><span>Promotions</span></div>';
-  html += '<div class="dashboardQuickAction" onclick="openPage(\'wallet\')"><i class="material-icons">account_balance_wallet</i><span>Wallet</span></div>';
-  html += '<div class="dashboardQuickAction" onclick="openPage(\'invite\')"><i class="material-icons">person_add</i><span>Invite & Earn</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'product\')"><div class="dashboardQuickActionIcon"><i class="material-icons">shopping_bag</i></div><span>Post Product</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'business\')"><div class="dashboardQuickActionIcon"><i class="material-icons">store</i></div><span>Post Business</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'property\')"><div class="dashboardQuickActionIcon"><i class="material-icons">real_estate_agent</i></div><span>Post Property</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'news\')"><div class="dashboardQuickActionIcon"><i class="material-icons">newspaper</i></div><span>Post News</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPage(\'live\')"><div class="dashboardQuickActionIcon"><i class="material-icons">live_tv</i></div><span>Go Live</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPage(\'promotions\')"><div class="dashboardQuickActionIcon"><i class="material-icons">trending_up</i></div><span>Create Promotion</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPage(\'wallet\')"><div class="dashboardQuickActionIcon"><i class="material-icons">account_balance_wallet</i></div><span>Wallet</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPage(\'invite\')"><div class="dashboardQuickActionIcon"><i class="material-icons">person_add</i></div><span>Invite & Earn</span></div>';
   html += '</div></div>';
 
-  // 4. MY ACTIVITY
+  // 4. MY ACTIVITY (Compact rows)
   html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">My Activity</h3>';
   if (myPosts === 0) {
     html += '<div class="dashboardEmpty">No activity yet. Start posting to see your content here.</div>';
   } else {
-    html += '<div class="dashboardActivityGrid">';
+    html += '<div class="dashboardActivityListCompact">';
     if (productsCount > 0) {
-      html += '<div class="dashboardActivityCard" onclick="openMyContent(\'products\')">';
-      html += '<div class="dashboardActivityIcon"><i class="material-icons">shopping_bag</i></div>';
-      html += '<div class="dashboardActivityInfo">';
-      html += '<div class="dashboardActivityCount">' + productsCount + '</div>';
-      html += '<div class="dashboardActivityLabel">Products</div>';
-      html += '</div></div>';
+      html += '<div class="dashboardActivityRow" onclick="openMyContent(\'products\')">';
+      html += '<div class="dashboardActivityRowIcon"><i class="material-icons">shopping_bag</i></div>';
+      html += '<div class="dashboardActivityRowContent">';
+      html += '<div class="dashboardActivityRowTitle">Products</div>';
+      html += '<div class="dashboardActivityRowSubtitle">' + productsCount + ' Active</div>';
+      html += '</div>';
+      html += '<div class="dashboardActivityRowCount">' + productsCount + '</div>';
+      html += '<i class="material-icons dashboardActivityRowChevron">chevron_right</i>';
+      html += '</div>';
     }
     if (businessesCount > 0) {
-      html += '<div class="dashboardActivityCard" onclick="openMyContent(\'businesses\')">';
-      html += '<div class="dashboardActivityIcon"><i class="material-icons">store</i></div>';
-      html += '<div class="dashboardActivityInfo">';
-      html += '<div class="dashboardActivityCount">' + businessesCount + '</div>';
-      html += '<div class="dashboardActivityLabel">Businesses</div>';
-      html += '</div></div>';
+      html += '<div class="dashboardActivityRow" onclick="openMyContent(\'businesses\')">';
+      html += '<div class="dashboardActivityRowIcon"><i class="material-icons">store</i></div>';
+      html += '<div class="dashboardActivityRowContent">';
+      html += '<div class="dashboardActivityRowTitle">Businesses</div>';
+      html += '<div class="dashboardActivityRowSubtitle">' + businessesCount + ' Active</div>';
+      html += '</div>';
+      html += '<div class="dashboardActivityRowCount">' + businessesCount + '</div>';
+      html += '<i class="material-icons dashboardActivityRowChevron">chevron_right</i>';
+      html += '</div>';
     }
     if (propertiesCount > 0) {
-      html += '<div class="dashboardActivityCard" onclick="openMyContent(\'properties\')">';
-      html += '<div class="dashboardActivityIcon"><i class="material-icons">real_estate_agent</i></div>';
-      html += '<div class="dashboardActivityInfo">';
-      html += '<div class="dashboardActivityCount">' + propertiesCount + '</div>';
-      html += '<div class="dashboardActivityLabel">Properties</div>';
-      html += '</div></div>';
+      html += '<div class="dashboardActivityRow" onclick="openMyContent(\'properties\')">';
+      html += '<div class="dashboardActivityRowIcon"><i class="material-icons">real_estate_agent</i></div>';
+      html += '<div class="dashboardActivityRowContent">';
+      html += '<div class="dashboardActivityRowTitle">Properties</div>';
+      html += '<div class="dashboardActivityRowSubtitle">' + propertiesCount + ' Active</div>';
+      html += '</div>';
+      html += '<div class="dashboardActivityRowCount">' + propertiesCount + '</div>';
+      html += '<i class="material-icons dashboardActivityRowChevron">chevron_right</i>';
+      html += '</div>';
     }
     if (newsCount > 0) {
-      html += '<div class="dashboardActivityCard" onclick="openMyContent(\'news\')">';
-      html += '<div class="dashboardActivityIcon"><i class="material-icons">newspaper</i></div>';
-      html += '<div class="dashboardActivityInfo">';
-      html += '<div class="dashboardActivityCount">' + newsCount + '</div>';
-      html += '<div class="dashboardActivityLabel">News</div>';
-      html += '</div></div>';
+      html += '<div class="dashboardActivityRow" onclick="openMyContent(\'news\')">';
+      html += '<div class="dashboardActivityRowIcon"><i class="material-icons">newspaper</i></div>';
+      html += '<div class="dashboardActivityRowContent">';
+      html += '<div class="dashboardActivityRowTitle">News</div>';
+      html += '<div class="dashboardActivityRowSubtitle">' + newsCount + ' Published</div>';
+      html += '</div>';
+      html += '<div class="dashboardActivityRowCount">' + newsCount + '</div>';
+      html += '<i class="material-icons dashboardActivityRowChevron">chevron_right</i>';
+      html += '</div>';
     }
     if (liveCount > 0) {
-      html += '<div class="dashboardActivityCard" onclick="openMyContent(\'live\')">';
-      html += '<div class="dashboardActivityIcon"><i class="material-icons">live_tv</i></div>';
-      html += '<div class="dashboardActivityInfo">';
-      html += '<div class="dashboardActivityCount">' + liveCount + '</div>';
-      html += '<div class="dashboardActivityLabel">Live</div>';
-      html += '</div></div>';
+      html += '<div class="dashboardActivityRow" onclick="openMyContent(\'live\')">';
+      html += '<div class="dashboardActivityRowIcon"><i class="material-icons">live_tv</i></div>';
+      html += '<div class="dashboardActivityRowContent">';
+      html += '<div class="dashboardActivityRowTitle">Live</div>';
+      html += '<div class="dashboardActivityRowSubtitle">' + liveCount + ' Active</div>';
+      html += '</div>';
+      html += '<div class="dashboardActivityRowCount">' + liveCount + '</div>';
+      html += '<i class="material-icons dashboardActivityRowChevron">chevron_right</i>';
+      html += '</div>';
     }
     html += '</div></div>';
   }
 
-  // 5. WALLET SUMMARY
-  html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">Wallet Summary</h3>';
+  // 5. WALLET (Compact card)
+  html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">My Wallet</h3>';
   html += '<div class="dashboardWalletCard">';
-  html += '<div class="dashboardWalletHeader">';
-  html += '<div class="dashboardWalletBalance">';
-  html += '<div class="dashboardWalletLabel">Total Balance</div>';
-  html += '<div class="dashboardWalletAmount">' + (wallet.balance || 0) + ' <span class="dashboardWalletCoins">+' + (wallet.coins || 0) + ' coins</span></div>';
+  html += '<div class="dashboardWalletRow">';
+  html += '<div class="dashboardWalletItem">';
+  html += '<div class="dashboardWalletItemLabel">Total Coins</div>';
+  html += '<div class="dashboardWalletItemValue">' + totalCoins + '</div>';
   html += '</div>';
-  html += '<div class="dashboardWalletIcon"><i class="material-icons">account_balance_wallet</i></div>';
+  html += '<div class="dashboardWalletItem">';
+  html += '<div class="dashboardWalletItemLabel">Available Coins</div>';
+  html += '<div class="dashboardWalletItemValue">' + availableCoins + '</div>';
   html += '</div>';
-  html += '<div class="dashboardWalletActions">';
-  html += '<button onclick="openPage(\'wallet\')" class="dashboardWalletBtn"><i class="material-icons">account_balance_wallet</i> View Wallet</button>';
-  html += '<button onclick="openPage(\'promotions\')" class="dashboardWalletBtn dashboardWalletBtnSecondary"><i class="material-icons">trending_up</i> Promotions</button>';
+  html += '<div class="dashboardWalletItem">';
+  html += '<div class="dashboardWalletItemLabel">Locked / Reserve</div>';
+  html += '<div class="dashboardWalletItemValue">' + reservedCoins + '</div>';
   html += '</div>';
+  html += '</div>';
+  html += '<button onclick="openPage(\'wallet\')" class="dashboardWalletTopupBtn"><i class="material-icons">add</i> Top Up</button>';
   html += '</div></div>';
 
-  // 6. RECENT ORDERS / LEADS
+  // 6. RECENT ORDERS (Compact list)
   if (orders.length > 0) {
-    html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">Recent Orders & Leads</h3>';
-    html += '<div class="dashboardOrdersList">';
+    html += '<div class="dashboardSection"><div class="dashboardSectionHeader"><h3 class="dashboardSectionTitle">Recent Orders / Leads</h3><span class="dashboardViewAll" onclick="openPage(\'orders\')">View All</span></div>';
+    html += '<div class="dashboardOrdersListCompact">';
     orders.slice(0, 5).forEach(function(order) {
-      html += '<div class="dashboardOrderItem" onclick="openPage(\'orders\')">';
-      html += '<div class="dashboardOrderIcon"><i class="material-icons">' + (order.type === 'lead' ? 'handshake' : 'receipt_long') + '</i></div>';
-      html += '<div class="dashboardOrderInfo">';
-      html += '<div class="dashboardOrderTitle">' + escapeHtml(order.title || "Order") + '</div>';
-      html += '<div class="dashboardOrderMeta">' + escapeHtml(order.type || "") + ' &middot; ' + escapeHtml(order.date || "") + '</div>';
+      var statusClass = order.type === 'lead' ? 'lead' : 'order';
+      var statusLabel = order.type === 'lead' ? 'Lead' : 'Order';
+      html += '<div class="dashboardOrderRow" onclick="openPage(\'orders\')">';
+      html += '<div class="dashboardOrderRowThumb"><i class="material-icons">' + (order.type === 'lead' ? 'handshake' : 'receipt_long') + '</i></div>';
+      html += '<div class="dashboardOrderRowInfo">';
+      html += '<div class="dashboardOrderRowTitle">' + escapeHtml(order.title || "Order") + '</div>';
+      html += '<div class="dashboardOrderRowTime">' + escapeHtml(order.date || "") + '</div>';
       html += '</div>';
-      if (order.price) {
-        html += '<div class="dashboardOrderPrice">' + order.price + '</div>';
-      }
+      html += '<span class="dashboardOrderRowStatus ' + statusClass + '">' + statusLabel + '</span>';
       html += '</div>';
     });
-    html += '<button onclick="openPage(\'orders\')" class="dashboardViewAllBtn">View All Orders & Leads</button>';
     html += '</div></div>';
   }
 
-  // 7. RECENT NOTIFICATIONS
+  // 7. RECENT NOTIFICATIONS (Compact list)
   if (notifications.length > 0) {
-    html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">Recent Notifications</h3>';
-    html += '<div class="dashboardNotificationsList">';
+    html += '<div class="dashboardSection"><div class="dashboardSectionHeader"><h3 class="dashboardSectionTitle">Recent Notifications</h3><span class="dashboardViewAll" onclick="openPage(\'notifications\')">View All</span></div>';
+    html += '<div class="dashboardNotificationsListCompact">';
     notifications.slice(0, 5).forEach(function(notif) {
-      html += '<div class="dashboardNotificationItem" onclick="openPage(\'notifications\')">';
-      html += '<div class="dashboardNotificationIcon"><i class="material-icons">notifications</i></div>';
-      html += '<div class="dashboardNotificationInfo">';
-      html += '<div class="dashboardNotificationTitle">' + escapeHtml(notif.title || "Notification") + '</div>';
-      html += '<div class="dashboardNotificationMeta">' + escapeHtml(notif.message || "") + '</div>';
+      html += '<div class="dashboardNotificationRow" onclick="openPage(\'notifications\')">';
+      html += '<div class="dashboardNotificationRowIcon"><i class="material-icons">' + (notif.icon || 'notifications') + '</i></div>';
+      html += '<div class="dashboardNotificationRowInfo">';
+      html += '<div class="dashboardNotificationRowTitle">' + escapeHtml(notif.title || "Notification") + '</div>';
       html += '</div>';
-      html += '<div class="dashboardNotificationTime">' + escapeHtml(notif.time || "") + '</div>';
+      html += '<div class="dashboardNotificationRowTime">' + escapeHtml(notif.time || "") + '</div>';
       html += '</div>';
     });
-    html += '<button onclick="openPage(\'notifications\')" class="dashboardViewAllBtn">View All Notifications</button>';
     html += '</div></div>';
   }
 
