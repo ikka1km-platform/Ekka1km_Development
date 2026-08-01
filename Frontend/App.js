@@ -62,6 +62,10 @@ function openSideDrawer() {
   drawer.classList.add("open");
   backdrop.classList.add("open");
   document.body.style.overflow = "hidden";
+
+  // Keep active state in sync whenever drawer opens
+  updateDrawerActiveState(getCurrentPageId());
+  updateDrawerNotificationBadge();
 }
 
 function closeSideDrawer() {
@@ -76,7 +80,93 @@ function closeSideDrawer() {
 
 function navigateFromDrawer(pageId) {
   closeSideDrawer();
-  setTimeout(() => openPage(pageId), 180);
+  setTimeout(() => {
+    openPage(pageId);
+    updateDrawerActiveState(pageId);
+  }, 180);
+}
+
+/*
+DRAWER ACTIVE STATE SYNC
+Only ONE active item at a time, driven by navigation state.
+*/
+
+function updateDrawerActiveState(pageId) {
+  const drawer = document.getElementById("sideDrawer");
+  if (!drawer) return;
+
+  // Remove active from all drawer items
+  drawer.querySelectorAll(".sideDrawer-item").forEach(item => {
+    item.classList.remove("active");
+  });
+
+  if (!pageId) return;
+
+  // Find matching drawer item by data-page attribute
+  const match = drawer.querySelector('.sideDrawer-item[data-page="' + pageId + '"]');
+  if (match) {
+    match.classList.add("active");
+  }
+}
+
+function getCurrentPageId() {
+  const activePage = document.querySelector(".page.activePage");
+  return activePage ? activePage.id : "";
+}
+
+/*
+DRAWER NOTIFICATION BADGE SYNC
+Reuses existing unread count logic — no duplicate implementation.
+*/
+
+function updateDrawerNotificationBadge() {
+  const badge = document.getElementById("drawerNotifBadge");
+  if (!badge) return;
+
+  const count = (typeof getUnreadNotificationCount === "function")
+    ? getUnreadNotificationCount()
+    : 0;
+
+  if (count > 0) {
+    badge.textContent = count > 99 ? "99+" : count;
+    badge.style.display = "inline-flex";
+  } else {
+    badge.textContent = "0";
+    badge.style.display = "none";
+  }
+}
+
+/*
+DRAWER KEYBOARD NAVIGATION
+Supports ArrowUp/ArrowDown/Enter/Space on menu items.
+Maintains existing minimum 48px touch targets and a11y.
+*/
+
+function initDrawerKeyboardNav() {
+  const drawer = document.getElementById("sideDrawer");
+  if (!drawer) return;
+
+  const items = drawer.querySelectorAll(".sideDrawer-item, .sideDrawer-logout");
+
+  items.forEach(item => {
+    item.addEventListener("keydown", function(e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        this.click();
+        return;
+      }
+
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const list = Array.from(items);
+        const index = list.indexOf(this);
+        const nextIndex = e.key === "ArrowDown"
+          ? (index + 1) % list.length
+          : (index - 1 + list.length) % list.length;
+        list[nextIndex].focus();
+      }
+    });
+  });
 }
 
 function refreshDrawerIdentity() {
@@ -202,6 +292,9 @@ function openPage(pageId) {
 
   // Update Bottom Navigation Active State
   updateBottomNavActiveState(pageId);
+
+  // Sync drawer active pill with current page
+  updateDrawerActiveState(pageId);
 
   if (disco) {
     const discoPages = ["home"];
@@ -563,6 +656,9 @@ function loadAll() {
     loadNotifications();
   }
 
+  // Sync drawer notification badge with latest unread count
+  updateDrawerNotificationBadge();
+
   if (
     typeof loadAdvertisements ===
     "function"
@@ -916,6 +1012,9 @@ window.addEventListener(
     refreshLoginUI();
 
     refreshDrawerIdentity();
+
+    // Initialize drawer keyboard navigation (a11y)
+    initDrawerKeyboardNav();
 
     openPage("home");
 

@@ -3605,7 +3605,7 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
   z-index:100001;
   box-shadow:4px 0 24px rgba(0,0,0,.18);
   transform:translateX(-100%);
-  transition:transform .25s cubic-bezier(.4,0,.2,1);
+  transition:transform .35s cubic-bezier(.16,1,.3,1);
   display:flex;
   flex-direction:column;
 }
@@ -3815,13 +3815,29 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
 .sideDrawer-body{
   flex:1;
   overflow-y:auto;
-  padding:8px 0;
+  padding:10px 12px 24px;
+  background:linear-gradient(180deg,#161a17 0%,#1a201c 100%);
+  scrollbar-width:thin;
+  scrollbar-color:rgba(15,157,88,.35) transparent;
+}
+
+.sideDrawer-body::-webkit-scrollbar{
+  width:4px;
+}
+
+.sideDrawer-body::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+.sideDrawer-body::-webkit-scrollbar-thumb{
+  background:rgba(15,157,88,.35);
+  border-radius:4px;
 }
 
 .sideDrawer-item{
   display:flex;
   align-items:center;
-  gap:12px;
+  gap:14px;
   padding:13px 16px;
   cursor:pointer;
   transition:background .15s;
@@ -3848,8 +3864,8 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
 
 .sideDrawer-divider{
   height:1px;
-  background:rgba(0,0,0,.06);
-  margin:8px 16px;
+  background:rgba(255,255,255,.06);
+  margin:10px 12px;
 }
 
 /* ==========================================================
@@ -3861,19 +3877,21 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
 }
 
 .sideDrawer-sectionHeader {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
-  color: var(--text-muted);
+  color: rgba(255,255,255,.38);
   text-transform: uppercase;
-  letter-spacing: 0.8px;
-  padding: 12px 16px 6px;
+  letter-spacing: 1.2px;
+  padding: 14px 14px 8px;
   margin-top: 4px;
 }
 
 .sideDrawer-subItem {
-  padding-left: 12px;
-  border-left: 2px solid rgba(0,0,0,.06);
-  margin-left: 16px;
+  padding-left: 10px;
+  border-left: 2px solid rgba(15,157,88,.25);
+  margin-left: 22px;
+  margin-top: 2px;
+  margin-bottom: 2px;
 }
 
 .sideDrawer-subItem .sideDrawer-item {
@@ -3882,40 +3900,56 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
 }
 
 .sideDrawer-subItem .sideDrawer-item i {
-  font-size: 20px;
+  font-size: 19px;
 }
 
+/* ==========================================================
+   PREMIUM DRAWER BODY (Phase B.1B)
+   Charcoal surface with subtle green tint
+========================================================== */
+
 .sideDrawer-item {
-  padding: 13px 16px;
+  padding: 13px 14px;
   font-size: 14px;
-  min-height: 48px;
+  min-height: 50px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   cursor: pointer;
-  transition: background 0.15s;
-  color: var(--text-primary);
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  color: rgba(255,255,255,.82);
   font-weight: 500;
   position: relative;
+  border-radius: 12px;
+  margin: 2px 0;
+  letter-spacing: .2px;
 }
 
 .sideDrawer-item:hover {
-  background: rgba(0,0,0,.03);
+  background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.95);
+  transform: translateX(2px);
 }
 
 .sideDrawer-item:active {
-  background: rgba(0,0,0,.06);
+  background: rgba(15,157,88,.12);
+  transform: scale(.98);
 }
 
 .sideDrawer-item i {
   font-size: 22px;
-  color: var(--text-secondary);
+  color: rgba(255,255,255,.55);
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: color .2s ease;
+}
+
+.sideDrawer-item:hover i {
+  color: rgba(255,255,255,.85);
 }
 
 .sideDrawer-item span {
@@ -3925,38 +3959,116 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
   text-overflow: ellipsis;
 }
 
-/* Active state for current page */
+/* Active state - premium green pill */
 .sideDrawer-item.active {
-  background: rgba(15, 157, 88, 0.08);
-  color: var(--primary);
+  background: linear-gradient(135deg,#0f9d58 0%,#0b7a44 100%);
+  color: #fff;
   font-weight: 600;
+  box-shadow: 0 4px 16px rgba(15,157,88,.35), inset 0 1px 0 rgba(255,255,255,.15);
+  transform: translateX(0);
 }
 
 .sideDrawer-item.active i {
-  color: var(--primary);
+  color: #fff;
+}
+
+.sideDrawer-item.active:hover {
+  background: linear-gradient(135deg,#0f9d58 0%,#0b7a44 100%);
+  color: #fff;
+  transform: translateX(0);
 }
 
 .sideDrawer-item.active::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 8px;
-  bottom: 8px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 3px;
-  background: var(--primary);
-  border-radius: 0 2px 2px 0;
+  height: 60%;
+  background: rgba(255,255,255,.5);
+  border-radius: 0 3px 3px 0;
+}
+
+/* Notification badge in drawer */
+.sideDrawer-notifBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg,#ef4444,#dc2626);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(239,68,68,.4);
+  flex-shrink: 0;
+}
+
+/* Logout button at bottom of drawer */
+.sideDrawer-logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 12px 14px 6px;
+  padding: 13px 16px;
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(239,68,68,.5);
+  background: rgba(239,68,68,.08);
+  color: #f87171;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .25s ease, border-color .25s ease, color .25s ease, transform .2s ease, box-shadow .25s ease;
+  letter-spacing: .3px;
+}
+
+.sideDrawer-logout i {
+  font-size: 20px;
+  color: #f87171;
+  transition: transform .25s ease;
+}
+
+.sideDrawer-logout:hover {
+  background: rgba(239,68,68,.18);
+  border-color: rgba(239,68,68,.8);
+  color: #fca5a5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(239,68,68,.2);
+}
+
+.sideDrawer-logout:hover i {
+  transform: translateX(3px);
+  color: #fca5a5;
+}
+
+.sideDrawer-logout:active {
+  transform: scale(.97);
 }
 
 .drawerBackdrop{
   position:fixed;
   inset:0;
-  background:rgba(0,0,0,.35);
+  background:rgba(0,0,0,.55);
+  backdrop-filter:blur(2px);
   z-index:100000;
   display:none;
+  transition:opacity .3s ease;
 }
 
 .drawerBackdrop.open{
   display:block;
+  animation:drawerBackdropFade .3s ease;
+}
+
+@keyframes drawerBackdropFade{
+  from{opacity:0;}
+  to{opacity:1;}
 }
 
 /* ==========================================================

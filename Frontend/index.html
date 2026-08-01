@@ -1542,6 +1542,9 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       
       <div
         class="sideDrawer-item"
+        data-page="dashboard"
+        role="menuitem"
+        tabindex="0"
         onclick="navigateFromDrawer('dashboard')">
         <i class="material-icons">dashboard</i>
         <span>My Dashboard</span>
@@ -1549,6 +1552,9 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
       <div
         class="sideDrawer-item"
+        data-page="profile"
+        role="menuitem"
+        tabindex="0"
         onclick="navigateFromDrawer('profile')">
         <i class="material-icons">person</i>
         <span>My Profile</span>
@@ -1556,6 +1562,9 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
       <div
         class="sideDrawer-item"
+        data-page="interests"
+        role="menuitem"
+        tabindex="0"
         onclick="navigateFromDrawer('interests')">
         <i class="material-icons">favorite</i>
         <span>My Interests</span>
@@ -1570,14 +1579,20 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       
       <div
         class="sideDrawer-item"
+        data-page="myContent"
+        role="menuitem"
+        tabindex="0"
         onclick="navigateFromDrawer('myContent')">
         <i class="material-icons">folder</i>
         <span>My Posts</span>
       </div>
 
-      <div class="sideDrawer-subItem">
+      <div class="sideDrawer-subItem" role="group">
         <div
           class="sideDrawer-item"
+          data-page="products"
+          role="menuitem"
+          tabindex="0"
           onclick="navigateFromDrawer('products')">
           <i class="material-icons">shopping_bag</i>
           <span>Products</span>
@@ -1585,6 +1600,9 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
         <div
           class="sideDrawer-item"
+          data-page="businesses"
+          role="menuitem"
+          tabindex="0"
           onclick="navigateFromDrawer('businesses')">
           <i class="material-icons">store</i>
           <span>Businesses</span>
@@ -1592,6 +1610,9 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
         <div
           class="sideDrawer-item"
+          data-page="properties"
+          role="menuitem"
+          tabindex="0"
           onclick="navigateFromDrawer('properties')">
           <i class="material-icons">real_estate_agent</i>
           <span>Properties</span>
@@ -1599,6 +1620,9 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
         <div
           class="sideDrawer-item"
+          data-page="news"
+          role="menuitem"
+          tabindex="0"
           onclick="navigateFromDrawer('news')">
           <i class="material-icons">newspaper</i>
           <span>News</span>
@@ -1606,6 +1630,9 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
         <div
           class="sideDrawer-item"
+          data-page="live"
+          role="menuitem"
+          tabindex="0"
           onclick="navigateFromDrawer('live')">
           <i class="material-icons">live_tv</i>
           <span>Live</span>
@@ -1621,6 +1648,9 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       
       <div
         class="sideDrawer-item"
+        data-page="orders"
+        role="menuitem"
+        tabindex="0"
         onclick="navigateFromDrawer('orders')">
         <i class="material-icons">receipt_long</i>
         <span>My Orders / Leads</span>
@@ -1628,6 +1658,9 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
       <div
         class="sideDrawer-item"
+        data-page="wallet"
+        role="menuitem"
+        tabindex="0"
         onclick="navigateFromDrawer('wallet')">
         <i class="material-icons">account_balance_wallet</i>
         <span>My Wallet</span>
@@ -1635,6 +1668,9 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
       <div
         class="sideDrawer-item"
+        data-page="promotions"
+        role="menuitem"
+        tabindex="0"
         onclick="navigateFromDrawer('promotions')">
         <i class="material-icons">trending_up</i>
         <span>My Promotions</span>
@@ -1649,13 +1685,20 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       
       <div
         class="sideDrawer-item"
+        data-page="notifications"
+        role="menuitem"
+        tabindex="0"
         onclick="navigateFromDrawer('notifications')">
         <i class="material-icons">notifications</i>
         <span>Notifications</span>
+        <span id="drawerNotifBadge" class="sideDrawer-notifBadge" style="display:none;">0</span>
       </div>
 
       <div
         class="sideDrawer-item"
+        data-page="announcements"
+        role="menuitem"
+        tabindex="0"
         onclick="navigateFromDrawer('announcements')">
         <i class="material-icons">campaign</i>
         <span>Announcements</span>
@@ -1670,10 +1713,24 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
       
       <div
         class="sideDrawer-item"
+        data-page="adcenter"
+        role="menuitem"
+        tabindex="0"
         onclick="navigateFromDrawer('adcenter')">
         <i class="material-icons">play_circle</i>
         <span>Reward Ads</span>
       </div>
+    </div>
+
+    <!-- LOGOUT -->
+    <div
+      class="sideDrawer-logout"
+      role="button"
+      tabindex="0"
+      onclick="logoutUser()"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();logoutUser();}">
+      <i class="material-icons">logout</i>
+      <span>Logout</span>
     </div>
 
   </div>
