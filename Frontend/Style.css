@@ -92,12 +92,12 @@ header{
   top:0;
   left:0;
   right:0;
-  height:70px;
+  height:56px;
   background:#fff;
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:12px;
+  padding:0 12px;
   box-shadow:var(--shadow);
   z-index:999;
 }
@@ -141,7 +141,7 @@ header{
 ========================================================== */
 
 main{
-  padding-top:70px;
+  padding-top:56px;
   padding-bottom:90px;
   min-height:100vh;
 }
@@ -2919,7 +2919,7 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
   position:relative;
   z-index:99;
   background:var(--page-bg);
-  padding-top:70px;
+  padding-top:56px;
 }
 
 .disco-full-content{
@@ -3632,8 +3632,8 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
 @media(max-width:600px){
 
   header{
-    height:70px;
-    padding:10px;
+    height:56px;
+    padding:0 10px;
   }
 }
 
@@ -6907,4 +6907,114 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
   .promo-card-stats {
     grid-template-columns: repeat(4, 1fr);
   }
+}
+
+/* ==========================================================
+   HOME LAYOUT REFINEMENT (Release Sprint)
+   Compact header, denser home sections, reduced card heights
+========================================================== */
+
+/* Compact Top Header */
+header{
+  height:56px;
+  padding:0 12px;
+}
+
+main{
+  padding-top:56px;
+}
+
+#globalDisco{
+  padding-top:56px;
+}
+
+@media(max-width:600px){
+  header{
+    height:56px;
+    padding:0 10px;
+  }
+}
+
+/* Location Card - compact */
+.locationCard{
+  border-radius:16px;
+  margin-bottom:10px;
+}
+
+.locationCard-main{
+  padding:10px 14px;
+}
+
+/* Search + Radius Row - equal heights, compact */
+.searchRow{
+  gap:8px;
+  margin-bottom:12px;
+  align-items:stretch;
+}
+
+.searchRow-input input{
+  padding:10px 12px;
+}
+
+.searchRow-radius select{
+  padding:10px 12px;
+  min-width:90px;
+  max-width:100px;
+  height:100%;
+}
+
+/* Category Shortcuts - compact */
+.catShortcuts{
+  margin-bottom:8px;
+}
+
+.catItem{
+  gap:4px;
+  padding:2px 6px;
+}
+
+.catItem-icon{
+  width:46px;
+  height:46px;
+}
+
+.catItem-icon span{
+  font-size:22px;
+}
+
+/* Home Sections - tighter spacing */
+.homeSection{
+  padding:0 15px 14px;
+}
+
+.homeSection-header{
+  margin-bottom:8px;
+  padding-top:4px;
+}
+
+.homeSection-title{
+  font-size:18px;
+  font-weight:700;
+}
+
+/* Home Preview Cards - reduced height & padding */
+.homePreviewCard-img{
+  height:82px;
+}
+
+.homePreviewCard-body{
+  padding:5px 8px 7px;
+}
+
+/* Home Discovery - tighter top padding */
+#homeDiscovery{
+  padding:8px 15px 12px;
+}
+
+#homeDiscovery .locationCard{
+  margin-bottom:8px;
+}
+
+#homeDiscovery .searchRow{
+  margin-bottom:10px;
 }
