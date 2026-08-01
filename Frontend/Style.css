@@ -312,28 +312,71 @@ button{
   color:#fff;
   font-size:15px;
   font-weight:600;
-  transition:background .2s ease,transform .15s ease,box-shadow .2s ease;
+  transition:background .2s ease,transform .15s ease,box-shadow .2s ease,opacity .2s ease;
   display:inline-flex;
   align-items:center;
   justify-content:center;
   gap:6px;
 }
 
-button:hover{
+button:hover:not(:disabled){
   background:var(--primary-dark);
   box-shadow:0 4px 12px rgba(15,157,88,.3);
 }
 
-button:active{
+button:active:not(:disabled){
   transform:scale(.97);
+}
+
+button:disabled{
+  opacity:0.5;
+  cursor:not-allowed;
+  transform:none;
 }
 
 .btn-danger{
   background:var(--danger);
 }
 
+.btn-danger:hover:not(:disabled){
+  background:#b71c1c;
+  box-shadow:0 4px 12px rgba(211,47,47,.3);
+}
+
 .btn-gray{
   background:var(--gray);
+}
+
+.btn-gray:hover:not(:disabled){
+  background:#555;
+  box-shadow:0 4px 12px rgba(102,102,102,.3);
+}
+
+/* Button Loading State */
+button.loading{
+  position:relative;
+  color:transparent;
+  pointer-events:none;
+}
+
+button.loading::after{
+  content:"";
+  position:absolute;
+  width:20px;
+  height:20px;
+  border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;
+  border-radius:50%;
+  animation:spin 0.8s linear infinite;
+}
+
+@keyframes spin{
+  to{transform:rotate(360deg);}
+}
+
+/* Button with icon loading */
+button.loading .material-icons{
+  display:none;
 }
 
 /* ==========================================================
