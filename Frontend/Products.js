@@ -9,6 +9,7 @@ Preserves all canonical functionality
 */
 
 let CURRENT_PRODUCT = null;
+let CURRENT_PRODUCTS = [];
 
 /*
 ============================================================
@@ -43,6 +44,21 @@ function productTimeAgo(dateStr) {
   } catch (e) {
     return "";
   }
+}
+
+/*
+ESCAPE HTML
+*/
+
+function escapeHtml(str) {
+  if (!str) return "";
+  var s = String(str);
+  var am = String.fromCharCode(38) + "amp;";
+  var lt = String.fromCharCode(38) + "lt;";
+  var gt = String.fromCharCode(38) + "gt;";
+  var qt = String.fromCharCode(38) + "quot;";
+  var ap = String.fromCharCode(38) + "#39;";
+  return s.replace(/&/g, am).replace(/</g, lt).replace(/>/g, gt).replace(/"/g, qt).replace(/'/g, ap);
 }
 
 
@@ -115,10 +131,12 @@ async function loadProducts() {
       const condition = productSafeRender(product.Condition);
       const negotiable = product.Negotiable === "Yes";
 
+      const productId = product.ProductID || product.productId || "";
+      
       html += `
-        <div class="productCard" onclick='showProductDetails(${JSON.stringify(product)})'>
+        <div class="productCard" onclick='showProductDetailsById("${productId}")'>
           ${firstImage
-            ? `<div class="productCard-img"><img src="${firstImage}" alt="${title}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'productCard-img productCard-imgPlaceholder\\'><i class=\\'material-icons\\'>broken_image</i></div>'"></div>`
+            ? `<div class="productCard-img"><img src="${firstImage}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'productCard-img productCard-imgPlaceholder\\'><i class=\\'material-icons\\'>broken_image</i></div>'"></div>`
             : `<div class="productCard-img productCard-imgPlaceholder"><i class="material-icons">shopping_bag</i></div>`
           }
           <div class="productCard-body">
@@ -136,7 +154,7 @@ async function loadProducts() {
               ${imageCount > 1 ? `<span class="productCard-badge">+${imageCount - 1} photos</span>` : ""}
             </div>
             <div class="productCard-actions">
-              <button class="productCard-btnPrimary" onclick='event.stopPropagation();showProductDetails(${JSON.stringify(product)})'>View Details</button>
+              <button class="productCard-btnPrimary" onclick='event.stopPropagation();showProductDetailsById("${productId}")'>View Details</button>
             </div>
           </div>
         </div>
@@ -146,6 +164,9 @@ async function loadProducts() {
     html += '</div>';
     container.innerHTML = html;
 
+    // Store products for detail view lookup
+    CURRENT_PRODUCTS = products;
+    
     // Also render Home preview from the same dataset
     if (typeof renderHomeProductsPreview === "function") {
       renderHomeProductsPreview(products);
@@ -176,11 +197,12 @@ function renderHomeProductsPreview(products) {
   preview.forEach(product => {
     const images = getProductImages(product);
     const firstImage = images.length > 0 ? images[0] : "";
+    const productId = product.ProductID || product.productId || "";
 
     html += `
-      <div class="homePreviewCard" onclick='showProductDetails(${JSON.stringify(product).replace(/'/g, "\\'")})'>
+      <div class="homePreviewCard" onclick='showProductDetailsById("${productId}")'>
         ${firstImage
-          ? `<div class="homePreviewCard-img"><img src="${firstImage}" alt="${product.Title || ""}" loading="lazy"></div>`
+          ? `<div class="homePreviewCard-img"><img src="${firstImage}" alt="${escapeHtml(product.Title || "")}" loading="lazy"></div>`
           : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">shopping_bag</span></div>`
         }
         <div class="homePreviewCard-body">
@@ -207,7 +229,34 @@ PRODUCT DETAILS — Stage 4HIJ Redesign
 ============================================================
 */
 
+function showProductDetailsById(productId) {
+  // Find product in loaded data first
+  const product = CURRENT_PRODUCTS && CURRENT_PRODUCTS.length > 0 
+    ? CURRENT_PRODUCTS.find(p => String(p.ProductID || p.productId) === String(productId))
+    : null;
+  
+  if (product) {
+    showProductDetails(product);
+  } else {
+    // Fetch from server
+    fetch(`${getApiUrl()}?action=product&id=${encodeURIComponent(productId)}`)
+      .then(r => r.json())
+      .then(res => {
+        if (res && res.success && res.data) {
+          showProductDetails(res.data);
+        } else {
+          alert("Product not found.");
+        }
+      })
+      .catch(err => {
+        console.log("Product fetch error:", err);
+        alert("Unable to load product details.");
+      });
+  }
+}
+
 function showProductDetails(product) {
+  if (!product) return;
   CURRENT_PRODUCT = product;
   trackProductView();
 

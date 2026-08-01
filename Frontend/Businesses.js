@@ -9,6 +9,7 @@ Preserves all canonical functionality
 */
 
 let CURRENT_BUSINESS = null;
+let CURRENT_BUSINESSES = [];
 
 /*
 ============================================================
@@ -23,6 +24,21 @@ function businessSafeRender(val) {
   var s = String(val).trim();
   if (s === "undefined" || s === "null" || s === "NaN" || s === "Invalid Date") return "";
   return s;
+}
+
+/*
+ESCAPE HTML
+*/
+
+function escapeHtml(str) {
+  if (!str) return "";
+  var s = String(str);
+  var am = String.fromCharCode(38) + "amp;";
+  var lt = String.fromCharCode(38) + "lt;";
+  var gt = String.fromCharCode(38) + "gt;";
+  var qt = String.fromCharCode(38) + "quot;";
+  var ap = String.fromCharCode(38) + "#39;";
+  return s.replace(/&/g, am).replace(/</g, lt).replace(/>/g, gt).replace(/"/g, qt).replace(/'/g, ap);
 }
 
 
@@ -66,9 +82,10 @@ async function loadBusinesses() {
       const logo = businessSafeRender(business.Logo);
       const phone = businessSafeRender(business.Phone) || businessSafeRender(business.Mobile);
       const email = businessSafeRender(business.Email);
+      const businessId = business.BusinessID || business.businessId || "";
 
       html += `
-        <div class="businessCard" onclick='showBusinessDetails(${JSON.stringify(business)})'>
+        <div class="businessCard" onclick='showBusinessDetailsById("${businessId}")'>
           <div class="businessCard-header">
             <div class="businessCard-logo">
               ${logo
@@ -89,7 +106,7 @@ async function loadBusinesses() {
               ${phone ? `<span class="businessCard-detail"><i class="material-icons">phone</i> ${phone}</span>` : ""}
             </div>
             <div class="businessCard-actions">
-              <button class="productCard-btnPrimary" onclick='event.stopPropagation();showBusinessDetails(${JSON.stringify(business)})'>View Details</button>
+              <button class="productCard-btnPrimary" onclick='event.stopPropagation();showBusinessDetailsById("${businessId}")'>View Details</button>
               <button class="productCard-btnSecondary" onclick='event.stopPropagation();openStorePage(${JSON.stringify(business)})'>Visit Store</button>
             </div>
           </div>
@@ -100,6 +117,9 @@ async function loadBusinesses() {
     html += '</div>';
     container.innerHTML = html;
 
+    // Store businesses for detail view lookup
+    CURRENT_BUSINESSES = businesses;
+    
     // Also render Home preview from the same dataset
     if (typeof renderHomeBusinessesPreview === "function") {
       renderHomeBusinessesPreview(businesses);
@@ -128,8 +148,9 @@ function renderHomeBusinessesPreview(businesses) {
   let html = '<div class="homePreviewGrid">';
 
   preview.forEach(business => {
+    const businessId = business.BusinessID || business.businessId || "";
     html += `
-      <div class="homePreviewCard" onclick='showBusinessDetails(${JSON.stringify(business).replace(/'/g, "\\'")})'>
+      <div class="homePreviewCard" onclick='showBusinessDetailsById("${businessId}")'>
         <div class="homePreviewCard-img homePreviewCard-imgPlaceholder" style="background:#e8f5e9;">
           <span class="material-icons" style="color:var(--primary);font-size:32px;">store</span>
         </div>
@@ -160,7 +181,34 @@ BUSINESS DETAILS — Stage 4HIJ Redesign
 ============================================================
 */
 
+function showBusinessDetailsById(businessId) {
+  // Find business in loaded data first
+  const business = CURRENT_BUSINESSES && CURRENT_BUSINESSES.length > 0 
+    ? CURRENT_BUSINESSES.find(b => String(b.BusinessID || b.businessId) === String(businessId))
+    : null;
+  
+  if (business) {
+    showBusinessDetails(business);
+  } else {
+    // Fetch from server
+    fetch(`${getApiUrl()}?action=business&id=${encodeURIComponent(businessId)}`)
+      .then(r => r.json())
+      .then(res => {
+        if (res && res.success && res.data) {
+          showBusinessDetails(res.data);
+        } else {
+          alert("Business not found.");
+        }
+      })
+      .catch(err => {
+        console.log("Business fetch error:", err);
+        alert("Unable to load business details.");
+      });
+  }
+}
+
 function showBusinessDetails(business) {
+  if (!business) return;
   CURRENT_BUSINESS = business;
 
   const container = document.getElementById("businessList");
