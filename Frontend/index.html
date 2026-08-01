@@ -73,215 +73,6 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 </header>
 
 <!-- ===================================================== -->
-<!-- GLOBAL DISCOVERY BAR (single canonical #radius/#searchLocation) -->
-<!-- ===================================================== -->
-
-<div id="globalDisco" class="disco-full">
-
-  <!-- FULL MODE: Home -->
-  <div class="disco-full-content">
-
-    <!-- LOCATION CARD -->
-    <div class="locationCard">
-
-      <div
-        class="locationCard-main"
-        onclick="openSearchModal()">
-
-        <span class="material-icons locationCard-pin">
-          location_on
-        </span>
-
-        <div class="locationCard-info">
-
-          <div class="locationCard-label">
-            Your Location
-          </div>
-
-          <div class="locationCard-value" id="gpsText">
-            GPS: Detecting...
-          </div>
-
-        </div>
-
-        <span class="material-icons locationCard-arrow">
-          expand_more
-        </span>
-
-      </div>
-
-      <select id="searchLocation" class="locationCard-select">
-
-        <option value="gps">📍 Current Location</option>
-        <option value="search">🔍 Search Another Place</option>
-        <option value="clear">✕ Clear Manual Location</option>
-
-      </select>
-
-    </div>
-
-    <!-- SEARCH + RADIUS ROW -->
-    <div class="searchRow">
-
-      <div class="searchRow-input">
-
-        <span class="material-icons searchRow-icon">
-          search
-        </span>
-
-        <input
-          placeholder="Search Ekka1km...">
-
-      </div>
-
-      <div class="searchRow-radius">
-
-        <select id="radius">
-
-          <option value="1">1 KM</option>
-          <option value="5">5 KM</option>
-          <option value="10">10 KM</option>
-          <option value="25">25 KM</option>
-          <option value="51" selected>51 KM</option>
-          <option value="100">100 KM</option>
-          <option value="All India">All India</option>
-
-        </select>
-
-      </div>
-
-    </div>
-
-    <!-- CATEGORY SHORTCUTS -->
-    <div class="catShortcuts">
-
-      <div
-        class="catItem"
-        onclick="openPage('products')">
-
-        <div class="catItem-icon">
-          <span class="material-icons">shopping_bag</span>
-        </div>
-
-        <span class="catItem-label">Products</span>
-
-      </div>
-
-      <div
-        class="catItem"
-        onclick="openPage('businesses')">
-
-        <div class="catItem-icon">
-          <span class="material-icons">store</span>
-        </div>
-
-        <span class="catItem-label">Businesses</span>
-
-      </div>
-
-      <div
-        class="catItem"
-        onclick="openPage('properties')">
-
-        <div class="catItem-icon">
-          <span class="material-icons">real_estate_agent</span>
-        </div>
-
-        <span class="catItem-label">Properties</span>
-
-      </div>
-
-      <div
-        class="catItem"
-        onclick="openPage('news')">
-
-        <div class="catItem-icon">
-          <span class="material-icons">newspaper</span>
-        </div>
-
-        <span class="catItem-label">News</span>
-
-      </div>
-
-      <div
-        class="catItem"
-        onclick="openPage('live')">
-
-        <div class="catItem-icon">
-          <span class="material-icons">live_tv</span>
-        </div>
-
-        <span class="catItem-label">Live</span>
-
-      </div>
-
-      <div class="catItem">
-
-        <div class="catItem-icon">
-          <span class="material-icons">more_horiz</span>
-        </div>
-
-        <span class="catItem-label">More</span>
-
-      </div>
-
-    </div>
-
-  </div>
-
-  <!-- COMPACT MODE: discovery pages (NO duplicate #radius — uses canonical from full mode) -->
-  <div class="disco-compact-content">
-
-    <div
-      class="discoCompact"
-      onclick="openSearchModal()">
-
-      <span class="material-icons discoCompact-pin">
-        location_on
-      </span>
-
-      <span class="discoCompact-text" id="discoCompactText">
-        Current Location
-      </span>
-
-      <span class="material-icons discoCompact-arrow">
-        expand_more
-      </span>
-
-    </div>
-
-    <div
-      class="discoCompact-radius"
-      id="discoCompactRadiusWrap"
-      onclick="toggleDiscoRadiusPicker()">
-
-      <span class="discoCompact-radiusLabel" id="discoCompactRadiusLabel">
-        51 KM
-      </span>
-
-      <span class="material-icons discoCompact-radiusIcon">
-        expand_more
-      </span>
-
-    </div>
-
-    <div class="discoRadiusPicker" id="discoRadiusPicker">
-
-      <div class="discoRadiusPicker-item" data-value="1" onclick="pickDiscoRadius('1')">1 KM</div>
-      <div class="discoRadiusPicker-item" data-value="5" onclick="pickDiscoRadius('5')">5 KM</div>
-      <div class="discoRadiusPicker-item" data-value="10" onclick="pickDiscoRadius('10')">10 KM</div>
-      <div class="discoRadiusPicker-item" data-value="25" onclick="pickDiscoRadius('25')">25 KM</div>
-      <div class="discoRadiusPicker-item" data-value="51" onclick="pickDiscoRadius('51')">51 KM</div>
-      <div class="discoRadiusPicker-item" data-value="100" onclick="pickDiscoRadius('100')">100 KM</div>
-      <div class="discoRadiusPicker-item" data-value="All India" onclick="pickDiscoRadius('All India')">All India</div>
-
-    </div>
-
-  </div>
-
-</div>
-
-<!-- ===================================================== -->
 <!-- SEARCH LOCATION MODAL -->
 <!-- ===================================================== -->
 
@@ -507,6 +298,160 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 <!-- ===================================================== -->
 
 <div id="home" class="page">
+
+  <!-- ===================================================== -->
+  <!-- HOME — DISCOVERY HEADER -->
+  <!-- ===================================================== -->
+
+  <div id="homeDiscovery">
+
+    <!-- LOCATION CARD -->
+    <div class="locationCard">
+
+      <div
+        class="locationCard-main"
+        onclick="openSearchModal()">
+
+        <span class="material-icons locationCard-pin">
+          location_on
+        </span>
+
+        <div class="locationCard-info">
+
+          <div class="locationCard-label">
+            Your Location
+          </div>
+
+          <div class="locationCard-value" id="gpsText">
+            GPS: Detecting...
+          </div>
+
+        </div>
+
+        <span class="material-icons locationCard-arrow">
+          expand_more
+        </span>
+
+      </div>
+
+      <select id="searchLocation" class="locationCard-select">
+
+        <option value="gps">📍 Current Location</option>
+        <option value="search">🔍 Search Another Place</option>
+        <option value="clear">✕ Clear Manual Location</option>
+
+      </select>
+
+    </div>
+
+    <!-- SEARCH + RADIUS ROW -->
+    <div class="searchRow">
+
+      <div class="searchRow-input">
+
+        <span class="material-icons searchRow-icon">
+          search
+        </span>
+
+        <input
+          placeholder="Search Ekka1km...">
+
+      </div>
+
+      <div class="searchRow-radius">
+
+        <select id="radius">
+
+          <option value="1">1 KM</option>
+          <option value="5">5 KM</option>
+          <option value="10">10 KM</option>
+          <option value="25">25 KM</option>
+          <option value="51" selected>51 KM</option>
+          <option value="100">100 KM</option>
+          <option value="All India">All India</option>
+
+        </select>
+
+      </div>
+
+    </div>
+
+    <!-- CATEGORY SHORTCUTS -->
+    <div class="catShortcuts">
+
+      <div
+        class="catItem"
+        onclick="openPage('products')">
+
+        <div class="catItem-icon">
+          <span class="material-icons">shopping_bag</span>
+        </div>
+
+        <span class="catItem-label">Products</span>
+
+      </div>
+
+      <div
+        class="catItem"
+        onclick="openPage('businesses')">
+
+        <div class="catItem-icon">
+          <span class="material-icons">store</span>
+        </div>
+
+        <span class="catItem-label">Businesses</span>
+
+      </div>
+
+      <div
+        class="catItem"
+        onclick="openPage('properties')">
+
+        <div class="catItem-icon">
+          <span class="material-icons">real_estate_agent</span>
+        </div>
+
+        <span class="catItem-label">Properties</span>
+
+      </div>
+
+      <div
+        class="catItem"
+        onclick="openPage('news')">
+
+        <div class="catItem-icon">
+          <span class="material-icons">newspaper</span>
+        </div>
+
+        <span class="catItem-label">News</span>
+
+      </div>
+
+      <div
+        class="catItem"
+        onclick="openPage('live')">
+
+        <div class="catItem-icon">
+          <span class="material-icons">live_tv</span>
+        </div>
+
+        <span class="catItem-label">Live</span>
+
+      </div>
+
+      <div class="catItem">
+
+        <div class="catItem-icon">
+          <span class="material-icons">more_horiz</span>
+        </div>
+
+        <span class="catItem-label">More</span>
+
+      </div>
+
+    </div>
+
+  </div>
 
   <!-- ===================================================== -->
   <!-- HOME — NEARBY PRODUCTS -->
