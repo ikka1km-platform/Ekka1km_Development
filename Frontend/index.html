@@ -508,12 +508,6 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
 <div id="home" class="page">
 
-  <!-- Compact Welcome Strip -->
-  <div class="welcomeStrip">
-    <span class="welcomeStrip-brand">Ekka1km</span>
-    <span class="welcomeStrip-text">Discover everything around your selected location.</span>
-  </div>
-
   <!-- ===================================================== -->
   <!-- HOME — NEARBY PRODUCTS -->
   <!-- ===================================================== -->
@@ -538,12 +532,24 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   <div class="homeSection" id="homeBusinessesNearYou">
 
     <div class="homeSection-header">
-      <h3 class="homeSection-title">Businesses Near You</h3>
+      <h3 class="homeSection-title">Nearby Businesses</h3>
       <span class="homeSection-viewAll" onclick="openPage('businesses')">View All</span>
     </div>
 
     <div class="homeSection-content" id="homeBusinessesNearYouContent">
       <div class="homeSection-empty">Loading businesses...</div>
+    </div>
+
+  </div>
+
+  <!-- ===================================================== -->
+  <!-- HOME — FEATURED PROMOTION BANNER -->
+  <!-- ===================================================== -->
+
+  <div class="homeSection" id="homeFeaturedPromotion">
+
+    <div class="homeSection-content" id="homeFeaturedPromotionContent">
+      <div class="homeSection-empty">Loading promotions...</div>
     </div>
 
   </div>
@@ -572,28 +578,12 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   <div class="homeSection" id="homePropertiesNearYou">
 
     <div class="homeSection-header">
-      <h3 class="homeSection-title">Properties Near You</h3>
+      <h3 class="homeSection-title">Nearby Properties</h3>
       <span class="homeSection-viewAll" onclick="openPage('properties')">View All</span>
     </div>
 
     <div class="homeSection-content" id="homePropertiesNearYouContent">
       <div class="homeSection-empty">Loading properties...</div>
-    </div>
-
-  </div>
-
-  <!-- ===================================================== -->
-  <!-- HOME — PROMOTED NEAR YOU -->
-  <!-- ===================================================== -->
-
-  <div class="homeSection" id="homePromotedNearYou">
-
-    <div class="homeSection-header">
-      <h3 class="homeSection-title">Promoted Near You</h3>
-    </div>
-
-    <div class="homeSection-content" id="homePromotedNearYouContent">
-      <div class="homeSection-empty">Loading promoted listings...</div>
     </div>
 
   </div>
@@ -1557,106 +1547,144 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
   <div class="sideDrawer-body">
 
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('dashboard')">
-      <i class="material-icons">dashboard</i>
-      <span>Dashboard</span>
-    </div>
+    <!-- PERSONAL -->
+    <div class="sideDrawer-section">
+      <div class="sideDrawer-sectionHeader">PERSONAL</div>
+      
+      <div
+        class="sideDrawer-item"
+        onclick="navigateFromDrawer('dashboard')">
+        <i class="material-icons">dashboard</i>
+        <span>My Dashboard</span>
+      </div>
 
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('home')">
-      <i class="material-icons">home</i>
-      <span>Home</span>
-    </div>
+      <div
+        class="sideDrawer-item"
+        onclick="navigateFromDrawer('profile')">
+        <i class="material-icons">person</i>
+        <span>My Profile</span>
+      </div>
 
-    <div class="sideDrawer-divider"></div>
-
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('profile')">
-      <i class="material-icons">person</i>
-      <span>Profile</span>
-    </div>
-
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('wallet')">
-      <i class="material-icons">account_balance_wallet</i>
-      <span>Wallet</span>
-    </div>
-
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('notifications')">
-      <i class="material-icons">notifications</i>
-      <span>Notifications</span>
-    </div>
-
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('adcenter')">
-      <i class="material-icons">campaign</i>
-      <span>Reward Ads</span>
-    </div>
-
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('announcements')">
-      <i class="material-icons">campaign</i>
-      <span>Announcements</span>
+      <div
+        class="sideDrawer-item"
+        onclick="navigateFromDrawer('interests')">
+        <i class="material-icons">favorite</i>
+        <span>My Interests</span>
+      </div>
     </div>
 
     <div class="sideDrawer-divider"></div>
 
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('orders')">
-      <i class="material-icons">receipt_long</i>
-      <span>Orders / Leads</span>
+    <!-- MY CONTENT -->
+    <div class="sideDrawer-section">
+      <div class="sideDrawer-sectionHeader">MY CONTENT</div>
+      
+      <div
+        class="sideDrawer-item"
+        onclick="navigateFromDrawer('myContent')">
+        <i class="material-icons">folder</i>
+        <span>My Posts</span>
+      </div>
+
+      <div class="sideDrawer-subItem">
+        <div
+          class="sideDrawer-item"
+          onclick="navigateFromDrawer('products')">
+          <i class="material-icons">shopping_bag</i>
+          <span>Products</span>
+        </div>
+
+        <div
+          class="sideDrawer-item"
+          onclick="navigateFromDrawer('businesses')">
+          <i class="material-icons">store</i>
+          <span>Businesses</span>
+        </div>
+
+        <div
+          class="sideDrawer-item"
+          onclick="navigateFromDrawer('properties')">
+          <i class="material-icons">real_estate_agent</i>
+          <span>Properties</span>
+        </div>
+
+        <div
+          class="sideDrawer-item"
+          onclick="navigateFromDrawer('news')">
+          <i class="material-icons">newspaper</i>
+          <span>News</span>
+        </div>
+
+        <div
+          class="sideDrawer-item"
+          onclick="navigateFromDrawer('live')">
+          <i class="material-icons">live_tv</i>
+          <span>Live</span>
+        </div>
+      </div>
     </div>
 
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('myContent')">
-      <i class="material-icons">folder</i>
-      <span>My Content</span>
+    <div class="sideDrawer-divider"></div>
+
+    <!-- BUSINESS -->
+    <div class="sideDrawer-section">
+      <div class="sideDrawer-sectionHeader">BUSINESS</div>
+      
+      <div
+        class="sideDrawer-item"
+        onclick="navigateFromDrawer('orders')">
+        <i class="material-icons">receipt_long</i>
+        <span>My Orders / Leads</span>
+      </div>
+
+      <div
+        class="sideDrawer-item"
+        onclick="navigateFromDrawer('wallet')">
+        <i class="material-icons">account_balance_wallet</i>
+        <span>My Wallet</span>
+      </div>
+
+      <div
+        class="sideDrawer-item"
+        onclick="navigateFromDrawer('promotions')">
+        <i class="material-icons">trending_up</i>
+        <span>My Promotions</span>
+      </div>
     </div>
 
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('products')">
-      <i class="material-icons">shopping_bag</i>
-      <span>Products</span>
+    <div class="sideDrawer-divider"></div>
+
+    <!-- COMMUNICATION -->
+    <div class="sideDrawer-section">
+      <div class="sideDrawer-sectionHeader">COMMUNICATION</div>
+      
+      <div
+        class="sideDrawer-item"
+        onclick="navigateFromDrawer('notifications')">
+        <i class="material-icons">notifications</i>
+        <span>Notifications</span>
+      </div>
+
+      <div
+        class="sideDrawer-item"
+        onclick="navigateFromDrawer('announcements')">
+        <i class="material-icons">campaign</i>
+        <span>Announcements</span>
+      </div>
     </div>
 
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('businesses')">
-      <i class="material-icons">store</i>
-      <span>Businesses</span>
-    </div>
+    <div class="sideDrawer-divider"></div>
 
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('properties')">
-      <i class="material-icons">real_estate_agent</i>
-      <span>Properties</span>
-    </div>
-
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('news')">
-      <i class="material-icons">newspaper</i>
-      <span>News</span>
-    </div>
-
-    <div
-      class="sideDrawer-item"
-      onclick="navigateFromDrawer('live')">
-      <i class="material-icons">live_tv</i>
-      <span>Live</span>
+    <!-- UTILITY -->
+    <div class="sideDrawer-section">
+      <div class="sideDrawer-sectionHeader">UTILITY</div>
+      
+      <div
+        class="sideDrawer-item"
+        onclick="navigateFromDrawer('adcenter')">
+        <i class="material-icons">play_circle</i>
+        <span>Reward Ads</span>
+      </div>
     </div>
 
   </div>

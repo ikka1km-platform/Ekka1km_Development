@@ -378,33 +378,32 @@ function renderProfile() {
 
   /*
   ============================================================
-  SECTION 4: PERSONAL NAVIGATION
-  Reuses existing page navigation - no data fetching.
+  SECTION 4: PREFERENCES
   ============================================================
   */
 
   html += '<div class="profileSection">';
   html += '  <div class="profileSectionHeader">';
-  html += '    <span class="material-icons profileSectionIcon">navigation</span>';
-  html += '    <span class="profileSectionTitle">Personal</span>';
+  html += '    <span class="material-icons profileSectionIcon">tune</span>';
+  html += '    <span class="profileSectionTitle">Preferences</span>';
   html += '  </div>';
 
   html += '  <div class="profileNavSection">';
 
-  html += '    <div class="profileNavRow" onclick="openPage(\'myContent\')">';
-  html += '      <span class="material-icons profileNavIcon">folder</span>';
+  html += '    <div class="profileNavRow" onclick="openSearchModal()">';
+  html += '      <span class="material-icons profileNavIcon">location_on</span>';
   html += '      <div class="profileNavText">';
-  html += '        <span class="profileNavLabel">My Content</span>';
-  html += '        <span class="profileNavDesc">Manage your posts</span>';
+  html += '        <span class="profileNavLabel">Saved Locations</span>';
+  html += '        <span class="profileNavDesc">Manage your locations</span>';
   html += '      </div>';
   html += '      <span class="material-icons profileNavChevron">chevron_right</span>';
   html += '    </div>';
 
-  html += '    <div class="profileNavRow" onclick="openPage(\'wallet\')">';
-  html += '      <span class="material-icons profileNavIcon">account_balance_wallet</span>';
+  html += '    <div class="profileNavRow" onclick="openPage(\'home\')">';
+  html += '      <span class="material-icons profileNavIcon">search</span>';
   html += '      <div class="profileNavText">';
-  html += '        <span class="profileNavLabel">Wallet</span>';
-  html += '        <span class="profileNavDesc">Coins and transactions</span>';
+  html += '        <span class="profileNavLabel">Saved Searches</span>';
+  html += '        <span class="profileNavDesc">Your recent searches</span>';
   html += '      </div>';
   html += '      <span class="material-icons profileNavChevron">chevron_right</span>';
   html += '    </div>';
@@ -412,17 +411,8 @@ function renderProfile() {
   html += '    <div class="profileNavRow" onclick="openPage(\'notifications\')">';
   html += '      <span class="material-icons profileNavIcon">notifications</span>';
   html += '      <div class="profileNavText">';
-  html += '        <span class="profileNavLabel">Notifications</span>';
-  html += '        <span class="profileNavDesc">Your alerts and updates</span>';
-  html += '      </div>';
-  html += '      <span class="material-icons profileNavChevron">chevron_right</span>';
-  html += '    </div>';
-
-  html += '    <div class="profileNavRow" onclick="openPage(\'promotions\')">';
-  html += '      <span class="material-icons profileNavIcon">trending_up</span>';
-  html += '      <div class="profileNavText">';
-  html += '        <span class="profileNavLabel">Promotions</span>';
-  html += '        <span class="profileNavDesc">Manage your promotions</span>';
+  html += '        <span class="profileNavLabel">Notification Preferences</span>';
+  html += '        <span class="profileNavDesc">Manage alerts and updates</span>';
   html += '      </div>';
   html += '      <span class="material-icons profileNavChevron">chevron_right</span>';
   html += '    </div>';
@@ -432,15 +422,93 @@ function renderProfile() {
 
   /*
   ============================================================
-  SECTION 5: ACCOUNT / SESSION ACTIONS
-  Reuses canonical logoutUser().
+  SECTION 5: ACCOUNT SETTINGS
   ============================================================
   */
 
   html += '<div class="profileSection">';
   html += '  <div class="profileSectionHeader">';
-  html += '    <span class="material-icons profileSectionIcon">settings</span>';
-  html += '    <span class="profileSectionTitle">Account</span>';
+  html += '    <span class="material-icons profileSectionIcon">security</span>';
+  html += '    <span class="profileSectionTitle">Account Settings</span>';
+  html += '  </div>';
+
+  html += '  <div class="profileNavSection">';
+
+  html += '    <div class="profileNavRow" onclick="openPage(\'login\')">';
+  html += '      <span class="material-icons profileNavIcon">lock</span>';
+  html += '      <div class="profileNavText">';
+  html += '        <span class="profileNavLabel">Security</span>';
+  html += '        <span class="profileNavDesc">Password and login settings</span>';
+  html += '      </div>';
+  html += '      <span class="material-icons profileNavChevron">chevron_right</span>';
+  html += '    </div>';
+
+  html += '    <div class="profileNavRow" onclick="openPage(\'login\')">';
+  html += '      <span class="material-icons profileNavIcon">privacy_tip</span>';
+  html += '      <div class="profileNavText">';
+  html += '        <span class="profileNavLabel">Privacy</span>';
+  html += '        <span class="profileNavDesc">Control your data</span>';
+  html += '      </div>';
+  html += '      <span class="material-icons profileNavChevron">chevron_right</span>';
+  html += '    </div>';
+
+  html += '  </div>';
+  html += '</div>';
+
+  /*
+  ============================================================
+  SECTION 6: SUPPORT
+  ============================================================
+  */
+
+  html += '<div class="profileSection">';
+  html += '  <div class="profileSectionHeader">';
+  html += '    <span class="material-icons profileSectionIcon">help</span>';
+  html += '    <span class="profileSectionTitle">Support</span>';
+  html += '  </div>';
+
+  html += '  <div class="profileNavSection">';
+
+  html += '    <div class="profileNavRow" onclick="openPage(\'home\')">';
+  html += '      <span class="material-icons profileNavIcon">help_outline</span>';
+  html += '      <div class="profileNavText">';
+  html += '        <span class="profileNavLabel">Help & Support</span>';
+  html += '        <span class="profileNavDesc">FAQs and contact us</span>';
+  html += '      </div>';
+  html += '      <span class="material-icons profileNavChevron">chevron_right</span>';
+  html += '    </div>';
+
+  html += '    <div class="profileNavRow" onclick="openPage(\'home\')">';
+  html += '      <span class="material-icons profileNavIcon">info</span>';
+  html += '      <div class="profileNavText">';
+  html += '        <span class="profileNavLabel">About</span>';
+  html += '        <span class="profileNavDesc">App version and info</span>';
+  html += '      </div>';
+  html += '      <span class="material-icons profileNavChevron">chevron_right</span>';
+  html += '    </div>';
+
+  html += '    <div class="profileNavRow" onclick="openPage(\'home\')">';
+  html += '      <span class="material-icons profileNavIcon">mail</span>';
+  html += '      <div class="profileNavText">';
+  html += '        <span class="profileNavLabel">Contact</span>';
+  html += '        <span class="profileNavDesc">Get in touch with us</span>';
+  html += '      </div>';
+  html += '      <span class="material-icons profileNavChevron">chevron_right</span>';
+  html += '    </div>';
+
+  html += '  </div>';
+  html += '</div>';
+
+  /*
+  ============================================================
+  SECTION 7: SESSION
+  ============================================================
+  */
+
+  html += '<div class="profileSection">';
+  html += '  <div class="profileSectionHeader">';
+  html += '    <span class="material-icons profileSectionIcon">exit_to_app</span>';
+  html += '    <span class="profileSectionTitle">Session</span>';
   html += '  </div>';
 
   html += '  <div class="profileNavSection">';

@@ -171,9 +171,9 @@ PROMOTED NEAR YOU — PUBLIC DISCOVERY (Stage 3D-B)
 */
 
 async function loadPromotedNearYou() {
-  const container = document.getElementById("homePromotedNearYouContent");
+  const container = document.getElementById("homeFeaturedPromotionContent");
   if (!container) return;
-  container.innerHTML = "<div class='homeSection-empty'>Loading promoted listings...</div>";
+  container.innerHTML = "<div class='homeSection-empty'>Loading promotions...</div>";
 
   try {
     let url = getApiUrl() + "?action=promotednearby&lat=" + CURRENT_LAT + "&lng=" + CURRENT_LNG + "&radius=" + getRadius();
@@ -183,55 +183,45 @@ async function loadPromotedNearYou() {
     renderPromotedNearYou(campaigns);
   } catch (err) {
     console.log("Promoted Near You load error:", err);
-    container.innerHTML = "<div class='homeSection-empty'>Unable to load promoted listings.</div>";
+    container.innerHTML = "<div class='homeSection-empty'>Unable to load promotions.</div>";
   }
 }
 
 function renderPromotedNearYou(campaigns) {
-  const container = document.getElementById("homePromotedNearYouContent");
+  const container = document.getElementById("homeFeaturedPromotionContent");
   if (!container) return;
 
   if (!campaigns || campaigns.length === 0) {
-    container.innerHTML = "<div class='homeSection-empty'>No promoted listings nearby.</div>";
+    container.innerHTML = "";
     return;
   }
 
-  let html = '<div class="homePreviewGrid">';
-  campaigns.forEach(function(c) {
-    const targetType = String(c.TargetType || "").toLowerCase();
-    const title = escapeHtml(c.Title || "Promoted Listing");
-    const desc = escapeHtml(c.Description || "");
-    const imageUrl = c.ImageURL || "";
-    const distance = c.DistanceKm ? c.DistanceKm + " km" : "";
-    const city = escapeHtml(c.City || "");
-    const isFeatured = String(c.Featured || "").toLowerCase() === "yes";
+  // Show the first featured campaign as a full banner
+  const featured = campaigns.find(function(c) { return String(c.Featured || "").toLowerCase() === "yes"; }) || campaigns[0];
+  if (!featured) return;
 
-    html += '<div class="homePreviewCard" onclick="openInternalDestination(\'' + targetType + '\', \'' + (c.TargetID || "") + '\')">';
+  const targetType = String(featured.TargetType || "").toLowerCase();
+  const title = escapeHtml(featured.Title || "Special Offer");
+  const desc = escapeHtml(featured.Description || "");
+  const imageUrl = featured.ImageURL || "";
+  const isFeatured = String(featured.Featured || "").toLowerCase() === "yes";
 
-    if (imageUrl && isValidImageUrl(imageUrl)) {
-      html += '<div class="homePreviewCard-img"><img src="' + imageUrl + '" onerror="this.parentElement.style.display=\'none\'"></div>';
-    }
+  let html = '<div class="promoBanner" onclick="openInternalDestination(\'' + targetType + '\', \'' + (featured.TargetID || "") + '\')">';
 
-    html += '<div class="homePreviewCard-body">';
-    html += '<div class="homeSectionCard-top">';
-    if (isFeatured) {
-      html += '<span class="homeSectionCard-badge" style="background:#ff6f00;color:#fff;">&#11088; Promoted</span>';
-    } else {
-      html += '<span class="homeSectionCard-badge">Promoted</span>';
-    }
-    html += '</div>';
+  if (imageUrl && isValidImageUrl(imageUrl)) {
+    html += '<img class="promoBanner-img" src="' + imageUrl + '" onerror="this.style.display=\'none\'">';
+  }
 
-    html += '<div class="homePreviewCard-title" title="' + title + '">' + title + '</div>';
-    if (desc) {
-      html += '<div class="homePreviewCard-meta" title="' + desc + '">' + desc + '</div>';
-    }
-    html += '<div class="homePreviewCard-meta">';
-    if (city) html += city + ' &middot; ';
-    if (distance) html += distance;
-    html += '</div>';
-    html += '</div>';
-    html += '</div>';
-  });
+  html += '<div class="promoBanner-body">';
+  if (isFeatured) {
+    html += '<span class="promoBanner-badge">&#11088; Featured</span>';
+  }
+  html += '<div class="promoBanner-title">' + title + '</div>';
+  if (desc) {
+    html += '<div class="promoBanner-desc">' + desc + '</div>';
+  }
+  html += '</div>';
+
   html += '</div>';
 
   container.innerHTML = html;

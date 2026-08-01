@@ -555,6 +555,9 @@ function renderDashboard(data) {
   var profile = data.profile || {};
   var activity = data.activity || {};
   var quickStats = data.quickStats || {};
+  var wallet = data.wallet || {};
+  var orders = data.orders || [];
+  var notifications = data.notifications || [];
 
   // My Posts aggregate from canonical realCounts
   var realCounts = data.realCounts || {};
@@ -563,6 +566,12 @@ function renderDashboard(data) {
     Number(realCounts.businesses || 0) +
     Number(realCounts.properties || 0) +
     Number(realCounts.news || 0);
+
+  var productsCount = realCounts.products || 0;
+  var businessesCount = realCounts.businesses || 0;
+  var propertiesCount = realCounts.properties || 0;
+  var newsCount = realCounts.news || 0;
+  var liveCount = realCounts.live || 0;
 
   var profilePhotoHtml = profile.profilePhoto
     ? '<img class="dashboardProfilePhoto" src="' + profile.profilePhoto + '" alt="Profile">'
@@ -574,85 +583,165 @@ function renderDashboard(data) {
 
   var html = '';
 
-  // User Summary
+  // 1. USER SUMMARY
+  html += '<div class="dashboardSection">';
   html += '<div class="dashboardProfileCard">';
   html += '<div class="dashboardProfileHeader">';
   html += profilePhotoHtml;
   html += '<div class="dashboardProfileInfo">';
-  html += '<h3>' + (profile.name || "User") + '</h3>';
-  html += '<p>' + (profile.mobile || "") + ' ' + verifBadge + '</p>';
+  html += '<h3>' + escapeHtml(profile.name || "User") + '</h3>';
+  html += '<p>' + escapeHtml(profile.mobile || "") + ' ' + verifBadge + '</p>';
+  html += '<p class="dashboardMemberSince">Member since ' + escapeHtml(profile.memberSince || "") + '</p>';
   html += '</div></div>';
-  html += '<div class="dashboardProfileBody">';
-  html += '<div class="dashboardStatItem"><h2>' + (profile.coins || 0) + '</h2><p>Coins</p></div>';
-  html += '<div class="dashboardStatItem"><h2>' + myPosts + '</h2><p>My Posts</p></div>';
-  html += '<div class="dashboardStatItem"><h2>' + (quickStats.activePromotions || 0) + '</h2><p>Active Promotions</p></div>';
-  html += '<div class="dashboardStatItem"><h2>' + (quickStats.unreadNotifications || 0) + '</h2><p>Unread Notifications</p></div>';
+  html += '</div>';
+  html += '</div>';
+
+  // 2. KPI SUMMARY
+  html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">Overview</h3>';
+  html += '<div class="dashboardKpiGrid">';
+  html += '<div class="dashboardKpiCard">';
+  html += '<div class="dashboardKpiIcon"><i class="material-icons">account_balance_wallet</i></div>';
+  html += '<div class="dashboardKpiInfo">';
+  html += '<div class="dashboardKpiValue">' + (profile.coins || 0) + '</div>';
+  html += '<div class="dashboardKpiLabel">Coins</div>';
+  html += '</div></div>';
+  
+  html += '<div class="dashboardKpiCard">';
+  html += '<div class="dashboardKpiIcon"><i class="material-icons">folder</i></div>';
+  html += '<div class="dashboardKpiInfo">';
+  html += '<div class="dashboardKpiValue">' + myPosts + '</div>';
+  html += '<div class="dashboardKpiLabel">My Posts</div>';
+  html += '</div></div>';
+  
+  html += '<div class="dashboardKpiCard">';
+  html += '<div class="dashboardKpiIcon"><i class="material-icons">receipt_long</i></div>';
+  html += '<div class="dashboardKpiInfo">';
+  html += '<div class="dashboardKpiValue">' + (quickStats.orders || 0) + '</div>';
+  html += '<div class="dashboardKpiLabel">Orders</div>';
+  html += '</div></div>';
+  
+  html += '<div class="dashboardKpiCard">';
+  html += '<div class="dashboardKpiIcon"><i class="material-icons">handshake</i></div>';
+  html += '<div class="dashboardKpiInfo">';
+  html += '<div class="dashboardKpiValue">' + (quickStats.leads || 0) + '</div>';
+  html += '<div class="dashboardKpiLabel">Leads</div>';
+  html += '</div></div>';
   html += '</div></div>';
 
-  // Quick Actions
-  html += '<div class="dashboardSection"><h3>Quick Actions</h3>';
+  // 3. QUICK ACTIONS
+  html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">Quick Actions</h3>';
   html += '<div class="dashboardQuickActions">';
-  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'product\')"><i class="material-icons">shopping_bag</i><span>Post Something</span></div>';
-  html += '<div class="dashboardQuickAction" onclick="openPage(\'orders\')"><i class="material-icons">receipt_long</i><span>Orders / Leads</span></div>';
-  html += '<div class="dashboardQuickAction" onclick="openPage(\'wallet\')"><i class="material-icons">account_balance_wallet</i><span>Wallet</span></div>';
-  html += '<div class="dashboardQuickAction" onclick="openPage(\'profile\')"><i class="material-icons">person</i><span>Profile</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'product\')"><i class="material-icons">shopping_bag</i><span>Post Product</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'business\')"><i class="material-icons">store</i><span>Post Business</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'property\')"><i class="material-icons">real_estate_agent</i><span>Post Property</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'news\')"><i class="material-icons">newspaper</i><span>Post News</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPostFormWithLogin(\'live\')"><i class="material-icons">live_tv</i><span>Go Live</span></div>';
   html += '<div class="dashboardQuickAction" onclick="openPage(\'promotions\')"><i class="material-icons">trending_up</i><span>Promotions</span></div>';
-  html += '<div class="dashboardQuickAction" onclick="openPage(\'notifications\')"><i class="material-icons">notifications</i><span>Notifications</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPage(\'wallet\')"><i class="material-icons">account_balance_wallet</i><span>Wallet</span></div>';
+  html += '<div class="dashboardQuickAction" onclick="openPage(\'invite\')"><i class="material-icons">person_add</i><span>Invite & Earn</span></div>';
   html += '</div></div>';
 
-   // My Content
-   var realCounts = data.realCounts || {};
-   var productsCount = realCounts.products || 0;
-   var businessesCount = realCounts.businesses || 0;
-   var propertiesCount = realCounts.properties || 0;
-   var newsCount = realCounts.news || 0;
-   var totalContent = productsCount + businessesCount + propertiesCount + newsCount;
+  // 4. MY ACTIVITY
+  html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">My Activity</h3>';
+  if (myPosts === 0) {
+    html += '<div class="dashboardEmpty">No activity yet. Start posting to see your content here.</div>';
+  } else {
+    html += '<div class="dashboardActivityGrid">';
+    if (productsCount > 0) {
+      html += '<div class="dashboardActivityCard" onclick="openMyContent(\'products\')">';
+      html += '<div class="dashboardActivityIcon"><i class="material-icons">shopping_bag</i></div>';
+      html += '<div class="dashboardActivityInfo">';
+      html += '<div class="dashboardActivityCount">' + productsCount + '</div>';
+      html += '<div class="dashboardActivityLabel">Products</div>';
+      html += '</div></div>';
+    }
+    if (businessesCount > 0) {
+      html += '<div class="dashboardActivityCard" onclick="openMyContent(\'businesses\')">';
+      html += '<div class="dashboardActivityIcon"><i class="material-icons">store</i></div>';
+      html += '<div class="dashboardActivityInfo">';
+      html += '<div class="dashboardActivityCount">' + businessesCount + '</div>';
+      html += '<div class="dashboardActivityLabel">Businesses</div>';
+      html += '</div></div>';
+    }
+    if (propertiesCount > 0) {
+      html += '<div class="dashboardActivityCard" onclick="openMyContent(\'properties\')">';
+      html += '<div class="dashboardActivityIcon"><i class="material-icons">real_estate_agent</i></div>';
+      html += '<div class="dashboardActivityInfo">';
+      html += '<div class="dashboardActivityCount">' + propertiesCount + '</div>';
+      html += '<div class="dashboardActivityLabel">Properties</div>';
+      html += '</div></div>';
+    }
+    if (newsCount > 0) {
+      html += '<div class="dashboardActivityCard" onclick="openMyContent(\'news\')">';
+      html += '<div class="dashboardActivityIcon"><i class="material-icons">newspaper</i></div>';
+      html += '<div class="dashboardActivityInfo">';
+      html += '<div class="dashboardActivityCount">' + newsCount + '</div>';
+      html += '<div class="dashboardActivityLabel">News</div>';
+      html += '</div></div>';
+    }
+    if (liveCount > 0) {
+      html += '<div class="dashboardActivityCard" onclick="openMyContent(\'live\')">';
+      html += '<div class="dashboardActivityIcon"><i class="material-icons">live_tv</i></div>';
+      html += '<div class="dashboardActivityInfo">';
+      html += '<div class="dashboardActivityCount">' + liveCount + '</div>';
+      html += '<div class="dashboardActivityLabel">Live</div>';
+      html += '</div></div>';
+    }
+    html += '</div></div>';
+  }
 
-   html += '<div class="dashboardSection"><h3>My Content</h3>';
-   if (totalContent === 0) {
-     html += '<div class="dashboardEmpty">You haven\'t posted anything yet.</div>';
-   } else {
-     html += '<div class="myContentGrid">';
-     html += '<div class="myContentCard" onclick="openMyContent(\'products\')"><div class="myContentLabel">Products</div><div class="myContentCount">' + productsCount + '</div></div>';
-     html += '<div class="myContentCard" onclick="openMyContent(\'businesses\')"><div class="myContentLabel">Businesses</div><div class="myContentCount">' + businessesCount + '</div></div>';
-     html += '<div class="myContentCard" onclick="openMyContent(\'properties\')"><div class="myContentLabel">Properties</div><div class="myContentCount">' + propertiesCount + '</div></div>';
-     html += '<div class="myContentCard" onclick="openMyContent(\'news\')"><div class="myContentLabel">News</div><div class="myContentCount">' + newsCount + '</div></div>';
-     html += '</div>';
-   }
-   html += '</div>';
+  // 5. WALLET SUMMARY
+  html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">Wallet Summary</h3>';
+  html += '<div class="dashboardWalletCard">';
+  html += '<div class="dashboardWalletHeader">';
+  html += '<div class="dashboardWalletBalance">';
+  html += '<div class="dashboardWalletLabel">Total Balance</div>';
+  html += '<div class="dashboardWalletAmount">' + (wallet.balance || 0) + ' <span class="dashboardWalletCoins">+' + (wallet.coins || 0) + ' coins</span></div>';
+  html += '</div>';
+  html += '<div class="dashboardWalletIcon"><i class="material-icons">account_balance_wallet</i></div>';
+  html += '</div>';
+  html += '<div class="dashboardWalletActions">';
+  html += '<button onclick="openPage(\'wallet\')" class="dashboardWalletBtn"><i class="material-icons">account_balance_wallet</i> View Wallet</button>';
+  html += '<button onclick="openPage(\'promotions\')" class="dashboardWalletBtn dashboardWalletBtnSecondary"><i class="material-icons">trending_up</i> Promotions</button>';
+  html += '</div>';
+  html += '</div></div>';
 
-  // Recent Activity
-  var recentActivity = (data.recentActivity && data.recentActivity.unified) || [];
-  if (recentActivity.length > 0) {
-    html += '<div class="dashboardSection"><h3>Recent Activity</h3>';
-    html += '<div class="recentActivityList">';
-    recentActivity.forEach(function(item) {
-      var meta = '';
-      if (item.price) {
-        var priceVal = Number(item.price);
-        var priceStr = String(item.price);
-        var hasReasonableDecimals = !priceStr.includes('.') || (priceStr.split('.')[1] && priceStr.split('.')[1].length <= 2);
-        if (isFinite(priceVal) && priceVal > 0 && priceVal < 1e9 && hasReasonableDecimals) {
-          meta += '<span class="recentPrice">' + item.price + '</span>';
-        }
-      }
-      if (item.status) {
-        var statusStr = String(item.status).trim();
-        var isValidStatus = statusStr.length > 0 && statusStr.length <= 20 && isNaN(Number(statusStr));
-        if (isValidStatus) {
-          meta += '<span class="recentStatus">' + statusStr + '</span>';
-        }
-      }
-      html += '<div class="recentActivityItem">';
-      html += '<div class="recentType">' + item.type + '</div>';
-      html += '<div class="recentBody">';
-      html += '<div class="recentTitle">' + item.title + '</div>';
-      html += '<div class="recentMeta">' + meta + '</div>';
+  // 6. RECENT ORDERS / LEADS
+  if (orders.length > 0) {
+    html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">Recent Orders & Leads</h3>';
+    html += '<div class="dashboardOrdersList">';
+    orders.slice(0, 5).forEach(function(order) {
+      html += '<div class="dashboardOrderItem" onclick="openPage(\'orders\')">';
+      html += '<div class="dashboardOrderIcon"><i class="material-icons">' + (order.type === 'lead' ? 'handshake' : 'receipt_long') + '</i></div>';
+      html += '<div class="dashboardOrderInfo">';
+      html += '<div class="dashboardOrderTitle">' + escapeHtml(order.title || "Order") + '</div>';
+      html += '<div class="dashboardOrderMeta">' + escapeHtml(order.type || "") + ' &middot; ' + escapeHtml(order.date || "") + '</div>';
       html += '</div>';
+      if (order.price) {
+        html += '<div class="dashboardOrderPrice">' + order.price + '</div>';
+      }
       html += '</div>';
     });
-    html += '</div>';
-    html += '</div>';
+    html += '<button onclick="openPage(\'orders\')" class="dashboardViewAllBtn">View All Orders & Leads</button>';
+    html += '</div></div>';
+  }
+
+  // 7. RECENT NOTIFICATIONS
+  if (notifications.length > 0) {
+    html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">Recent Notifications</h3>';
+    html += '<div class="dashboardNotificationsList">';
+    notifications.slice(0, 5).forEach(function(notif) {
+      html += '<div class="dashboardNotificationItem" onclick="openPage(\'notifications\')">';
+      html += '<div class="dashboardNotificationIcon"><i class="material-icons">notifications</i></div>';
+      html += '<div class="dashboardNotificationInfo">';
+      html += '<div class="dashboardNotificationTitle">' + escapeHtml(notif.title || "Notification") + '</div>';
+      html += '<div class="dashboardNotificationMeta">' + escapeHtml(notif.message || "") + '</div>';
+      html += '</div>';
+      html += '<div class="dashboardNotificationTime">' + escapeHtml(notif.time || "") + '</div>';
+      html += '</div>';
+    });
+    html += '<button onclick="openPage(\'notifications\')" class="dashboardViewAllBtn">View All Notifications</button>';
+    html += '</div></div>';
   }
 
   container.innerHTML = html;
