@@ -82,6 +82,11 @@ function navigateFromDrawer(pageId) {
 function refreshDrawerIdentity() {
   const nameEl = document.getElementById("drawerUserName");
   const balanceEl = document.getElementById("drawerBalance");
+  const avatarEl = document.getElementById("drawerAvatar");
+  const phoneEl = document.getElementById("drawerPhone");
+  const emailEl = document.getElementById("drawerEmail");
+  const verifEl = document.getElementById("drawerVerifBadge");
+  const walletChipEl = document.getElementById("drawerWalletChip");
   if (!nameEl && !balanceEl) return;
 
   const userData = localStorage.getItem(CONFIG.STORAGE_KEYS.USER_NEW);
@@ -94,14 +99,58 @@ function refreshDrawerIdentity() {
   }
 
   if (nameEl) {
-    nameEl.textContent = user && user.name ? user.name : "Guest User";
+    nameEl.textContent = user && (user.name || user.FullName || user.Name) ? (user.name || user.FullName || user.Name) : "Guest User";
   }
 
+  // Avatar: profile photo if available, otherwise initial
+  if (avatarEl) {
+    const photo = user && (user.ProfilePhoto || user.profilePhoto) ? (user.ProfilePhoto || user.profilePhoto) : "";
+    const name = user && (user.name || user.FullName || user.Name) ? (user.name || user.FullName || user.Name) : "Guest User";
+    const initial = (name || "G").charAt(0).toUpperCase();
+    if (photo && photo.indexOf("http") === 0) {
+      avatarEl.innerHTML = '<img src="' + photo + '" alt="Profile">';
+      const img = avatarEl.querySelector("img");
+      if (img) {
+        img.onerror = function() {
+          avatarEl.innerHTML = '<span class="sideDrawer-avatarInitial">' + initial + '</span>';
+        };
+      }
+    } else {
+      avatarEl.innerHTML = '<span class="sideDrawer-avatarInitial">' + initial + '</span>';
+    }
+  }
+
+  // Phone
+  if (phoneEl) {
+    const phone = user && (user.Mobile || user.Phone || user.mobile) ? (user.Mobile || user.Phone || user.mobile) : "";
+    phoneEl.textContent = phone;
+    phoneEl.style.display = phone ? "block" : "none";
+  }
+
+  // Email
+  if (emailEl) {
+    const email = user && (user.Email || user.email) ? (user.Email || user.email) : "";
+    emailEl.textContent = email;
+    emailEl.style.display = email ? "block" : "none";
+  }
+
+  // Verification badge (only when status is active/verified)
+  if (verifEl) {
+    const status = user && (user.Status || user.VerificationStatus) ? (user.Status || user.VerificationStatus) : "";
+    const isVerified = (status.toLowerCase() === "active" || status.toLowerCase() === "verified");
+    verifEl.style.display = isVerified ? "inline-flex" : "none";
+  }
+
+  // Wallet / coin chip
   if (balanceEl && user) {
     const wallet = user.walletBalance || 0;
     const coins = user.coins || 0;
     balanceEl.textContent = "₹" + wallet + " | " + coins + " coins";
-    balanceEl.style.display = (wallet || coins) ? "block" : "none";
+    if (walletChipEl) {
+      walletChipEl.style.display = (wallet || coins) ? "flex" : "none";
+    } else {
+      balanceEl.style.display = (wallet || coins) ? "block" : "none";
+    }
   }
 }
 

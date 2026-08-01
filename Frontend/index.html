@@ -1498,26 +1498,39 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
   <div class="sideDrawer-header">
 
-    <div class="sideDrawer-identity">
-
-      <div class="sideDrawer-logo">
-        <span class="material-icons">public</span>
-      </div>
-
-      <div class="sideDrawer-userInfo">
-        <div class="sideDrawer-brand">Ekka1km</div>
-        <div class="sideDrawer-userName" id="drawerUserName">Guest User</div>
-        <div class="sideDrawer-balance" id="drawerBalance"></div>
-      </div>
-
-    </div>
-
     <span
       class="sideDrawer-close material-icons"
       onclick="closeSideDrawer()"
       title="Close">
       close
     </span>
+
+    <div class="sideDrawer-profile">
+
+      <div class="sideDrawer-avatar" id="drawerAvatar">
+        <span class="material-icons">person</span>
+      </div>
+
+      <div class="sideDrawer-userInfo">
+
+        <div class="sideDrawer-nameRow">
+          <div class="sideDrawer-userName" id="drawerUserName">Guest User</div>
+          <span class="sideDrawer-verifBadge" id="drawerVerifBadge" style="display:none;">
+            <span class="material-icons">verified</span>
+          </span>
+        </div>
+
+        <div class="sideDrawer-phone" id="drawerPhone" style="display:none;"></div>
+        <div class="sideDrawer-email" id="drawerEmail" style="display:none;"></div>
+
+      </div>
+
+    </div>
+
+    <div class="sideDrawer-walletChip" id="drawerWalletChip" style="display:none;">
+      <span class="material-icons">monetization_on</span>
+      <span id="drawerBalance"></span>
+    </div>
 
   </div>
 
