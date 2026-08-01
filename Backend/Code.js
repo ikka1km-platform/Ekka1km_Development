@@ -101,6 +101,16 @@ function doGet(e) {
       case "register":
         return registerUser(e);
 
+      // OTP Login
+      case "sendotp":
+        return sendOtp(e);
+
+      case "verifyotp":
+        return verifyOtp(e);
+
+      case "loginbymobile":
+        return loginByMobile(e);
+
       // Wallet
       case "wallet":
         return getWallet(e);
@@ -350,7 +360,7 @@ case "notification_sent":
 
       case "liveanalytics":
         return getLiveAnalytics(e);
-        
+      
         case "subscribelive":
   return subscribeLive(e);
 
@@ -768,9 +778,9 @@ case "systemlogs":
   return getSystemLogs(e);
 
   /* ============================================================
- * V5.8.0 - APPCREATOR24
- * ============================================================
- */
+  * V5.8.0 - APPCREATOR24
+  * ============================================================
+  */
 
 case "appconfig":
   return success(
@@ -821,9 +831,9 @@ case "featureflags":
   );
 
   /* ============================================================
- * V5.8.1 - REMOTE CONTROLS
- * ============================================================
- */
+  * V5.8.1 - REMOTE CONTROLS
+  * ============================================================
+  */
 
 case "deeplinks":
   return success(
@@ -879,587 +889,185 @@ case "onboarding":
     router: "V5.8.2"
   });
 
-      // OTP Login
-      case "sendotp":
-        return sendOtp(e);
-
-      case "verifyotp":
-        return verifyOtp(e);
-
-      case "loginbymobile":
-        return loginByMobile(e);
-
-  // Media Upload
-  case "upload":
-    return handleUpload(e);
-
-  case "deletefile":
-    return handleDeleteFile(e);
-
-  case "imagekitauth":
-    return handleImageKitAuth();
-
-  // Media Library (V6.0)
-  case "addmedia":
-    return handleAddMedia(e);
-
-  case "mymedia":
-    return handleGetMyMedia(e);
-
-  case "searchmedia":
-    return handleSearchMedia(e);
-
-  case "deletemedia":
-    return handleDeleteMedia(e);
-
-  case "mediaanalytics":
-    return handleMediaAnalytics(e);
-
-  // Analytics Engine (V6.0)
-  case "trackevent":
-    return trackEvent(e);
-
-  case "getevents":
-    return getEvents(e);
-
-  case "engagementanalytics":
-    return getEngagementAnalytics(e);
-
-  case "growthanalytics":
-    return getGrowthAnalytics(e);
-
-  case "conversionanalytics":
-    return getConversionAnalytics(e);
-
-  case "retentionanalytics":
-    return getRetentionAnalytics(e);
-
-  // News Extensions (V6.0)
-  case "relatednews":
-    return getRelatedNews(e);
-
-  case "newsbycategory":
-    return getNewsByCategory(e);
-
-  case "featurednews":
-    return getFeaturedNews(e);
-
-  case "breakingnews":
-    return getBreakingNews(e);
-
-  case "localnews":
-    return getLocalNews(e);
-
-  case "newsshares":
-    return incrementNewsShare(e);
-
-  // Push Notifications (V6.0)
-  case "subscribetopush":
-    return subscribeToPush(e);
-
-  case "unsubscribefrompush":
-    return unsubscribeFromPush(e);
-
-  case "sendpushnotification":
-    return sendPushNotification(e);
-
-  case "getpushsubscription":
-    return getPushSubscription(e);
-
-  // Phase 4 - PIP Advertisement + Reward Ad Center + Promotion Engine
-  case "getpipqueue":
-    return getPipQueue(e);
-
-  case "getadcenter":
-    return getAdvertisementCenter(e);
-
-  case "startadwatch":
-    return startAdWatch(e);
-
-  case "updateadprogress":
-    return updateAdProgress(e);
-
-  case "completeadwatch":
-    return completeAdWatch(e);
-
-  case "skipadwatch":
-    return skipAdWatch(e);
-
-  case "claimadreward":
-    return claimAdReward(e);
-
-  case "getadwatchprogress":
-    return getAdWatchProgress(e);
-
-  case "getadwatchhistory":
-    return getAdWatchHistory(e);
-
-  case "getavailablerewardcoins":
-    return getAvailableRewardCoins(e);
-
-  case "getcampaignanalytics":
-    return getCampaignAnalytics(e);
-
-  case "createpromotioncampaign":
-    return createPromotionCampaign(e);
-
-  case "pausecampaign":
-    return pauseCampaign(e);
-
-  case "resumecampaign":
-    return resumeCampaign(e);
-
-  case "promoteproduct":
-    return promoteProduct(e);
-
-  case "promotebusiness":
-    return promoteBusiness(e);
-
-  case "promotestore":
-    return promoteStore(e);
-
-  case "promoteproperty":
-    return promoteProperty(e);
-
-  case "promotelive":
-    return promoteLive(e);
-
-  case "promotenews":
-    return promoteNews(e);
-
-  case "promoteexternalurl":
-    return promoteExternalUrl(e);
-
-  case "promotewebsite":
-    return promoteWebsite(e);
-
-  case "adminpromotioncampaigns":
-    return getAdminPromotionCampaigns(e);
-
-  case "adminadvertisements":
-    return getAdminAdvertisements(e);
-
-  // Phase 5.6B - Admin Campaign Lifecycle Actions
-  case "adminapprovecampaign":
-    return adminApproveCampaign(e);
-
-  case "adminrejectcampaign":
-    return adminRejectCampaign(e);
-
-  case "adminsuspendcampaign":
-    return adminSuspendCampaign(e);
-
-  case "adminterminatecampaign":
-    return adminTerminateCampaign(e);
-
-  case "admintogglefeatured":
-    return adminToggleFeatured(e);
-
-  case "admintogglepip":
-    return adminTogglePipEnabled(e);
-
-  case "createdemocampaigns":
-    return createDemoAdCampaigns();
-
-  case "getpipcreativedata":
-    return getPipCreativeData(e);
-
-  case "trackpipclick":
-    return trackPipClick(e);
-
-  case "debugpip":
-    return debugPip(e);
-
-  case "promotednearby":
-    return getPromotedNearYou(e);
-
-      default:
-        return error(
-          "Invalid action : " + action
-        );
-    }
-
-  } catch (err) {
-    return exception(err);
-  }
-}
-
-
-/**
- * ============================================================
- * CORS Preflight Handler
- * Google Apps Script does NOT set CORS headers automatically.
- * This function returns a 200 response for OPTIONS preflight.
- * The actual CORS support comes from GAS deployment config:
- * - "Execute as: Me"
- * - "Who has access: Anyone"
- * 
- * Additionally, the response is wrapped in a JavaScript
- * callback pattern for maximum compatibility.
- * ============================================================
- */
-function doOptions(e) {
-  return corsPreflightResponse();
-}
-
-
-/**
- * ============================================================
- * POST Router
- * ============================================================
- */
-function doPost(e) {
-  try {
-    const action = getAction(e);
-
-    switch (action) {
-
-      case "setradius":
-        return setRadius(e);
-
-      case "setlocation":
-        return setRadius(e);
-
-      case "login":
-        return loginUser(e);
-
-      case "register":
-        return registerUser(e);
-
-      case "addproduct":
-        return addProduct(e);
-
-      case "updateproduct":
-        return updateProduct(e);
-
-      case "deleteproduct":
-        return deleteProduct(e);
-
-      case "addbusiness":
-        return addBusiness(e);
-
-      case "updatebusiness":
-        return updateBusiness(e);
-
-      case "deletebusiness":
-        return deleteBusiness(e);
-
-      case "addproperty":
-        return addProperty(e);
-
-      case "updateproperty":
-        return updateProperty(e);
-
-      case "deleteproperty":
-        return deleteProperty(e);
-
-      case "addnews":
-        return addNews(e);
-
-      case "updatenews":
-        return updateNews(e);
-
-      case "deletenews":
-        return deleteNews(e);
-
-      case "addannouncement":
-        return addAnnouncement(e);
-
-      case "updateannouncement":
-        return updateAnnouncement(e);
-
-      case "deleteannouncement":
-        return deleteAnnouncement(e);
-
-      case "addadvertisement":
-        return addAdvertisement(e);
-
-      case "updateadvertisement":
-        return updateAdvertisement(e);
-
-      case "deleteadvertisement":
-        return deleteAdvertisement(e);
-
-      case "updaterewardprogress":
-        return updateRewardProgress(e);
-
-      case "claimreward":
-        return claimReward(e);
-
-      case "createorder":
-        return createOrder(e);
-
-      case "wallet":
-        return updateWallet(e);
-
-      case "createnotification":
-  return createNotification(e);
-
-case "marknotificationread":
-  return markNotificationRead(e);
-
-case "broadcastnotification":
-  return broadcastNotification(e);
-
-case "notification_sent":
-  return markNotificationSent(e);
-
-case "addcampaign":
-  return addCampaign(e);
-
-      case "updatecampaign":
-        return updateCampaign(e);
-
-      case "deletecampaign":
-        return deleteCampaign(e);
-
-      case "createredemption":
-        return createRedemption(e);
-
-      case "approveredemption":
-        return approveRedemption(e);
-
-      case "rejectredemption":
-        return rejectRedemption(e);
-
-      case "addreport":
-        return addReport(e);
-
-      case "resolvereport":
-        return resolveReport(e);
-
-      case "blockuser":
-        return blockUser(e);
-
-      case "unblockuser":
-        return unblockUser(e);
-
-      // Live Management
-      case "addlive":
-        return addLive(e);
-
-      case "updatelive":
-        return updateLive(e);
-
-      case "deletelive":
-        return deleteLive(e);
-
-      case "setfeaturedlive":
-        return setFeaturedLive(e);
-
-      case "subscribelive":
-        return subscribeLive(e);
-
-      case "unsubscribelive":
-        return unsubscribeLive(e);
-
-      case "startwatchinglive":
-        return startWatchingLive(e);
-
-      case "stopwatchinglive":
-        return stopWatchingLive(e);
-case "likelive":
-  return likeLive(e);
-
-case "dislikelive":
-  return dislikeLive(e);
-
-case "removelivereaction":
-  return removeLiveReaction(e);
-
-case "liveengagement":
-  return getLiveEngagement(e);
-
-case "sharelive":
-  return shareLive(e);
-
-case "startliveviewer":
-  return startLiveViewer(e);
-
-case "pingliveviewer":
-  return pingLiveViewer(e);
-
-case "stopliveviewer":
-  return stopLiveViewer(e);
-
-case "liveviewers":
-  return getLiveViewers(e);
-
-case "concurrentviewers":
-  return getConcurrentViewers(e);
-
-case "sendlivemessage":
-  return sendLiveMessage(e);
-
-case "deletelivemessage":
-  return deleteLiveMessage(e);
-
-case "pinlivemessage":
-  return pinLiveMessage(e);
-
-case "unpinlivemessage":
-  return unpinLiveMessage(e);
-
-case "getlivechat":
-  return getLiveChat(e);
-
-case "addlivemoderator":
-  return addLiveModerator(e);
-
-case "removelivemoderator":
-  return removeLiveModerator(e);
-
-case "getlivemoderators":
-  return getLiveModerators(e);
-
-  case "notifylivesubscribers":
-  return notifyLiveSubscribers(e);
-
-case "marklivenotificationread":
-  return markLiveNotificationRead(e);
-
-case "getlivenotifications":
-  return getLiveNotifications(e);
-
-case "liveunreadcount":
-  return getLiveUnreadCount(e);
-
-      // Admin Auth via POST (Phase 5.1)
-      case "adminlogin":
-        return adminLogin(e);
-
-      case "adminverifyotp":
-        return verifyAdminOTP(e);
-
-      case "adminvalidatesession":
-        return validateAdminSession(e);
-
-      case "adminlogout":
-        return logoutAdmin(e);
-
-      case "adminprofile":
-        return getAdminProfile(e);
-
-      case "adminpermissions":
-        return getAdminPermissions(e);
-
-      case "admindashboardsummary":
-        return getAdminDashboardSummary(e);
-
-      case "ccdata":
-        return getCommandCenterData(e);
-
-      // Phase 5.4 - Admin Management (POST)
-      case "adminusers":
-        return getAdminUsers(e);
-
-      case "adminuserstatus":
-        return setAdminUserStatus(e);
-
-      case "adminuserdetail":
-        return getAdminUserDetail(e);
-
-      case "adminbusinesses":
-        return getAdminBusinesses(e);
-
-      case "adminbusinessstatus":
-        return setAdminBusinessStatus(e);
-
-      case "adminproducts":
-        return getAdminProducts(e);
-
-      case "adminproductstatus":
-        return setAdminProductStatus(e);
-
-      case "adminproperties":
-        return getAdminProperties(e);
-
-      case "adminpropertystatus":
-        return setAdminPropertyStatus(e);
-
-      case "adminnews":
-        return getAdminNews(e);
-
-      case "adminnewsstatus":
-        return setAdminNewsStatus(e);
-
-      case "adminworkforce":
-        return getAdminWorkforce(e);
-
-      case "adminupdateworkforce":
-        return updateAdminWorkforce(e);
-
-      case "admincategories":
-        return getAdminCategories(e);
-
-      // Phase 5.5 - Task Management (POST)
-      case "admintaskstats":
-        return getAdminTaskStats(e);
-
-      case "admintasks":
-        return getAdminTasks(e);
-
-      case "admintaskcreate":
-        return createAdminTask(e);
-
-      case "admintaskupdate":
-        return updateAdminTask(e);
-
-      case "admintaskdetail":
-        return getAdminTaskDetail(e);
-
-      case "admintaskdelete":
-        return deleteAdminTask(e);
-
-      case "admintaskduplicate":
-        return duplicateAdminTask(e);
-
-      case "admintaskhistory":
-        return getAdminTaskHistory(e);
-
-      case "admintaskassignees":
-        return getAdminTaskAssignees(e);
-
-      case "admintaskdepartments":
-        return getAdminTaskDepartments(e);
-
-      case "initializeadmindatabase":
-        return initializeAdminDatabase(e);
-
-      // OTP Login via POST
-      case "sendotp":
-        return sendOtp(e);
-
-      case "verifyotp":
-        return verifyOtp(e);
-
-      // Media Upload via POST
+      // Media Upload
       case "upload":
         return handleUpload(e);
 
-      default:
-        return error(
-          "Invalid POST action : " + action
-        );
-    }
+      case "deletefile":
+        return handleDeleteFile(e);
 
+      case "imagekitauth":
+        return handleImageKitAuth();
+
+      // Media Library (V6.0)
+      case "addmedia":
+        return handleAddMedia(e);
+
+      case "mymedia":
+        return handleGetMyMedia(e);
+
+      case "searchmedia":
+        return handleSearchMedia(e);
+
+      case "deletemedia":
+        return handleDeleteMedia(e);
+
+      case "mediaanalytics":
+        return handleMediaAnalytics(e);
+
+      // Analytics Engine (V6.0)
+      case "trackevent":
+        return trackEvent(e);
+
+      case "getevents":
+        return getEvents(e);
+
+      case "engagementanalytics":
+        return getEngagementAnalytics(e);
+
+      case "growthanalytics":
+        return getGrowthAnalytics(e);
+
+      case "conversionanalytics":
+        return getConversionAnalytics(e);
+
+      case "retentionanalytics":
+        return getRetentionAnalytics(e);
+
+      // News Extensions (V6.0)
+      case "relatednews":
+        return getRelatedNews(e);
+
+      case "newsbycategory":
+        return getNewsByCategory(e);
+
+      case "featurednews":
+        return getFeaturedNews(e);
+
+      case "breakingnews":
+        return getBreakingNews(e);
+
+      case "localnews":
+        return getLocalNews(e);
+
+      case "newsshares":
+        return incrementNewsShare(e);
+
+      // Push Notifications (V6.0)
+      case "subscribetopush":
+        return subscribeToPush(e);
+
+      case "unsubscribefrompush":
+        return unsubscribeFromPush(e);
+
+      case "sendpushnotification":
+        return sendPushNotification(e);
+
+      case "getpushsubscription":
+        return getPushSubscription(e);
+
+      // Phase 4 - PIP Advertisement + Reward Ad Center + Promotion Engine
+      case "getpipqueue":
+        return getPipQueue(e);
+
+      case "getadcenter":
+        return getAdvertisementCenter(e);
+
+      case "startadwatch":
+        return startAdWatch(e);
+
+      case "updateadprogress":
+        return updateAdProgress(e);
+
+      case "completeadwatch":
+        return completeAdWatch(e);
+
+      case "skipadwatch":
+        return skipAdWatch(e);
+
+      case "claimadreward":
+        return claimAdReward(e);
+
+      case "getadwatchprogress":
+        return getAdWatchProgress(e);
+
+      case "getadwatchhistory":
+        return getAdWatchHistory(e);
+
+      case "getavailablerewardcoins":
+        return getAvailableRewardCoins(e);
+
+      case "getcampaignanalytics":
+        return getCampaignAnalytics(e);
+
+      default:
+        return error("Unknown action: " + action);
+    }
   } catch (err) {
     return exception(err);
   }
 }
 
 
-/**
- * Read action parameter safely
- */
-function getAction(e) {
-  if (!e || !e.parameter) {
-    return "";
-  }
+function doPost(e) {
+  // For POST requests, delegate to doGet for unified handling
+  return doGet(e);
+}
 
-  return String(
-    e.parameter.action || ""
-  )
-    .trim()
-    .toLowerCase();
+
+function getAction(e) {
+  const params = e.parameter;
+  return (params.action || "").toLowerCase().trim();
+}
+
+
+function success(data, message) {
+  return {
+    status: "SUCCESS",
+    success: true,
+    data: data,
+    message: message || "Success"
+  };
+}
+
+
+function error(message) {
+  return {
+    status: "ERROR",
+    success: false,
+    data: null,
+    message: message || "Error"
+  };
+}
+
+
+function exception(err) {
+  Logger.log("Exception: " + err.toString());
+  return {
+    status: "EXCEPTION",
+    success: false,
+    data: null,
+    message: "Server error: " + (err.message || err.toString())
+  };
+}
+
+
+function getAppName() {
+  return CONFIG.APP_NAME || "Ekka1km";
+}
+
+
+function getVersion() {
+  return CONFIG.APP_VERSION || "1.0.0";
+}
+
+
+function getAppSettings() {
+  return {
+    appName: getAppName(),
+    version: getVersion(),
+    gpsEnabled: true,
+    otpProvider: CONFIG.OTP_PROVIDER || "LOCAL",
+    devMode: CONFIG.DEV_MODE || false
+  };
 }
