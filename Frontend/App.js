@@ -778,9 +778,16 @@ function renderDashboard(data) {
 
   var html = '';
 
-  // 1. PROFILE CARD
+  // 1. PREMIUM HEADER
+  html += '<div class="dashboardPremiumHeader">';
+  html += '<button class="dashboardBackBtn" onclick="openPage(\'home\')"><i class="material-icons">arrow_back</i></button>';
+  html += '<h2 class="dashboardHeaderTitle">Dashboard</h2>';
+  html += '<button class="dashboardSettingsBtn" onclick="openPage(\'profile\')"><i class="material-icons">settings</i></button>';
+  html += '</div>';
+
+  // 2. PREMIUM USER CARD WITH STATS
   html += '<div class="dashboardSection">';
-  html += '<div class="dashboardProfileCard">';
+  html += '<div class="dashboardProfileCard dashboardHeroCard">';
   html += '<div class="dashboardProfileHeader">';
   html += profilePhotoHtml;
   html += '<div class="dashboardProfileInfo">';
@@ -789,34 +796,29 @@ function renderDashboard(data) {
   html += '<p class="dashboardProfileContact"><i class="material-icons">email</i> ' + escapeHtml(profile.email || "") + '</p>';
   html += '<p class="dashboardMemberSince"><i class="material-icons">calendar_today</i> Member since ' + escapeHtml(profile.memberSince || "") + '</p>';
   html += '</div></div>';
+
+  // Stats row inside hero card
+  html += '<div class="dashboardPremiumStats">';
+  html += '<div class="dashboardPremiumStatItem">';
+  html += '<div class="dashboardPremiumStatValue">' + totalCoins + '</div>';
+  html += '<div class="dashboardPremiumStatLabel">Coins</div>';
+  html += '</div>';
+  html += '<div class="dashboardPremiumStatItem">';
+  html += '<div class="dashboardPremiumStatValue">' + myPosts + '</div>';
+  html += '<div class="dashboardPremiumStatLabel">My Posts</div>';
+  html += '</div>';
+  html += '<div class="dashboardPremiumStatItem">';
+  html += '<div class="dashboardPremiumStatValue">' + (quickStats.leads || 0) + '</div>';
+  html += '<div class="dashboardPremiumStatLabel">Leads</div>';
+  html += '</div>';
+  html += '<div class="dashboardPremiumStatItem">';
+  html += '<div class="dashboardPremiumStatValue">' + (quickStats.orders || 0) + '</div>';
+  html += '<div class="dashboardPremiumStatLabel">Orders</div>';
   html += '</div>';
   html += '</div>';
 
-  // 2. KPI SUMMARY (Connected Card)
-  html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">Overview</h3>';
-  html += '<div class="dashboardKpiCard dashboardKpiCardConnected">';
-  html += '<div class="dashboardKpiGrid">';
-  html += '<div class="dashboardKpiItem">';
-  html += '<div class="dashboardKpiIcon"><i class="material-icons">account_balance_wallet</i></div>';
-  html += '<div class="dashboardKpiValue">' + totalCoins + '</div>';
-  html += '<div class="dashboardKpiLabel">Coins</div>';
   html += '</div>';
-  html += '<div class="dashboardKpiItem">';
-  html += '<div class="dashboardKpiIcon"><i class="material-icons">folder</i></div>';
-  html += '<div class="dashboardKpiValue">' + myPosts + '</div>';
-  html += '<div class="dashboardKpiLabel">My Posts</div>';
   html += '</div>';
-  html += '<div class="dashboardKpiItem">';
-  html += '<div class="dashboardKpiIcon"><i class="material-icons">handshake</i></div>';
-  html += '<div class="dashboardKpiValue">' + (quickStats.leads || 0) + '</div>';
-  html += '<div class="dashboardKpiLabel">Leads</div>';
-  html += '</div>';
-  html += '<div class="dashboardKpiItem">';
-  html += '<div class="dashboardKpiIcon"><i class="material-icons">receipt_long</i></div>';
-  html += '<div class="dashboardKpiValue">' + (quickStats.orders || 0) + '</div>';
-  html += '<div class="dashboardKpiLabel">Orders</div>';
-  html += '</div>';
-  html += '</div></div></div>';
 
   // 3. QUICK ACTIONS (8 actions, 4x2 grid)
   html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">Quick Actions</h3>';

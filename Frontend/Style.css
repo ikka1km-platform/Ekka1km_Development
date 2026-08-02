@@ -2223,6 +2223,216 @@ li{
   opacity: .8;
 }
 
+/* PREMIUM HEADER */
+.dashboardPremiumHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #0f9d58, #1db954);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 157, 88, 0.35);
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboardPremiumHeader::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0));
+  pointer-events: none;
+}
+
+.dashboardBackBtn,
+.dashboardSettingsBtn {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  position: relative;
+  z-index: 1;
+}
+
+.dashboardBackBtn:active,
+.dashboardSettingsBtn:active {
+  transform: scale(0.95);
+  background: rgba(255,255,255,0.3);
+}
+
+.dashboardBackBtn i,
+.dashboardSettingsBtn i {
+  font-size: 20px;
+  color: #fff;
+}
+
+.dashboardHeaderTitle {
+  flex: 1;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.3px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  position: relative;
+  z-index: 1;
+}
+
+/* PREMIUM HERO CARD */
+.dashboardHeroCard {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  padding: 20px;
+}
+
+.dashboardProfileHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.dashboardHeroCard .dashboardProfilePhoto,
+.dashboardHeroCard .dashboardProfilePhotoPlaceholder {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.15);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(124, 92, 191, 0.4), rgba(91, 141, 239, 0.3));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 28px;
+}
+
+.dashboardHeroCard .dashboardProfileInfo h3 {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.dashboardHeroCard .dashboardProfileContact {
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.dashboardHeroCard .dashboardProfileContact i {
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.dashboardHeroCard .dashboardMemberSince {
+  color: rgba(255,255,255,0.7);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+.dashboardHeroCard .dashboardMemberSince i {
+  font-size: 15px;
+  opacity: 0.9;
+}
+
+.dashboardBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dashboardBadge.verified {
+  background: rgba(76, 175, 136, 0.2);
+  color: #4caf88;
+  border: 1px solid rgba(76, 175, 136, 0.4);
+}
+
+.dashboardBadge.pending {
+  background: rgba(255, 159, 67, 0.2);
+  color: #ff9f43;
+  border: 1px solid rgba(255, 159, 67, 0.4);
+}
+
+/* PREMIUM STATS ROW */
+.dashboardPremiumStats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.dashboardPremiumStatItem {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 16px 10px;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.25s ease;
+}
+
+.dashboardPremiumStatItem:active {
+  transform: scale(0.95);
+  background: rgba(255,255,255,0.1);
+}
+
+.dashboardPremiumStatValue {
+  font-size: 26px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.5px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.dashboardPremiumStatLabel {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  margin-top: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* 2. KPI SUMMARY (Connected Card) */
 .dashboardKpiCardConnected {
   background: #fff;
