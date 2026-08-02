@@ -834,7 +834,7 @@ function renderDashboard(data) {
   html += '</div></div>';
 
   // 4. MY ACTIVITY (Compact rows)
-  html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">My Activity</h3>';
+  html += '<div class="dashboardSection"><div class="dashboardSectionHeader"><h3 class="dashboardSectionTitle">My Activity</h3><span class="dashboardViewAll" onclick="openPage(\'myContent\')">View All</span></div>';
   if (myPosts === 0) {
     html += '<div class="dashboardEmpty">No activity yet. Start posting to see your content here.</div>';
   } else {
@@ -898,7 +898,7 @@ function renderDashboard(data) {
   }
 
   // 5. WALLET (Compact card)
-  html += '<div class="dashboardSection"><h3 class="dashboardSectionTitle">My Wallet</h3>';
+  html += '<div class="dashboardSection"><div class="dashboardSectionHeader"><h3 class="dashboardSectionTitle">My Wallet</h3><span class="dashboardViewAll" onclick="openPage(\'wallet\')">View All</span></div>';
   html += '<div class="dashboardWalletCard">';
   html += '<div class="dashboardWalletRow">';
   html += '<div class="dashboardWalletItem">';
