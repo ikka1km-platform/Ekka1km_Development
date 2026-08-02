@@ -2308,57 +2308,90 @@ li{
 
 /* PREMIUM HERO CARD */
 .dashboardHeroCard {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
-  padding: 20px;
+  background: linear-gradient(135deg, #0f9d58 0%, #087f46 50%, #0a5c32 100%);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 12px 40px rgba(15, 157, 88, 0.25), 0 4px 12px rgba(0,0,0,0.15);
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboardHeroCard::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.dashboardHeroCard::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -10%;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
 }
 
 .dashboardProfileHeader {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  gap: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  position: relative;
+  z-index: 1;
 }
 
 .dashboardHeroCard .dashboardProfilePhoto,
 .dashboardHeroCard .dashboardProfilePhotoPlaceholder {
-  width: 72px;
-  height: 72px;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
-  border: 3px solid rgba(255,255,255,0.15);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  border: 4px solid rgba(255,255,255,0.35);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 0 10px rgba(255,255,255,0.1), 0 0 0 12px rgba(15, 157, 88, 0.2);
   object-fit: cover;
   flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(124, 92, 191, 0.4), rgba(91, 141, 239, 0.3));
+  background: linear-gradient(135deg, rgba(124, 92, 191, 0.5), rgba(91, 141, 239, 0.4));
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-weight: 700;
-  font-size: 28px;
+  font-size: 36px;
+  transition: all 0.3s ease;
 }
 
 .dashboardHeroCard .dashboardProfileInfo h3 {
   color: #fff;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 800;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+  margin: 0;
 }
 
 .dashboardHeroCard .dashboardProfileContact {
-  color: rgba(255,255,255,0.85);
-  font-size: 13px;
+  color: rgba(255,255,255,0.95);
+  font-size: 14px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  font-weight: 500;
+  gap: 6px;
+  margin-top: 8px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
 .dashboardHeroCard .dashboardProfileContact i {
@@ -2367,42 +2400,48 @@ li{
 }
 
 .dashboardHeroCard .dashboardMemberSince {
-  color: rgba(255,255,255,0.7);
-  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-top: 6px;
   font-weight: 500;
+  letter-spacing: 0.1px;
 }
 
 .dashboardHeroCard .dashboardMemberSince i {
   font-size: 15px;
-  opacity: 0.9;
+  opacity: 0.85;
 }
 
 .dashboardBadge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
+  gap: 5px;
+  padding: 5px 14px;
   border-radius: 20px;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .dashboardBadge.verified {
-  background: rgba(76, 175, 136, 0.2);
-  color: #4caf88;
-  border: 1px solid rgba(76, 175, 136, 0.4);
+  background: rgba(76, 175, 136, 0.3);
+  color: #a5d6a7;
+  border: 1px solid rgba(76, 175, 136, 0.6);
+  box-shadow: 0 3px 12px rgba(76, 175, 136, 0.3);
 }
 
 .dashboardBadge.pending {
-  background: rgba(255, 159, 67, 0.2);
-  color: #ff9f43;
-  border: 1px solid rgba(255, 159, 67, 0.4);
+  background: rgba(255, 159, 67, 0.3);
+  color: #ffcc80;
+  border: 1px solid rgba(255, 159, 67, 0.6);
+  box-shadow: 0 3px 12px rgba(255, 159, 67, 0.3);
 }
 
 /* PREMIUM STATS ROW */
@@ -2410,40 +2449,122 @@ li{
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 20px;
+  position: relative;
+  z-index: 1;
 }
 
 .dashboardPremiumStatItem {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 16px;
-  padding: 16px 10px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  padding: 22px 16px;
   text-align: center;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  transition: all 0.25s ease;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboardPremiumStatItem::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.dashboardPremiumStatItem:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.08) 100%);
+  border-color: rgba(255,255,255,0.22);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
+.dashboardPremiumStatItem:hover::before {
+  opacity: 1;
 }
 
 .dashboardPremiumStatItem:active {
-  transform: scale(0.95);
-  background: rgba(255,255,255,0.1);
+  transform: translateY(0) scale(0.98);
+  background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.07) 100%);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.1);
+  transition: all 0.1s ease;
 }
 
 .dashboardPremiumStatValue {
-  font-size: 26px;
+  font-size: 36px;
   font-weight: 800;
   color: #fff;
-  letter-spacing: -0.5px;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  letter-spacing: -0.8px;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.5), 0 0 40px rgba(255,255,255,0.1);
+  line-height: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .dashboardPremiumStatLabel {
-  font-size: 11px;
-  color: rgba(255,255,255,0.7);
-  margin-top: 6px;
-  font-weight: 600;
+  font-size: 10px;
+  color: rgba(255,255,255,0.85);
+  margin-top: 10px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Stats Row Responsive */
+@media (max-width: 768px) {
+  .dashboardPremiumStats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .dashboardPremiumStatItem {
+    padding: 18px 14px;
+    border-radius: 16px;
+  }
+
+  .dashboardPremiumStatValue {
+    font-size: 28px;
+  }
+
+  .dashboardPremiumStatLabel {
+    font-size: 9px;
+    letter-spacing: 0.6px;
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboardPremiumStats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .dashboardPremiumStatItem {
+    padding: 16px 12px;
+    border-radius: 14px;
+  }
+
+  .dashboardPremiumStatValue {
+    font-size: 24px;
+  }
+
+  .dashboardPremiumStatLabel {
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    margin-top: 6px;
+  }
 }
 
 /* 2. KPI SUMMARY (Connected Card) */
