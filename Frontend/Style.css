@@ -5842,6 +5842,72 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
   }
 }
 
+/* ==========================================================
+   PRODUCT MARKETPLACE TOOLBAR (B.6A)
+========================================================== */
+
+.product-marketplace-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.06);
+  border: 1px solid rgba(0,0,0,.04);
+}
+
+.product-marketplace-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.2px;
+}
+
+.product-marketplace-count strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.product-marketplace-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.product-marketplace-actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: #f3f4f6;
+  color: #555;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all .2s ease;
+  white-space: nowrap;
+}
+
+.product-marketplace-actionBtn:hover {
+  background: #e8f5e9;
+  color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(15,157,88,.15);
+}
+
+.product-marketplace-actionBtn:active {
+  transform: scale(0.97);
+}
+
+.product-marketplace-actionBtn .material-icons {
+  font-size: 18px;
+  color: inherit;
+}
+
 /* ---- Product Card (Premium) ---- */
 .productCard {
   background: #ffffff;

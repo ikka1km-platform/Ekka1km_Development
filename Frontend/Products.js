@@ -115,6 +115,25 @@ async function loadProducts() {
       return;
     }
 
+    // Marketplace Toolbar (full-width, outside product grid)
+    let toolbarHtml = `
+      <div class="product-marketplace-toolbar">
+        <div class="product-marketplace-count">
+          <strong>${products.length}</strong> ${products.length === 1 ? 'Product' : 'Products'} Found
+        </div>
+        <div class="product-marketplace-actions">
+          <button class="product-marketplace-actionBtn" onclick="event.stopPropagation(); alert('Filters coming soon')">
+            <i class="material-icons">filter_list</i>
+            Filter
+          </button>
+          <button class="product-marketplace-actionBtn" onclick="event.stopPropagation(); alert('Sort coming soon')">
+            <i class="material-icons">sort</i>
+            Sort
+          </button>
+        </div>
+      </div>
+    `;
+
     let html = '<div class="product-listing">';
 
     products.forEach(product => {
@@ -162,7 +181,9 @@ async function loadProducts() {
     });
 
     html += '</div>';
-    container.innerHTML = html;
+    
+    // Combine toolbar + product grid
+    container.innerHTML = toolbarHtml + html;
 
     // Store products for detail view lookup
     CURRENT_PRODUCTS = products;
