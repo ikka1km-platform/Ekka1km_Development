@@ -99,71 +99,71 @@ function renderHomeLivePreview(items) {
 
   let html = '<div class="homePreviewGrid">';
 
-  previewItems.forEach(function(item) {
+    previewItems.forEach(function(item) {
 
-    const liveId = item.LiveID || "";
-    const title = escapeHtml(item.Title || "Live");
-    const category = escapeHtml(item.Category || "");
-    const city = escapeHtml(item.City || "");
-    const imageUrl = item.ImageURL || item.Thumbnail || "";
-    const isLive = String(item.IsLive || "")
-      .toLowerCase() === "yes";
+      const liveId = item.LiveID || "";
+      const title = escapeHtml(item.Title || "Live");
+      const category = escapeHtml(item.Category || "");
+      const city = escapeHtml(item.City || "");
+      const imageUrl = item.ImageURL || item.Thumbnail || "";
+      const isLive = String(item.IsLive || "")
+        .toLowerCase() === "yes";
 
-    html +=
-      '<div class="homePreviewCard" onclick="openInternalDestination(\'live\', \'' + liveId + '\')">';
-
-    if (imageUrl && isValidImageUrl(imageUrl)) {
       html +=
-        '<div class="homePreviewCard-img">' +
-          '<img src="' + imageUrl + '" onerror="this.parentElement.style.display=\'none\'">' +
+        '<div class="liveCard" onclick="openInternalDestination(\'live\', \'' + liveId + '\')">';
+
+      if (imageUrl && isValidImageUrl(imageUrl)) {
+        html +=
+          '<div class="liveCard-img">' +
+            '<img src="' + imageUrl + '">' +
+          '</div>';
+      } else {
+        html += '<div class="liveCard-img liveCard-imgPlaceholder"><i class="material-icons">live_tv</i></div>';
+      }
+
+      html += '<div class="liveCard-body">';
+
+      html += '<div class="homeSectionCard-top">';
+
+      if (isLive) {
+        html +=
+          '<span class="liveCard-badge-live">LIVE</span>';
+      }
+
+      if (category) {
+        html +=
+          '<span class="liveCard-category">' +
+            category +
+          '</span>';
+      }
+
+      html += '</div>';
+
+      html +=
+        '<div class="liveCard-title" title="' + title + '">' +
+          title +
         '</div>';
-    }
 
-    html += '<div class="homePreviewCard-body">';
+      const viewerCount = Number(item.ViewerCount || item.viewerCount || 0);
+      if (viewerCount > 0) {
+        html += '<div class="liveCard-meta">&#128065; ' + viewerCount.toLocaleString() + ' watching</div>';
+      }
 
-    html += '<div class="homeSectionCard-top">';
+      const announcer = escapeHtml(item.Announcer || item.announcer || item.Streamer || "");
+      if (announcer) {
+        html += '<div class="liveCard-announcer">' + announcer + '</div>';
+      }
 
-    if (isLive) {
-      html +=
-        '<span class="homeSectionCard-badge liveBadge">LIVE</span>';
-    }
+      if (city) {
+        html += '<div class="liveCard-meta">' + city + '</div>';
+      }
 
-    if (category) {
-      html +=
-        '<span class="homeSectionCard-badge">' +
-          category +
-        '</span>';
-    }
+      html += '<div class="liveCard-actions">';
+      html += '<button onclick="event.stopPropagation();openLiveWatchModal(\'' + liveId + '\')">Watch</button>';
+      html += '</div>';
 
-    html += '</div>';
-
-    html +=
-      '<div class="homePreviewCard-title" title="' + title + '">' +
-        title +
-      '</div>';
-
-    html += '<div class="homePreviewCard-meta">';
-
-    if (city) {
-      html += city;
-    }
-
-    html += '</div>';
-
-    const viewerCount = Number(item.ViewerCount || item.viewerCount || 0);
-    if (viewerCount > 0) {
-      html += '<div class="homePreviewCard-meta">&#128065; ' + viewerCount.toLocaleString() + ' watching</div>';
-    }
-
-    const announcer = escapeHtml(item.Announcer || item.announcer || item.Streamer || "");
-    if (announcer) {
-      html += '<div class="homePreviewCard-meta">' + announcer + '</div>';
-    }
-
-    html += '<button onclick="event.stopPropagation();openLiveWatchModal(\'' + liveId + '\')" style="margin-top:6px;width:100%;padding:8px;background:var(--primary);color:#fff;border:none;border-radius:15px;cursor:pointer;font-weight:500;">Watch</button>';
-
-    html += '</div>';
-  });
+      html += '</div>';
+    });
 
   html += '</div>';
 
@@ -209,46 +209,52 @@ function renderLivePage(items) {
     const isLive = String(item.IsLive || "")
       .toLowerCase() === "yes";
 
-    html += '<div class="card liveStreamCard" data-live-id="' + liveId + '" style="cursor:pointer;">';
+    html += '<div class="liveCard" data-live-id="' + liveId + '" style="cursor:pointer;">';
 
     if (imageUrl && isValidImageUrl(imageUrl)) {
       html +=
-        '<img src="' + imageUrl + '" style="width:100%;border-radius:15px;margin-bottom:10px;" onerror="this.style.display=\'none\'">';
+        '<div class="liveCard-img">' +
+          '<img src="' + imageUrl + '">' +
+        '</div>';
+    } else {
+      html += '<div class="liveCard-img liveCard-imgPlaceholder"><i class="material-icons">live_tv</i></div>';
     }
+
+    html += '<div class="liveCard-body">';
 
     html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">';
 
     if (isLive) {
       html +=
-        '<span class="homeSectionCard-badge liveBadge">LIVE</span>';
+        '<span class="liveCard-badge-live">LIVE</span>';
     }
 
     if (category) {
       html +=
-        '<span class="homeSectionCard-badge">' +
+        '<span class="liveCard-category">' +
           category +
         '</span>';
     }
 
     html += '</div>';
 
-    html += '<h3>' + title + '</h3>';
+    html += '<div class="liveCard-title">' + title + '</div>';
 
     if (description) {
-      html += '<p>' + description + '</p>';
+      html += '<div class="liveCard-meta">' + description + '</div>';
     }
 
     if (city) {
-      html += '<p class="text-muted">' + city + '</p>';
+      html += '<div class="liveCard-meta">' + city + '</div>';
     }
 
     const viewerCount = Number(item.ViewerCount || item.viewerCount || 0);
     if (viewerCount > 0) {
-      html += '<div style="font-size:12px;color:#666;margin:6px 0;">&#128065; ' + viewerCount.toLocaleString() + ' watching</div>';
+      html += '<div class="liveCard-meta">&#128065; ' + viewerCount.toLocaleString() + ' watching</div>';
     }
     const announcer = escapeHtml(item.Announcer || item.announcer || item.Streamer || "");
-    if (announcer) html += '<div style="font-size:12px;color:#666;">' + announcer + '</div>';
-    html += '<button onclick="event.stopPropagation();openLiveWatchModal(\'' + liveId + '\')" style="width:100%;margin-top:8px;padding:9px;background:var(--primary);color:#fff;border:none;border-radius:15px;cursor:pointer;font-weight:500;">Watch Live</button>';
+    if (announcer) html += '<div class="liveCard-announcer">' + announcer + '</div>';
+    html += '<div class="liveCard-actions"><button onclick="event.stopPropagation();openLiveWatchModal(\'' + liveId + '\')">Watch Live</button></div>';
     html += '</div>';
   });
 
