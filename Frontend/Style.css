@@ -9561,3 +9561,1201 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(15, 157, 88, 0.12);
 }
 
+/* ==========================================================
+   PREMIUM DISCOVERY SCREEN UPGRADE (B.6)
+   Appended premium styles for discovery UI
+========================================================== */
+
+/* ==========================================================
+   PREMIUM SEARCH HEADER
+========================================================== */
+
+.searchHeader-premium {
+  background: linear-gradient(135deg, #fff 0%, #fafafa 100%);
+  border-radius: 20px;
+  padding: 16px 18px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.08), 0 1px 4px rgba(0,0,0,.04);
+  border: 1px solid rgba(0,0,0,.05);
+  margin-bottom: 14px;
+  transition: all .25s cubic-bezier(.4,0,.2,1);
+}
+
+.searchHeader-premium:focus-within {
+  box-shadow: 0 6px 24px rgba(15,157,88,.15), 0 2px 8px rgba(0,0,0,.06);
+  border-color: rgba(15,157,88,.25);
+  transform: translateY(-1px);
+}
+
+.searchHeader-premium .searchRow-icon {
+  font-size: 22px;
+  color: #aaa;
+  transition: color .2s;
+}
+
+.searchHeader-premium:focus-within .searchRow-icon {
+  color: var(--primary);
+}
+
+.searchHeader-premium input {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+  color: var(--text-primary);
+  font-weight: 500;
+  letter-spacing: .1px;
+}
+
+.searchHeader-premium input::placeholder {
+  color: #bbb;
+  font-weight: 400;
+}
+
+/* ==========================================================
+   PREMIUM FILTER BAR
+========================================================== */
+
+.filterBar-premium {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 2px;
+  margin-bottom: 16px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.filterBar-premium::-webkit-scrollbar {
+  display: none;
+}
+
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .25s cubic-bezier(.4,0,.2,1);
+  background: #fff;
+  color: var(--text-secondary);
+  border: 1px solid rgba(0,0,0,.06);
+  box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  letter-spacing: .2px;
+}
+
+.filterChip:hover {
+  background: #f5f5f5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+
+.filterChip:active {
+  transform: scale(.95);
+  background: #f0f0f0;
+}
+
+.filterChip.filterChip-active {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(15,157,88,.25);
+}
+
+.filterChip.filterChip-active:hover {
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #065f2e 100%);
+  box-shadow: 0 6px 16px rgba(15,157,88,.35);
+}
+
+.filterChip i {
+  font-size: 16px;
+  transition: transform .2s;
+}
+
+.filterChip:hover i {
+  transform: scale(1.1);
+}
+
+/* ==========================================================
+   PREMIUM SORT CONTROLS
+========================================================== */
+
+.sortControls-premium {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  border: 1px solid rgba(0,0,0,.05);
+  margin-bottom: 14px;
+}
+
+.sortLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  letter-spacing: .2px;
+}
+
+.sortSelect {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 12px;
+  background: #f9f9f9;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all .2s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+.sortSelect:hover {
+  border-color: rgba(15,157,88,.3);
+  background: #f5f5f5;
+}
+
+.sortSelect:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(15,157,88,.1);
+}
+
+.sortDirection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f5f5f5;
+  cursor: pointer;
+  transition: all .2s;
+  flex-shrink: 0;
+}
+
+.sortDirection:hover {
+  background: #e8f5e9;
+  transform: scale(1.1);
+}
+
+.sortDirection:active {
+  transform: scale(.95);
+}
+
+.sortDirection i {
+  font-size: 18px;
+  color: var(--text-secondary);
+  transition: transform .2s;
+}
+
+.sortDirection.sortAsc i {
+  transform: rotate(0deg);
+}
+
+.sortDirection.sortDesc i {
+  transform: rotate(180deg);
+}
+
+/* ==========================================================
+   PREMIUM DISCOVERY RESULTS LAYOUT
+========================================================== */
+
+.discoveryResults-premium {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding-bottom: 20px;
+}
+
+@media (min-width: 600px) {
+  .discoveryResults-premium {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .discoveryResults-premium {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ==========================================================
+   PREMIUM CARD PRESENTATION
+========================================================== */
+
+.discoveryCard {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.06), 0 1px 4px rgba(0,0,0,.04);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all .3s cubic-bezier(.4,0,.2,1);
+  border: 1px solid rgba(0,0,0,.05);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.discoveryCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px rgba(0,0,0,.1), 0 2px 8px rgba(0,0,0,.06);
+}
+
+.discoveryCard:active {
+  transform: scale(0.98);
+  transition: transform .1s ease;
+}
+
+.discoveryCard-img {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f5f5f5, #e8f5e9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.discoveryCard-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .4s cubic-bezier(.4,0,.2,1);
+}
+
+.discoveryCard:hover .discoveryCard-img img {
+  transform: scale(1.06);
+}
+
+.discoveryCard-imgPlaceholder {
+  background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+}
+
+.discoveryCard-imgPlaceholder .material-icons {
+  font-size: 64px;
+  color: var(--primary);
+  opacity: 0.8;
+}
+
+.discoveryCard-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: linear-gradient(135deg, #ff6f00, #ff8f00);
+  color: #fff;
+  padding: 5px 12px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 12px rgba(255,111,0,.4);
+  z-index: 2;
+}
+
+.discoveryCard-wishlist {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.95);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  box-shadow: 0 4px 12px rgba(0,0,0,.18);
+  cursor: pointer;
+  transition: all .25s cubic-bezier(.4,0,.2,1);
+}
+
+.discoveryCard-wishlist:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0,0,0,.22);
+}
+
+.discoveryCard-wishlist:active {
+  transform: scale(.88);
+}
+
+.discoveryCard-wishlist i {
+  font-size: 20px;
+  color: #666;
+  transition: all .2s;
+}
+
+.discoveryCard-wishlist.active i {
+  color: #d32f2f;
+  transform: scale(1.1);
+}
+
+.discoveryCard-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.discoveryCard-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-line-orient: vertical;
+  overflow: hidden;
+  letter-spacing: .1px;
+}
+
+.discoveryCard-price {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: -.3px;
+  line-height: 1.2;
+}
+
+.discoveryCard-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-weight: 500;
+}
+
+.discoveryCard-meta .material-icons {
+  font-size: 14px;
+  color: #bbb;
+}
+
+.discoveryCard-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.discoveryCard-badge-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 10px;
+  background: #f0fdf4;
+  color: #166534;
+  letter-spacing: .2px;
+  border: 1px solid rgba(22,101,52,.08);
+}
+
+.discoveryCard-badge-item.distance {
+  background: #eff6ff;
+  color: #1e40af;
+  border-color: rgba(30,64,175,.08);
+}
+
+.discoveryCard-badge-item.condition {
+  background: #fff7ed;
+  color: #9a3412;
+  border-color: rgba(154,52,18,.08);
+}
+
+/* ==========================================================
+   SKELETON LOADING CARDS
+========================================================== */
+
+.discoverySkeleton {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding-bottom: 20px;
+}
+
+@media (min-width: 600px) {
+  .discoverySkeleton {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .discoverySkeleton {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.discoverySkeletonCard {
+  background: #fff;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,.06);
+  border: 1px solid rgba(0,0,0,.05);
+}
+
+.discoverySkeletonImg {
+  width: 100%;
+  height: 200px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.discoverySkeletonBody {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.discoverySkeletonLine {
+  height: 14px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+.discoverySkeletonLine:nth-child(1) {
+  width: 80%;
+}
+
+.discoverySkeletonLine:nth-child(2) {
+  width: 60%;
+}
+
+.discoverySkeletonLine:nth-child(3) {
+  width: 90%;
+  height: 12px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ==========================================================
+   PREMIUM EMPTY STATE
+========================================================== */
+
+.discoveryEmptyState {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--text-muted);
+}
+
+.discoveryEmptyState-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.06);
+}
+
+.discoveryEmptyState-icon i {
+  font-size: 40px;
+  color: #bbb;
+}
+
+.discoveryEmptyState-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.discoveryEmptyState-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+/* ==========================================================
+   PREMIUM ERROR STATE
+========================================================== */
+
+.discoveryErrorState {
+  text-align: center;
+  padding: 50px 24px;
+  color: var(--danger);
+}
+
+.discoveryErrorState-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #ffebee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  box-shadow: 0 4px 12px rgba(211,47,47,.15);
+}
+
+.discoveryErrorState-icon i {
+  font-size: 32px;
+  color: var(--danger);
+}
+
+.discoveryErrorState-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.discoveryErrorState-text {
+  font-size: 14px;
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+}
+
+.discoveryRetryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+  box-shadow: 0 4px 12px rgba(15,157,88,.25);
+}
+
+.discoveryRetryBtn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15,157,88,.35);
+}
+
+.discoveryRetryBtn:active {
+  transform: scale(.95);
+}
+
+/* ==========================================================
+   INFINITE SCROLL LOADING
+========================================================== */
+
+.infiniteScrollLoader {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+}
+
+.infiniteScrollLoader i {
+  font-size: 36px;
+  color: var(--primary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================
+   PULL TO REFRESH
+========================================================== */
+
+.pullToRefresh {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.pullToRefresh i {
+  font-size: 24px;
+  color: var(--primary);
+  margin-bottom: 8px;
+  display: block;
+  transition: transform .3s;
+}
+
+.pullToRefresh.pullReady i {
+  transform: rotate(180deg);
+}
+
+.pullToRefresh.pullRefreshing i {
+  animation: spin 1s linear infinite;
+}
+
+/* ==========================================================
+   RESPONSIVE DISCOVERY
+========================================================== */
+
+@media (max-width: 480px) {
+  .searchHeader-premium {
+    padding: 14px 16px;
+  }
+
+  .searchHeader-premium input {
+    font-size: 14px;
+    padding: 12px 14px;
+  }
+
+  .filterChip {
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+
+  .sortControls-premium {
+    padding: 6px 10px;
+  }
+
+  .sortSelect {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .discoveryCard-img {
+    height: 180px;
+  }
+
+  .discoveryCard-body {
+    padding: 14px;
+  }
+
+  .discoveryCard-title {
+    font-size: 14px;
+  }
+
+  .discoveryCard-price {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 768px) {
+  .discoveryResults-premium {
+    gap: 20px;
+  }
+
+  .discoveryCard-img {
+    height: 220px;
+  }
+
+  .discoveryCard-body {
+    padding: 18px;
+  }
+
+  .discoveryCard-title {
+    font-size: 16px;
+  }
+}
+
+/* ==========================================================
+   PREMIUM CARD SYSTEM (Shared)
+========================================================== */
+
+.premiumCard {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.06), 0 1px 4px rgba(0,0,0,.04);
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,.05);
+  transition: all .3s cubic-bezier(.4,0,.2,1);
+}
+
+.premiumCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px rgba(0,0,0,.1), 0 2px 8px rgba(0,0,0,.06);
+}
+
+.premiumCard:active {
+  transform: scale(0.98);
+  transition: transform .1s ease;
+}
+
+.premiumCard-img {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f5f5f5, #e8f5e9);
+}
+
+.premiumCard-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .4s cubic-bezier(.4,0,.2,1);
+}
+
+.premiumCard:hover .premiumCard-img img {
+  transform: scale(1.06);
+}
+
+.premiumCard-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.premiumCard-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-line-orient: vertical;
+  overflow: hidden;
+}
+
+.premiumCard-price {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: -.3px;
+}
+
+.premiumCard-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-weight: 500;
+}
+
+.premiumCard-meta .material-icons {
+  font-size: 14px;
+  color: #bbb;
+}
+
+/* ==========================================================
+   PREMIUM CHIPS (Shared)
+========================================================== */
+
+.premiumChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .3px;
+  transition: all .2s;
+  cursor: default;
+}
+
+.premiumChip-primary {
+  background: #e8f5e9;
+  color: var(--primary);
+  border: 1px solid rgba(15,157,88,.15);
+}
+
+.premiumChip-warning {
+  background: #fff3e0;
+  color: #e65100;
+  border: 1px solid rgba(230,81,0,.15);
+}
+
+.premiumChip-info {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid rgba(21,101,192,.15);
+}
+
+.premiumChip-danger {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid rgba(198,40,40,.15);
+}
+
+/* ==========================================================
+   END OF PREMIUM DISCOVERY SCREEN UPGRADE
+========================================================== */
+
+/* ==========================================================
+   DISCOVERY SCREEN ENHANCEMENTS (B.6) — EXISTING ELEMENTS
+   Enhances existing HTML elements without requiring HTML changes
+========================================================== */
+
+/* --- Enhanced Loading State for Home Sections --- */
+
+#homeDiscovery .homeSection-empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  background: #fff;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  position: relative;
+  overflow: hidden;
+}
+
+#homeDiscovery .homeSection-empty::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(15,157,88,.04), transparent);
+  background-size: 200% 100%;
+  animation: discoveryShimmer 1.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes discoveryShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* --- Enhanced Error State for Home Sections --- */
+
+#homeDiscovery .hij-error {
+  text-align: center;
+  padding: 20px 16px;
+  color: var(--danger);
+  background: #fef2f2;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(239,68,68,.1);
+  box-shadow: 0 2px 8px rgba(239,68,68,.06);
+}
+
+#homeDiscovery .hij-error .material-icons {
+  font-size: 32px;
+  color: var(--danger);
+  margin-bottom: 8px;
+  opacity: 0.8;
+}
+
+#homeDiscovery .hij-error p {
+  font-size: 13px;
+  color: #991b1b;
+  font-weight: 500;
+}
+
+/* --- Section Reveal Animation --- */
+
+#homeDiscovery .homeSection {
+  animation: discoverySectionReveal 0.4s ease-out;
+}
+
+@keyframes discoverySectionReveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Stagger sections for cascading reveal */
+#homeDiscovery .homeSection:nth-child(1) { animation-delay: 0.05s; }
+#homeDiscovery .homeSection:nth-child(2) { animation-delay: 0.1s; }
+#homeDiscovery .homeSection:nth-child(3) { animation-delay: 0.15s; }
+#homeDiscovery .homeSection:nth-child(4) { animation-delay: 0.2s; }
+#homeDiscovery .homeSection:nth-child(5) { animation-delay: 0.25s; }
+#homeDiscovery .homeSection:nth-child(6) { animation-delay: 0.3s; }
+
+/* --- Enhanced Home Preview Card Transitions --- */
+
+#homeDiscovery .homePreviewCard {
+  transition: transform 0.25s cubic-bezier(.4,0,.2,1), box-shadow 0.25s ease;
+}
+
+#homeDiscovery .homePreviewCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.1), 0 2px 6px rgba(0,0,0,.06);
+}
+
+#homeDiscovery .homePreviewCard:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+/* --- Enhanced Promo Banner Transitions --- */
+
+#homeDiscovery .promoBanner {
+  transition: transform 0.25s cubic-bezier(.4,0,.2,1), box-shadow 0.25s ease;
+}
+
+#homeDiscovery .promoBanner:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+}
+
+#homeDiscovery .promoBanner:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* --- Enhanced Category Shortcut Transitions --- */
+
+#homeDiscovery .catItem {
+  transition: transform 0.2s cubic-bezier(.4,0,.2,1), background 0.2s ease;
+}
+
+#homeDiscovery .catItem:hover {
+  transform: translateY(-2px);
+}
+
+#homeDiscovery .catItem:active {
+  transform: scale(0.9);
+}
+
+#homeDiscovery .catItem-icon {
+  transition: transform 0.25s cubic-bezier(.4,0,.2,1), box-shadow 0.25s ease;
+}
+
+#homeDiscovery .catItem:hover .catItem-icon {
+  transform: scale(1.05);
+}
+
+/* --- Enhanced Location Card Transitions --- */
+
+#homeDiscovery .locationCard-main {
+  transition: transform 0.2s cubic-bezier(.4,0,.2,1), box-shadow 0.2s ease;
+}
+
+#homeDiscovery .locationCard-main:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.1);
+}
+
+#homeDiscovery .locationCard-main:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+/* --- Enhanced Search Bar Transitions --- */
+
+#homeDiscovery .searchRow-input {
+  transition: transform 0.2s cubic-bezier(.4,0,.2,1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+#homeDiscovery .searchRow-input:focus-within {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(15,157,88,.12), 0 2px 6px rgba(0,0,0,.06);
+  border-color: rgba(15,157,88,.3);
+}
+
+/* --- Enhanced Radius Selector Transitions --- */
+
+#homeDiscovery .searchRow-radius select {
+  transition: transform 0.2s cubic-bezier(.4,0,.2,1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+#homeDiscovery .searchRow-radius select:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(15,157,88,.12), 0 2px 6px rgba(0,0,0,.06);
+  border-color: rgba(15,157,88,.25);
+}
+
+/* --- Enhanced Section Title --- */
+
+#homeDiscovery .homeSection-title {
+  position: relative;
+  padding-left: 12px;
+}
+
+#homeDiscovery .homeSection-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background: linear-gradient(180deg, var(--primary), #1db954);
+  border-radius: 2px;
+  box-shadow: 0 1px 4px rgba(15,157,88,.25);
+}
+
+/* --- Enhanced View All Button --- */
+
+#homeDiscovery .homeSection-viewAll {
+  transition: transform 0.2s cubic-bezier(.4,0,.2,1), background 0.2s ease, box-shadow 0.2s ease;
+}
+
+#homeDiscovery .homeSection-viewAll:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(15,157,88,.15);
+}
+
+#homeDiscovery .homeSection-viewAll:active {
+  transform: scale(0.95);
+}
+
+/* --- Enhanced Compact Discovery Bar --- */
+
+#globalDisco.disco-compact .disco-compact-content {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  border: 1px solid rgba(0,0,0,.04);
+  margin: 8px 12px;
+  padding: 10px 14px;
+}
+
+#globalDisco.disco-compact .discoCompact {
+  transition: transform 0.2s ease;
+}
+
+#globalDisco.disco-compact .discoCompact:active {
+  transform: scale(0.98);
+}
+
+#globalDisco.disco-compact .discoCompact-radius {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#globalDisco.disco-compact .discoCompact-radius:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(15,157,88,.15);
+}
+
+#globalDisco.disco-compact .discoCompact-radius:active {
+  transform: scale(0.95);
+}
+
+/* --- Enhanced Radius Picker --- */
+
+.discoRadiusPicker {
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.18);
+  border: 1px solid rgba(0,0,0,.06);
+  overflow: hidden;
+}
+
+.discoRadiusPicker-item {
+  transition: background 0.15s ease, padding-left 0.15s ease;
+}
+
+.discoRadiusPicker-item:hover {
+  padding-left: 20px;
+}
+
+.discoRadiusPicker-item.active {
+  font-weight: 700;
+}
+
+/* --- Premium Spacing for Discovery Container --- */
+
+#homeDiscovery {
+  padding: 12px 15px 20px;
+}
+
+@media (min-width: 768px) {
+  #homeDiscovery {
+    padding: 16px 20px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+}
+
+/* --- Card Image Loading Enhancement --- */
+
+#homeDiscovery .homePreviewCard-img img {
+  transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+}
+
+#homeDiscovery .homePreviewCard:hover .homePreviewCard-img img {
+  transform: scale(1.05);
+}
+
+/* --- Badge Enhancement --- */
+
+#homeDiscovery .homeSectionCard-badge {
+  transition: transform 0.2s ease;
+}
+
+#homeDiscovery .homePreviewCard:hover .homeSectionCard-badge {
+  transform: scale(1.05);
+}
+
+/* --- Wishlist Button Enhancement --- */
+
+#homeDiscovery .homePreviewCard-wishlist {
+  transition: transform 0.2s cubic-bezier(.4,0,.2,1), box-shadow 0.2s ease;
+}
+
+#homeDiscovery .homePreviewCard-wishlist:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0,0,0,.2);
+}
+
+#homeDiscovery .homePreviewCard-wishlist:active {
+  transform: scale(0.9);
+}
+
+/* --- Featured Badge Enhancement --- */
+
+#homeDiscovery .homePreviewCard-featured {
+  transition: transform 0.2s ease;
+}
+
+#homeDiscovery .homePreviewCard:hover .homePreviewCard-featured {
+  transform: scale(1.05);
+}
+
+/* --- Responsive Discovery Enhancements --- */
+
+@media (max-width: 480px) {
+  #homeDiscovery {
+    padding: 10px 12px 16px;
+  }
+
+  #homeDiscovery .homeSection {
+    padding: 0 0 16px;
+  }
+
+  #homeDiscovery .homeSection-empty {
+    padding: 20px 12px;
+    font-size: 12px;
+  }
+}
+
+@media (min-width: 768px) {
+  #homeDiscovery .homeSection {
+    padding: 0 0 24px;
+  }
+
+  #homeDiscovery .homeSection-title {
+    font-size: 20px;
+  }
+}
+
+/* ==========================================================
+   END OF DISCOVERY SCREEN ENHANCEMENTS
+========================================================== */
+
