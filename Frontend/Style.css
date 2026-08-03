@@ -308,9 +308,10 @@ main{
 ========================================================== */
 
 .sectionTitle{
-  font-size:22px;
+  font-size:17px;
   font-weight:700;
-  margin-bottom:15px;
+  margin-bottom:12px;
+  color:var(--text-primary);
 }
 
 /* ==========================================================
@@ -4807,8 +4808,8 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
 
 .homePreviewCard {
   flex: 0 0 auto;
-  width: 42%;
-  max-width: 180px;
+  width: 48%;
+  max-width: 200px;
   scroll-snap-align: start;
   background: #fff;
   border-radius: var(--radius-lg);
@@ -5498,15 +5499,15 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
  ========================================================== */
 
 .homeSection {
-  padding: 0 15px 20px;
+  padding: 0 15px 14px;
 }
 
 .homeSection-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
-  padding-top: 10px;
+  margin-bottom: 8px;
+  padding-top: 6px;
 }
 
 .homeSection-title {
@@ -5581,12 +5582,12 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
 
 .homePreviewCard {
   flex: 0 0 auto;
-  width: 42%;
-  max-width: 180px;
+  width: 48%;
+  max-width: 200px;
   scroll-snap-align: start;
   background: #fff;
   border-radius: var(--radius-lg);
-  box-shadow: 0 4px 12px rgba(0,0,0,.06), 0 1px 3px rgba(0,0,0,.04);
+  box-shadow: 0 4px 16px rgba(0,0,0,.08), 0 1px 4px rgba(0,0,0,.04);
   overflow: hidden;
   cursor: pointer;
   transition: all .2s ease;
@@ -5685,7 +5686,7 @@ h6{font-size:13px;font-weight:600;line-height:1.4;}
 }
 
 .homePreviewCard-body {
-  padding: 10px 12px 14px;
+  padding: 8px 10px 12px;
 }
 
 .homePreviewCard-title {
@@ -6393,7 +6394,7 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 .productCard-img {
   position: relative;
   width: 100%;
-  height: 220px;
+  height: 140px;
   overflow: hidden;
   background: linear-gradient(135deg, #f5f5f5, #e8f5e9);
   display: flex;
@@ -6480,47 +6481,46 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 }
 
 .productCard-body {
-  padding: 16px;
+  padding: 8px 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   flex: 1;
 }
 
 .productCard-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  line-height: 1.35;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   letter-spacing: 0.1px;
 }
 
 .productCard-price {
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--primary);
-  letter-spacing: -0.4px;
+  letter-spacing: -0.3px;
   line-height: 1.2;
+  margin-top: 1px;
 }
 
 .productCard-meta {
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 11px;
+  color: var(--text-muted);
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  gap: 4px;
   align-items: center;
   font-weight: 500;
+  margin-top: 2px;
 }
 
 .productCard-meta .material-icons {
-  font-size: 14px;
+  font-size: 12px;
   color: #bbb;
-  vertical-align: text-bottom;
 }
 
 .productCard-desc {
@@ -6535,23 +6535,22 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 
 .productCard-badges {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
 .productCard-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  font-size: 10px;
+  padding: 2px 8px;
+  font-size: 9px;
   font-weight: 600;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #f0fdf4;
   color: #166534;
   letter-spacing: 0.2px;
   border: 1px solid rgba(22,101,52,.08);
-  transition: all 0.2s ease;
 }
 
 .productCard-badge.distance {
@@ -6644,7 +6643,7 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 .businessCard-cover {
   position: relative;
   width: 100%;
-  height: 160px;
+  height: 120px;
   overflow: hidden;
   background: linear-gradient(135deg, #f5f5f5, #e8f5e9);
 }
@@ -6661,16 +6660,16 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 }
 
 .businessCard-logo {
-  width: 60px;
-  height: 60px;
-  border-radius: 18px;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
   overflow: hidden;
-  border: 3px solid #fff;
+  border: 2px solid #fff;
   background: #e8f5e9;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  box-shadow: 0 3px 10px rgba(0,0,0,.1);
   position: relative;
   z-index: 2;
   flex-shrink: 0;
@@ -6683,7 +6682,7 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 }
 
 .businessCard-logoPlaceholder {
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--primary);
 }
@@ -6691,9 +6690,9 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 .businessCard-header {
   display: flex;
   align-items: flex-end;
-  gap: 12px;
-  padding: 0 16px;
-  margin-top: -32px;
+  gap: 10px;
+  padding: 0 12px;
+  margin-top: -26px;
   position: relative;
   z-index: 2;
 }
@@ -6701,14 +6700,14 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 .businessCard-info {
   flex: 1;
   min-width: 0;
-  padding-bottom: 12px;
+  padding-bottom: 10px;
 }
 
 .businessCard-name {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
-  line-height: 1.35;
+  line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6716,23 +6715,23 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 }
 
 .businessCard-category {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
   font-weight: 500;
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
 .businessCard-body {
-  padding: 6px 16px 16px;
+  padding: 4px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .businessCard-desc {
-  font-size: 13px;
+  font-size: 12px;
   color: #777;
-  line-height: 1.5;
+  line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -6742,9 +6741,9 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 .businessCard-details {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
 }
 
@@ -6755,7 +6754,7 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 }
 
 .businessCard-detail .material-icons {
-  font-size: 14px;
+  font-size: 12px;
   color: #aaa;
 }
 
@@ -6763,24 +6762,24 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 12px;
+  font-size: 11px;
   color: #f59e0b;
   font-weight: 700;
   background: #fffbeb;
-  padding: 4px 10px;
-  border-radius: 10px;
+  padding: 3px 8px;
+  border-radius: 8px;
   border: 1px solid #fef3c7;
 }
 
 .businessCard-distance {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   gap: 3px;
   background: #f3f4f6;
-  padding: 4px 10px;
-  border-radius: 10px;
+  padding: 3px 8px;
+  border-radius: 8px;
 }
 
 .businessCard-actions {
@@ -6855,7 +6854,7 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 .propertyCard-img {
   position: relative;
   width: 100%;
-  height: 200px;
+  height: 140px;
   overflow: hidden;
   background: linear-gradient(135deg, #f5f5f5, #e8f5e9);
   display: flex;
@@ -6885,31 +6884,31 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 }
 
 .propertyCard-body {
-  padding: 16px;
+  padding: 8px 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   flex: 1;
 }
 
 .propertyCard-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  line-height: 1.35;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   letter-spacing: 0.1px;
 }
 
 .propertyCard-price {
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--primary);
-  letter-spacing: -0.4px;
+  letter-spacing: -0.3px;
   line-height: 1.2;
+  margin-top: 1px;
 }
 
 .propertyCard-purpose {
@@ -6935,18 +6934,18 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 
 .propertyCard-badges {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
 .propertyCard-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  font-size: 10px;
+  padding: 2px 8px;
+  font-size: 9px;
   font-weight: 600;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #f9fafb;
   color: #374151;
   letter-spacing: 0.2px;
@@ -6954,22 +6953,23 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 }
 
 .propertyCard-location {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  margin-top: 2px;
 }
 
 .propertyCard-location::before {
   content: "📍";
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .propertyCard-desc {
-  font-size: 13px;
+  font-size: 12px;
   color: #777;
-  line-height: 1.5;
+  line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -7032,7 +7032,7 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 .newsCard-hij-img {
   position: relative;
   width: 100%;
-  height: 180px;
+  height: 140px;
   overflow: hidden;
   background: linear-gradient(135deg, #f5f5f5, #e8f5e9);
   display: flex;
@@ -7062,24 +7062,24 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 }
 
 .newsCard-hij-body {
-  padding: 16px;
+  padding: 8px 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   flex: 1;
 }
 
 .newsCard-hij-category {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  font-size: 10px;
+  padding: 2px 8px;
+  font-size: 9px;
   font-weight: 700;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #f0fdf4;
   color: #166534;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   width: fit-content;
   border: 1px solid rgba(22,101,52,.08);
 }
@@ -7088,7 +7088,7 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
   background: linear-gradient(135deg, #d32f2f, #f44336);
   color: #fff;
   border-color: transparent;
-  box-shadow: 0 2px 8px rgba(211,47,47,.3);
+  box-shadow: 0 2px 6px rgba(211,47,47,.25);
 }
 
 .newsCard-hij-category.video {
@@ -7098,21 +7098,20 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 }
 
 .newsCard-hij-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+  line-height: 1.35;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   letter-spacing: 0.1px;
 }
 
 .newsCard-hij-desc {
-  font-size: 13px;
+  font-size: 12px;
   color: #666;
-  line-height: 1.5;
+  line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -7120,19 +7119,20 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 }
 
 .newsCard-hij-meta {
-  font-size: 11px;
+  font-size: 10px;
   color: #888;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   font-weight: 500;
+  margin-top: 2px;
 }
 
 .newsCard-hij-meta::before {
   content: "";
   display: inline-block;
-  width: 4px;
-  height: 4px;
+  width: 3px;
+  height: 3px;
   border-radius: 50%;
   background: #ccc;
 }
@@ -7168,7 +7168,7 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 .liveCard-img {
   position: relative;
   width: 100%;
-  height: 200px;
+  height: 140px;
   overflow: hidden;
   background: linear-gradient(135deg, #f5f5f5, #e8f5e9);
   display: flex;
@@ -7242,57 +7242,58 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
 }
 
 .liveCard-body {
-  padding: 16px;
+  padding: 8px 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   flex: 1;
 }
 
 .liveCard-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  line-height: 1.35;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   letter-spacing: 0.1px;
 }
 
 .liveCard-category {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  font-size: 10px;
+  padding: 2px 8px;
+  font-size: 9px;
   font-weight: 700;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #f0fdf4;
   color: #166534;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   width: fit-content;
   border: 1px solid rgba(22,101,52,.08);
 }
 
 .liveCard-meta {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  margin-top: 2px;
 }
 
 .liveCard-meta .material-icons {
-  font-size: 14px;
+  font-size: 12px;
   color: #aaa;
 }
 
 .liveCard-announcer {
-  font-size: 12px;
+  font-size: 11px;
   color: #666;
   font-weight: 500;
+  margin-top: 2px;
 }
 
 .liveCard-actions {

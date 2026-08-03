@@ -163,25 +163,31 @@ function renderHomePropertiesPreview(properties) {
 
   preview.forEach(prop => {
     const imgUrl = prop.Images ? prop.Images.split(",")[0].trim() : "";
+    const title = prop.Title || "-";
+    const price = (prop.Price || 0).toLocaleString();
     const purposeLabel = prop.Purpose === "Rent" ? "For Rent" : "For Sale";
+    const type = prop.Type || "";
+    const area = prop.Area ? `${prop.Area} sq ft` : "";
+    const distance = prop.DistanceKm ? `${prop.DistanceKm} KM away` : "";
 
     html += `
       <div class="homePreviewCard" onclick='showPropertyDetailsFromHome(${JSON.stringify(prop).replace(/'/g, "\\'")})'>
         ${imgUrl
-          ? `<div class="homePreviewCard-img"><img src="${imgUrl}" alt="${prop.Title || ""}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>real_estate_agent</span></div>'"></div>`
+          ? `<div class="homePreviewCard-img"><img src="${imgUrl}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>real_estate_agent</span></div>'"></div>`
           : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">real_estate_agent</span></div>`
         }
+        <div class="homePreviewCard-wishlist" onclick='event.stopPropagation(); toggleWishlist(this, "${prop.PropertyID || prop.propertyId || ""}")'>
+          <i class="material-icons">favorite_border</i>
+        </div>
         <div class="homePreviewCard-body">
-          <div class="homePreviewCard-title">${prop.Title || "-"}</div>
-          <div class="homePreviewCard-price">₹ ${(prop.Price || 0).toLocaleString()}</div>
-          <div class="homeSectionCard-top" style="margin-top:4px;">
-            <span class="homeSectionCard-badge">${purposeLabel}</span>
-            ${prop.Bedrooms ? `<span class="homeSectionCard-badge">${prop.Bedrooms} BHK</span>` : ""}
-            ${prop.Type ? `<span class="homeSectionCard-badge">${prop.Type}</span>` : ""}
-          </div>
+          <div class="homePreviewCard-title">${title}</div>
+          <div class="homePreviewCard-price">₹ ${price}</div>
           <div class="homePreviewCard-meta">
-            ${prop.DistanceKm ? `${prop.DistanceKm} KM away` : prop.City ? prop.City : ""}
+            ${purposeLabel ? `<span>${purposeLabel}</span>` : ""}
+            ${type ? `<span>${type}</span>` : ""}
+            ${area ? `<span>${area}</span>` : ""}
           </div>
+          ${distance ? `<div class="homePreviewCard-meta">${distance}</div>` : ""}
         </div>
       </div>`;
   });

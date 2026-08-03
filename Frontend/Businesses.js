@@ -149,23 +149,27 @@ function renderHomeBusinessesPreview(businesses) {
 
   preview.forEach(business => {
     const businessId = business.BusinessID || business.businessId || "";
+    const name = business.BusinessName || "-";
+    const category = business.Category || "";
+    const distance = business.DistanceKm ? `${business.DistanceKm} KM away` : "";
+    const rating = business.Rating || "";
+    const logo = business.Logo || "";
+    const coverImage = business.CoverImage || "";
+
     html += `
       <div class="homePreviewCard" onclick='showBusinessDetailsById("${businessId}")'>
-        <div class="homePreviewCard-img homePreviewCard-imgPlaceholder" style="background:#e8f5e9;">
-          <span class="material-icons" style="color:var(--primary);font-size:32px;">store</span>
+        ${coverImage
+          ? `<div class="homePreviewCard-img"><img src="${coverImage}" alt="${escapeHtml(name)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>store</span></div>'"></div>`
+          : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">store</span></div>`
+        }
+        <div class="homePreviewCard-wishlist" onclick='event.stopPropagation(); toggleWishlist(this, "${businessId}")'>
+          <i class="material-icons">favorite_border</i>
         </div>
         <div class="homePreviewCard-body">
-          <div class="homePreviewCard-title">${business.BusinessName || "-"}</div>
-          ${business.Category
-            ? `<div class="homePreviewCard-meta">${business.Category}</div>`
-            : ""
-          }
-          ${business.DistanceKm
-            ? `<div class="homePreviewCard-meta">${business.DistanceKm} KM away</div>`
-            : business.City
-              ? `<div class="homePreviewCard-meta">${business.City}</div>`
-              : ""
-          }
+          <div class="homePreviewCard-title">${name}</div>
+          ${category ? `<div class="homePreviewCard-meta">${category}</div>` : ""}
+          ${distance ? `<div class="homePreviewCard-meta">${distance}</div>` : ""}
+          ${rating ? `<div class="homePreviewCard-meta">⭐ ${rating}</div>` : ""}
         </div>
       </div>`;
   });

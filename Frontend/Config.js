@@ -51,6 +51,9 @@ const CONFIG = {
   DEFAULT_LATITUDE: 26.9124,
   DEFAULT_LONGITUDE: 75.7873,
   DEFAULT_RADIUS: "51",
+  DEFAULT_AREA: "Jaipur",
+  DEFAULT_CITY: "Jaipur",
+  DEFAULT_STATE: "Rajasthan",
 
   /*
   ============================================================
@@ -116,18 +119,40 @@ LOCATION HELPERS
 ============================================================
 */
 
-function saveLocation(lat, lng) {
+/*
+saveLocation is the SINGLE canonical writer for the resolved
+location object. It stores coords AND resolved names so every
+component (Hero Card, search, discovery) reads the same object.
+*/
+function saveLocation(lat, lng, area, city, state, name) {
   localStorage.setItem(
     CONFIG.STORAGE_KEYS.LOCATION,
     JSON.stringify({
       lat: lat,
-      lng: lng
+      lng: lng,
+      area: area || "",
+      city: city || "",
+      state: state || "",
+      name: name || ""
     })
   );
 }
 
 
+/*
+getSavedLocation is the SINGLE canonical reader.
+Always returns the full resolved object with sane defaults.
+*/
 function getSavedLocation() {
+
+  const base = {
+    lat: CONFIG.DEFAULT_LATITUDE,
+    lng: CONFIG.DEFAULT_LONGITUDE,
+    area: CONFIG.DEFAULT_AREA || "",
+    city: CONFIG.DEFAULT_CITY || "",
+    state: CONFIG.DEFAULT_STATE || "",
+    name: ""
+  };
 
   const data =
     localStorage.getItem(
@@ -135,20 +160,22 @@ function getSavedLocation() {
     );
 
   if (!data) {
-    return {
-      lat: CONFIG.DEFAULT_LATITUDE,
-      lng: CONFIG.DEFAULT_LONGITUDE
-    };
+    return base;
   }
 
   try {
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    return {
+      lat: parsed.lat || base.lat,
+      lng: parsed.lng || base.lng,
+      area: parsed.area || base.area,
+      city: parsed.city || base.city,
+      state: parsed.state || base.state,
+      name: parsed.name || ""
+    };
   }
   catch (e) {
-    return {
-      lat: CONFIG.DEFAULT_LATITUDE,
-      lng: CONFIG.DEFAULT_LONGITUDE
-    };
+    return base;
   }
 }
 

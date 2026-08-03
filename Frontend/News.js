@@ -220,22 +220,19 @@ function renderHomeNewsPreview(news) {
 
   preview.forEach(item => {
     const hasImage = item.Image && item.Image.trim();
+    const title = item.Title || "-";
+    const timeAgoText = timeAgo(item.CreatedDate);
     const isBreaking = (item.Category || "").toLowerCase() === "breaking";
-    const categoryBadge = item.Category && !isBreaking ? item.Category : "";
 
     html += `
       <div class="homePreviewCard" onclick='showNewsDetailsFromHome(${JSON.stringify(item).replace(/'/g, "\\'")})'>
         ${hasImage
-          ? `<div class="homePreviewCard-img"><img src="${item.Image}" alt="${item.Title || ""}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>newspaper</span></div>'"></div>`
+          ? `<div class="homePreviewCard-img"><img src="${item.Image}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>newspaper</span></div>'"></div>`
           : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">newspaper</span></div>`
         }
         <div class="homePreviewCard-body">
-          <div class="homeSectionCard-top">
-            ${isBreaking ? `<span class="homeSectionCard-badge homeSectionCard-badgeBreaking">BREAKING</span>` : ""}
-            ${categoryBadge ? `<span class="homeSectionCard-badge">${categoryBadge}</span>` : ""}
-          </div>
-          <div class="homePreviewCard-title">${item.Title || "-"}</div>
-          <div class="homePreviewCard-meta">${timeAgo(item.CreatedDate)}${item.City ? ` · ${item.City}` : ""}</div>
+          <div class="homePreviewCard-title">${title}</div>
+          <div class="homePreviewCard-meta">${timeAgoText}</div>
         </div>
       </div>`;
   });
@@ -243,7 +240,6 @@ function renderHomeNewsPreview(news) {
   html += '</div>';
   container.innerHTML = html;
 }
-
 
 /*
 HOME NEWS CARD CLICK — navigate to News page then show detail
@@ -523,4 +519,30 @@ function trackShare() {
   const userId = getUserId() || "";
   const newsId = CURRENT_NEWS.NewsID || CURRENT_NEWS.id || "";
   fetch(`${getApiUrl()}?action=trackevent&eventType=Share&userId=${encodeURIComponent(userId)}&entityType=News&entityId=${encodeURIComponent(newsId)}`).catch(() => {});
+}
+
+/*
+WISHLIST TOGGLE (Shared across home preview cards)
+*/
+
+function toggleWishlist(element, itemId) {
+  if (!element) return;
+  const isActive = element.classList.contains("active");
+  if (isActive) {
+    element.classList.remove("active");
+    const icon = element.querySelector("i");
+    if (icon) icon.textContent = "favorite_border";
+  } else {
+    element.classList.add("active");
+    const icon = element.querySelector("i");
+    if (icon) icon.textContent = "favorite";
+  }
+  // Persist wishlist state (client-side only)
+  try {
+    const key = "wishlist_" + itemId;
+    const current = localStorage.getItem(key) === "1";
+    localStorage.setItem(key, current ? "0" : "1");
+  } catch (e) {
+    // silent
+  }
 }

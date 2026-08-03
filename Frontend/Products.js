@@ -364,22 +364,26 @@ function renderHomeProductsPreview(products) {
     const images = getProductImages(product);
     const firstImage = images.length > 0 ? images[0] : "";
     const productId = product.ProductID || product.productId || "";
+    const title = product.Title || "-";
+    const price = (product.Price || 0).toLocaleString();
+    const distance = product.DistanceKm ? `${product.DistanceKm} KM away` : "";
+    const isFeatured = product.Featured === "Yes";
+    const imageCount = images.length;
 
     html += `
       <div class="homePreviewCard" onclick='showProductDetailsById("${productId}")'>
         ${firstImage
-          ? `<div class="homePreviewCard-img"><img src="${firstImage}" alt="${escapeHtml(product.Title || "")}" loading="lazy"></div>`
+          ? `<div class="homePreviewCard-img"><img src="${firstImage}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>shopping_bag</span></div>'"></div>`
           : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">shopping_bag</span></div>`
         }
+        ${isFeatured ? `<div class="homePreviewCard-featured">Featured</div>` : ""}
+        <div class="homePreviewCard-wishlist" onclick='event.stopPropagation(); toggleWishlist(this, "${productId}")'>
+          <i class="material-icons">favorite_border</i>
+        </div>
         <div class="homePreviewCard-body">
-          <div class="homePreviewCard-title">${product.Title || "-"}</div>
-          <div class="homePreviewCard-price">₹ ${(product.Price || 0).toLocaleString()}</div>
-          ${product.DistanceKm
-            ? `<div class="homePreviewCard-meta">${product.DistanceKm} KM away</div>`
-            : product.City
-              ? `<div class="homePreviewCard-meta">${product.City}</div>`
-              : ""
-          }
+          <div class="homePreviewCard-title">${title}</div>
+          <div class="homePreviewCard-price">₹ ${price}</div>
+          ${distance ? `<div class="homePreviewCard-meta">${distance}</div>` : ""}
         </div>
       </div>`;
   });

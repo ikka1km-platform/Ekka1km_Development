@@ -418,6 +418,128 @@ function updateBottomNavActiveState(pageId) {
 
 /*
 ============================================================
+LOCATION — CANONICAL DOM UPDATE
+============================================================
+
+Reads the SINGLE canonical location object (getSavedLocation)
+and pushes it to the Hero Card DOM. Every location change
+(GPS, manual search, clear) funnels through this so the Hero
+Card always shows the same resolved object used by the toast.
+*/
+
+function updateLocationCard() {
+
+  const gpsText =
+    document.getElementById(
+      "gpsText"
+    );
+
+  const locationSubtitle =
+    document.getElementById(
+      "locationSubtitle"
+    );
+
+  const saved =
+    getSavedLocation();
+
+  if (!saved) return;
+
+  // Hero Card line 1 = Area
+  if (gpsText) {
+    gpsText.innerText =
+      saved.area || "Current Area";
+  }
+
+  // Hero Card line 2 = City, State
+  if (locationSubtitle) {
+    const city = saved.city || "";
+    const state = saved.state || "";
+    locationSubtitle.innerText =
+      (city + (state ? ", " + state : "")) ||
+      "City, State";
+  }
+}
+
+
+/*
+============================================================
+LOCATION — REVERSE GEOCODING (GPS)
+============================================================
+
+Resolves GPS coordinates into a named location using the same
+OpenStreetMap Nominatim engine the search modal uses. On
+success it writes the full resolved object into the canonical
+location store and refreshes the Hero Card.
+*/
+
+function reverseGeocodeLocation(lat, lng) {
+
+  const url =
+    "https://nominatim.openstreetmap.org/reverse?format=json&lat=" +
+    lat + "&lon=" + lng + "&zoom=16&addressdetails=1";
+
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+
+      if (!res || !res.address) {
+        // Load discovery with GPS coords; Hero Card keeps
+        // its canonical/default resolved names.
+        updateLocationCard();
+        loadAll();
+        return;
+      }
+
+      const addr = res.address;
+
+      // Prefer a meaningful area; fall back to county/town/city
+      const area =
+        addr.neighbourhood ||
+        addr.suburb ||
+        addr.city_district ||
+        addr.town_district ||
+        addr.road ||
+        addr.county ||
+        addr.city ||
+        addr.town ||
+        res.name ||
+        "";
+
+      const city =
+        addr.city ||
+        addr.town ||
+        addr.village ||
+        addr.county ||
+        "";
+
+      const state =
+        addr.state ||
+        addr.state_district ||
+        addr.region ||
+        "";
+
+      const name =
+        area + (city ? ", " + city : "") + (state ? ", " + state : "");
+
+      // Write the SAME resolved object used by the toast system
+      saveLocation(lat, lng, area, city, state, name);
+
+      // GPS coords already flow into discovery through
+      // getEffectiveCenter()'s fallback to CURRENT_LAT/LNG.
+      updateLocationCard();
+      loadAll();
+    })
+    .catch(function() {
+      // Ensure discovery still loads even if reverse
+      // geocoding is unavailable.
+      updateLocationCard();
+      loadAll();
+    });
+}
+
+
+/*
+============================================================
 GPS
 ============================================================
 */
@@ -429,13 +551,23 @@ function loadLocation() {
       "gpsText"
     );
 
+  const locationSubtitle =
+    document.getElementById(
+      "locationSubtitle"
+    );
+
   if (
     !navigator.geolocation
   ) {
 
     if (gpsText) {
       gpsText.innerText =
-        "GPS not supported. Using demo location.";
+        "Area not available";
+    }
+
+    if (locationSubtitle) {
+      locationSubtitle.innerText =
+        "Location service unavailable";
     }
 
     loadAll();
@@ -453,17 +585,12 @@ function loadLocation() {
         CURRENT_LNG =
           position.coords.longitude;
 
-        saveLocation(
+        // Reverse geocode so the canonical location object
+        // carries real names, not placeholders.
+        reverseGeocodeLocation(
           CURRENT_LAT,
           CURRENT_LNG
         );
-
-        if (gpsText) {
-          gpsText.innerText =
-            "GPS: " + CURRENT_LAT.toFixed(4) + ", " + CURRENT_LNG.toFixed(4);
-        }
-
-        loadAll();
       },
 
       () => {
@@ -477,10 +604,9 @@ function loadLocation() {
         CURRENT_LNG =
           saved.lng;
 
-        if (gpsText) {
-          gpsText.innerText =
-            "GPS blocked. Using saved location.";
-        }
+        // Reuse whatever resolved object we already have
+        // (GPS, manual, or defaults) for the Hero Card.
+        updateLocationCard();
 
         loadAll();
       },

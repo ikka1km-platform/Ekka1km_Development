@@ -147,8 +147,25 @@ function saveSearchCenter(
   CURRENT_LAT = latitude;
   CURRENT_LNG = longitude;
 
-  // Update header
+  // Write the SAME canonical object used by the Hero Card.
+  // Derive area (first part of name) + city/state from the
+  // resolved display name returned by Nominatim.
+  var parts =
+    (name || "").split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+
+  var area = parts[0] || name || "Selected Location";
+  var city = parts[1] || "";
+  var state = parts[2] || "";
+
+  if (typeof saveLocation === "function") {
+    saveLocation(latitude, longitude, area, city, state, name || "");
+  }
+
+  // Update header + Hero Card from the canonical object
   updateSearchLocationDisplay();
+  if (typeof updateLocationCard === "function") {
+    updateLocationCard();
+  }
 
   // Reload all data with new center
   loadAll();
@@ -327,16 +344,11 @@ function updateSearchLocationDisplay() {
     select.title = "Using GPS location";
   }
 
-  // Update the GPS text on home page
-  const gpsText =
-    document.getElementById(
-      "gpsText"
-    );
-
-  if (gpsText) {
-
-    gpsText.innerText =
-      "\uD83D\uDCCD " + displayName + " (" + center.lat.toFixed(4) + ", " + center.lng.toFixed(4) + ")";
+  // The Hero Card (gpsText / locationSubtitle) is driven by
+  // the canonical object via updateLocationCard(). Do NOT
+  // overwrite it here with coordinates or coords labels.
+  if (typeof updateLocationCard === "function") {
+    updateLocationCard();
   }
 }
 
