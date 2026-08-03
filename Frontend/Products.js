@@ -94,6 +94,73 @@ LOAD PRODUCTS — Stage 4HIJ Redesign
 ============================================================
 */
 
+/*
+ ============================================================
+ PRODUCT SEARCH STATE & SORTING
+ ============================================================
+ */
+
+let currentProductSort = "relevance"; // relevance, price_asc, price_desc, newest, distance
+let currentProductFilter = "all"; // all, negotiable, delivery, cod
+
+function getProductSortLabel() {
+  const labels = {
+    relevance: "Most Relevant",
+    price_asc: "Price: Low to High",
+    price_desc: "Price: High to Low",
+    newest: "Newest First",
+    distance: "Nearest First"
+  };
+  return labels[currentProductSort] || "Most Relevant";
+}
+
+function sortProducts(products, sortBy) {
+  const sorted = [...products]; // Create a copy to avoid mutating original
+  
+  switch(sortBy) {
+    case "price_asc":
+      return sorted.sort((a, b) => (a.Price || 0) - (b.Price || 0));
+    case "price_desc":
+      return sorted.sort((a, b) => (b.Price || 0) - (a.Price || 0));
+    case "newest":
+      return sorted.sort((a, b) => {
+        const dateA = new Date(a.CreatedAt || a.PostedDate || 0);
+        const dateB = new Date(b.CreatedAt || b.PostedDate || 0);
+        return dateB - dateA;
+      });
+    case "distance":
+      return sorted.sort((a, b) => {
+        const distA = parseFloat(a.DistanceKm) || 999999;
+        const distB = parseFloat(b.DistanceKm) || 999999;
+        return distA - distB;
+      });
+    case "relevance":
+    default:
+      // Keep original API order (usually relevance-based)
+      return sorted;
+  }
+}
+
+function filterProducts(products, filterType) {
+  switch(filterType) {
+    case "negotiable":
+      return products.filter(p => p.Negotiable === "Yes");
+    case "delivery":
+      return products.filter(p => p.Delivery === "Yes");
+    case "cod":
+      return products.filter(p => p.COD === "Yes");
+    case "all":
+    default:
+      return products;
+  }
+}
+
+/*
+ ============================================================
+ LOAD PRODUCTS — Stage 4HIJ Redesign
+ ============================================================
+ */
+
 async function loadProducts() {
   const container = document.getElementById("productList");
   if (!container) return;
@@ -108,82 +175,126 @@ async function loadProducts() {
     const products = (json.data && json.data.data) || [];
 
     if (products.length === 0) {
-      container.innerHTML = '<div class="hij-empty"><i class="material-icons">shopping_bag</i><p>No Products Found.</p></div>';
+      container.innerHTML = `
+        <div class="searchResultsHeader searchActiveState">
+          <div class="searchResultsHeader-top">
+            <div class="searchResultsCount">No products found</div>
+          </div>
+        </div>
+        <div class="hij-empty"><i class="material-icons">shopping_bag</i><p>No Products Found.</p></div>
+      `;
       if (typeof renderHomeProductsPreview === "function") {
         renderHomeProductsPreview(products);
       }
       return;
     }
 
-    // Marketplace Toolbar (full-width, outside product grid)
-    let toolbarHtml = `
-      <div class="product-marketplace-toolbar">
-        <div class="product-marketplace-count">
-          <strong>${products.length}</strong> ${products.length === 1 ? 'Product' : 'Products'} Found
+    // Store all products
+    CURRENT_PRODUCTS = products;
+    
+    // Apply filters and sorting
+    const filteredProducts = filterProducts(products, currentProductFilter);
+    const sortedProducts = sortProducts(filteredProducts, currentProductSort);
+
+    // Premium Search Results Header
+    let headerHtml = `
+      <div class="searchResultsHeader ${sortedProducts.length > 0 ? 'searchActiveState' : ''}">
+        <div class="searchResultsHeader-top">
+          <div class="searchResultsCount">
+            <strong>${sortedProducts.length}</strong> ${sortedProducts.length === 1 ? 'Product' : 'Products'} Found
+            ${currentProductFilter !== 'all' ? `<span style="font-weight:400;color:#888;">(filtered from ${products.length})</span>` : ''}
+          </div>
+          <div class="searchResultsActions">
+            <button class="searchResultsActionBtn" onclick="toggleProductFilters()">
+              <i class="material-icons">filter_list</i>
+              Filters
+            </button>
+          </div>
         </div>
-        <div class="product-marketplace-actions">
-          <button class="product-marketplace-actionBtn" onclick="event.stopPropagation(); alert('Filters coming soon')">
-            <i class="material-icons">filter_list</i>
-            Filter
-          </button>
-          <button class="product-marketplace-actionBtn" onclick="event.stopPropagation(); alert('Sort coming soon')">
-            <i class="material-icons">sort</i>
-            Sort
-          </button>
+        <div class="searchResultsMeta">
+          <span><i class="material-icons">location_on</i> ${getRadius()}</span>
+          <span><i class="material-icons">sort</i> ${getProductSortLabel()}</span>
+          ${currentProductFilter !== 'all' ? `<span><i class="material-icons">check_circle</i> ${currentProductFilter}</span>` : ''}
         </div>
+      </div>
+    `;
+
+    // Sort/Filter Bar
+    let sortBarHtml = `
+      <div class="searchSortBar">
+        <label class="sortLabel">Sort by:</label>
+        <select class="searchSortSelect" onchange="changeProductSort(this.value)">
+          <option value="relevance" ${currentProductSort === 'relevance' ? 'selected' : ''}>Most Relevant</option>
+          <option value="price_asc" ${currentProductSort === 'price_asc' ? 'selected' : ''}>Price: Low to High</option>
+          <option value="price_desc" ${currentProductSort === 'price_desc' ? 'selected' : ''}>Price: High to Low</option>
+          <option value="newest" ${currentProductSort === 'newest' ? 'selected' : ''}>Newest First</option>
+          <option value="distance" ${currentProductSort === 'distance' ? 'selected' : ''}>Nearest First</option>
+        </select>
       </div>
     `;
 
     let html = '<div class="product-listing">';
 
-    products.forEach(product => {
-      const images = getProductImages(product);
-      const firstImage = images.length > 0 ? images[0] : "";
-      const imageCount = images.length;
-      const title = productSafeRender(product.Title) || "-";
-      const price = (product.Price || 0).toLocaleString();
-      const category = productSafeRender(product.Category);
-      const city = productSafeRender(product.City);
-      const state = productSafeRender(product.State);
-      const desc = productSafeRender(product.Description);
-      const distance = productSafeRender(product.DistanceKm);
-      const condition = productSafeRender(product.Condition);
-      const negotiable = product.Negotiable === "Yes";
-
-      const productId = product.ProductID || product.productId || "";
-      
+    if (sortedProducts.length === 0) {
       html += `
-        <div class="productCard" onclick='showProductDetailsById("${productId}")'>
-          ${firstImage
-            ? `<div class="productCard-img"><img src="${firstImage}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'productCard-img productCard-imgPlaceholder\\'><i class=\\'material-icons\\'>broken_image</i></div>'"></div>`
-            : `<div class="productCard-img productCard-imgPlaceholder"><i class="material-icons">shopping_bag</i></div>`
-          }
-          <div class="productCard-body">
-            <div class="productCard-title">${title}</div>
-            <div class="productCard-price">₹ ${price}</div>
-            <div class="productCard-meta">
-              ${category ? `<span>${category}</span>` : ""}
-              ${city ? `<span>${city}${state ? ", " + state : ""}</span>` : ""}
-            </div>
-            ${desc ? `<div class="productCard-desc">${desc}</div>` : ""}
-            <div class="productCard-badges">
-              ${distance ? `<span class="productCard-badge distance">${distance} KM</span>` : ""}
-              ${condition ? `<span class="productCard-badge condition">${condition}</span>` : ""}
-              ${negotiable ? `<span class="productCard-badge negotiable">Negotiable</span>` : ""}
-              ${imageCount > 1 ? `<span class="productCard-badge">+${imageCount - 1} photos</span>` : ""}
-            </div>
-            <div class="productCard-actions">
-              <button class="productCard-btnPrimary" onclick='event.stopPropagation();showProductDetailsById("${productId}")'>View Details</button>
-            </div>
-          </div>
+        <div class="hij-empty">
+          <i class="material-icons">filter_list_off</i>
+          <p>No products match your filters.</p>
+          <button onclick="resetProductFilters()" style="margin-top:12px;padding:10px 20px;background:var(--primary);color:#fff;border:none;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;">
+            Clear Filters
+          </button>
         </div>
       `;
-    });
+    } else {
+      sortedProducts.forEach(product => {
+        const images = getProductImages(product);
+        const firstImage = images.length > 0 ? images[0] : "";
+        const imageCount = images.length;
+        const title = productSafeRender(product.Title) || "-";
+        const price = (product.Price || 0).toLocaleString();
+        const category = productSafeRender(product.Category);
+        const city = productSafeRender(product.City);
+        const state = productSafeRender(product.State);
+        const desc = productSafeRender(product.Description);
+        const distance = productSafeRender(product.DistanceKm);
+        const condition = productSafeRender(product.Condition);
+        const negotiable = product.Negotiable === "Yes";
+
+        const productId = product.ProductID || product.productId || "";
+        
+        html += `
+          <div class="productCard" onclick='showProductDetailsById("${productId}")'>
+            ${firstImage
+              ? `<div class="productCard-img"><img src="${firstImage}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'productCard-img productCard-imgPlaceholder\\'><i class=\\'material-icons\\'>broken_image</i></div>'"></div>`
+              : `<div class="productCard-img productCard-imgPlaceholder"><i class="material-icons">shopping_bag</i></div>`
+            }
+            <div class="productCard-body">
+              <div class="productCard-title">${title}</div>
+              <div class="productCard-price">₹ ${price}</div>
+              <div class="productCard-meta">
+                ${category ? `<span>${category}</span>` : ""}
+                ${city ? `<span>${city}${state ? ", " + state : ""}</span>` : ""}
+              </div>
+              ${desc ? `<div class="productCard-desc">${desc}</div>` : ""}
+              <div class="productCard-badges">
+                ${distance ? `<span class="productCard-badge distance">${distance} KM</span>` : ""}
+                ${condition ? `<span class="productCard-badge condition">${condition}</span>` : ""}
+                ${negotiable ? `<span class="productCard-badge negotiable">Negotiable</span>` : ""}
+                ${imageCount > 1 ? `<span class="productCard-badge">+${imageCount - 1} photos</span>` : ""}
+              </div>
+              <div class="productCard-actions">
+                <button class="productCard-btnPrimary" onclick='event.stopPropagation();showProductDetailsById("${productId}")'>View Details</button>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    }
 
     html += '</div>';
     
-    // Combine toolbar + product grid
-    container.innerHTML = toolbarHtml + html;
+    // Combine header + sort bar + product grid
+    container.innerHTML = headerHtml + sortBarHtml + html;
 
     // Store products for detail view lookup
     CURRENT_PRODUCTS = products;
@@ -194,8 +305,42 @@ async function loadProducts() {
     }
   } catch (err) {
     console.log(err);
-    container.innerHTML = '<div class="hij-error"><i class="material-icons">error_outline</i><p>Unable to load products.</p></div>';
+    container.innerHTML = `
+      <div class="hij-error">
+        <i class="material-icons">error_outline</i>
+        <p>Unable to load products.</p>
+        <button onclick="loadProducts()" style="margin-top:12px;padding:10px 20px;background:var(--primary);color:#fff;border:none;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;">
+          Retry
+        </button>
+      </div>
+    `;
   }
+}
+
+/*
+ ============================================================
+ PRODUCT SORT & FILTER CONTROLS
+ ============================================================
+ */
+
+function changeProductSort(sortBy) {
+  currentProductSort = sortBy;
+  loadProducts(); // Reload with new sort
+}
+
+function toggleProductFilters() {
+  // Simple filter toggle - can be enhanced with a modal later
+  const filters = ['all', 'negotiable', 'delivery', 'cod'];
+  const currentIndex = filters.indexOf(currentProductFilter);
+  const nextIndex = (currentIndex + 1) % filters.length;
+  currentProductFilter = filters[nextIndex];
+  loadProducts(); // Reload with new filter
+}
+
+function resetProductFilters() {
+  currentProductSort = "relevance";
+  currentProductFilter = "all";
+  loadProducts(); // Reload with defaults
 }
 
 
@@ -318,12 +463,12 @@ function showProductDetails(product) {
   // Back button
   html += `<button class="hij-backBtn" onclick="loadProducts()"><i class="material-icons">arrow_back</i> Back to Products</button>`;
 
-  // Image section
+  // Product Image Slider or Placeholder
   if (images.length > 0) {
     html += productImageSliderHTML(product);
   } else {
     html += `
-      <div class="hij-detail-image">
+      <div class="hij-detail-image hij-detail-image-placeholder">
         <i class="material-icons">shopping_bag</i>
       </div>
     `;
