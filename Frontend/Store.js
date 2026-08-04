@@ -56,14 +56,14 @@ function openStore(businessId) {
       } else {
         container.innerHTML =
           '<div class="hij-empty"><i class="material-icons">store</i><p>Store not found</p></div>' +
-          '<button class="hij-backBtn" onclick="openPage(\'home\')"><i class="material-icons">arrow_back</i> Back</button>';
+          '<button class="hij-backBtn" onclick="goBack()"><i class="material-icons">arrow_back</i> Back</button>';
       }
     })
     .catch(function(err) {
       console.log("Store error:", err);
       container.innerHTML =
         '<div class="hij-error"><i class="material-icons">error_outline</i><p>Error loading store</p></div>' +
-        '<button class="hij-backBtn" onclick="openPage(\'home\')"><i class="material-icons">arrow_back</i> Back</button>';
+        '<button class="hij-backBtn" onclick="goBack()"><i class="material-icons">arrow_back</i> Back</button>';
     });
 }
 
@@ -116,7 +116,7 @@ function renderStore(data, businessId) {
   var html = "";
 
   // Back button
-  html += '<button class="hij-backBtn" onclick="openPage(\'home\')"><i class="material-icons">arrow_back</i> Back</button>';
+  html += '<button class="hij-backBtn" onclick="goBack()"><i class="material-icons">arrow_back</i> Back</button>';
 
   // Store Header
   html += '<div class="store-hij-header">';

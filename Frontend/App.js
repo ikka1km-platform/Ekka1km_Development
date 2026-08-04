@@ -247,11 +247,43 @@ function refreshDrawerIdentity() {
 
 /*
 ============================================================
-PAGE NAVIGATION
+PAGE NAVIGATION — WITH INTERNAL HISTORY STACK
 ============================================================
 */
 
-function openPage(pageId) {
+let navStack = [];
+
+// Pages that represent "root" sections; navigating to them clears history
+const ROOT_PAGES = [
+  "home",
+  "login",
+  "register"
+];
+
+// List pages whose data is overwritten by in-page detail views
+// Functions are resolved at call-time because they are defined in later scripts
+const LIST_PAGE_IDS = [
+  "businesses",
+  "products",
+  "properties",
+  "news"
+];
+
+function getListRestoreFn(pageId) {
+  switch (pageId) {
+    case "businesses": return typeof loadBusinesses === "function" ? loadBusinesses : null;
+    case "products":   return typeof loadProducts   === "function" ? loadProducts   : null;
+    case "properties": return typeof loadProperties === "function" ? loadProperties : null;
+    case "news":       return typeof loadNews       === "function" ? loadNews       : null;
+    default:           return null;
+  }
+}
+
+function canGoBack() {
+  return navStack.length > 0;
+}
+
+function switchPage(pageId) {
 
   const pages =
     document.querySelectorAll(
@@ -372,6 +404,86 @@ function openPage(pageId) {
 
   window.scrollTo(0, 0);
 }
+
+function openPage(pageId) {
+
+  const current = getCurrentPageId();
+
+  // Avoid no-op navigations
+  if (current === pageId) return;
+
+  // Root pages clear history (Home, Login, Register)
+  if (ROOT_PAGES.includes(pageId)) {
+    navStack = [];
+  } else {
+    // Avoid duplicate consecutive entries
+    const top = navStack.length > 0
+      ? navStack[navStack.length - 1]
+      : null;
+
+    if (top === current) {
+      // Already on top of stack — don't push again
+    } else if (top === pageId) {
+      // Target is already on top — skip
+      return;
+    } else {
+      navStack.push(current);
+    }
+  }
+
+  // Keep stack bounded to avoid memory issues
+  if (navStack.length > 50) {
+    navStack = navStack.slice(navStack.length - 50);
+  }
+
+  // Sync browser history for Android hardware back support
+  if (window.history && window.history.pushState) {
+    try {
+      history.pushState({pageId: pageId}, "", "#" + pageId);
+    } catch (e) {
+      // silent
+    }
+  }
+
+  switchPage(pageId);
+}
+
+function goBack() {
+
+  if (navStack.length === 0) return;
+
+  const current = getCurrentPageId();
+  const pageId = navStack.pop();
+
+  // Restore list data if we are leaving a detail view
+  const restoreFn = getListRestoreFn(current);
+  if (restoreFn) {
+    restoreFn();
+  }
+
+  // Update browser history to reflect the back navigation
+  if (window.history && window.history.replaceState) {
+    try {
+      history.replaceState({pageId: pageId}, "", "#" + pageId);
+    } catch (e) {
+      // silent
+    }
+  }
+
+  switchPage(pageId);
+}
+
+// Android / WebView hardware back button support
+window.addEventListener(
+  "popstate",
+  function(e) {
+    if (navStack.length > 0) {
+      e.preventDefault();
+      goBack();
+    }
+    // If stack is empty, allow default browser behaviour (e.g., exit app)
+  }
+);
 
 /*
 BOTTOM NAVIGATION ACTIVE STATE
@@ -1057,7 +1169,7 @@ function renderDashboard(data) {
 
   // 1. PREMIUM HEADER
   html += '<div class="dashboardPremiumHeader">';
-  html += '<button class="dashboardBackBtn" onclick="openPage(\'home\')"><i class="material-icons">arrow_back</i></button>';
+  html += '<button class="dashboardBackBtn" onclick="goBack()"><i class="material-icons">arrow_back</i></button>';
   html += '<h2 class="dashboardHeaderTitle">Dashboard</h2>';
   html += '<button class="dashboardSettingsBtn" onclick="openPage(\'profile\')"><i class="material-icons">settings</i></button>';
   html += '</div>';

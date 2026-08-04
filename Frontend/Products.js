@@ -465,7 +465,7 @@ function showProductDetails(product) {
   let html = '<div class="hij-detail">';
 
   // Back button
-  html += `<button class="hij-backBtn" onclick="loadProducts()"><i class="material-icons">arrow_back</i> Back to Products</button>`;
+  html += `<button class="hij-backBtn" onclick="goBack()"><i class="material-icons">arrow_back</i> Back to Products</button>`;
 
   // Product Image Slider or Placeholder
   if (images.length > 0) {

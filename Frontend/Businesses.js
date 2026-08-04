@@ -241,7 +241,7 @@ function showBusinessDetails(business) {
   let html = '<div class="hij-detail">';
 
   // Back button
-  html += `<button class="hij-backBtn" onclick="loadBusinesses()"><i class="material-icons">arrow_back</i> Back to Businesses</button>`;
+  html += `<button class="hij-backBtn" onclick="goBack()"><i class="material-icons">arrow_back</i> Back to Businesses</button>`;
 
   // Cover + Logo
   html += '<div style="position:relative;margin-bottom:14px;">';

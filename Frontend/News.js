@@ -337,7 +337,7 @@ function showNewsDetails(item) {
   const source = newsSafeRender(item.Source);
 
   let html = `
-    <button class="hij-backBtn" onclick="loadNews()"><i class="material-icons">arrow_back</i> Back to News</button>
+    <button class="hij-backBtn" onclick="goBack()"><i class="material-icons">arrow_back</i> Back to News</button>
 
     <div class="card" style="padding:0;overflow:hidden;">
       ${hasImage ? `
@@ -405,7 +405,7 @@ function showNewsDetails(item) {
       <div id="relatedNewsList"><div class="card">Loading related news...</div></div>
     </div>
 
-    <button onclick="loadNews()" class="btn-gray">
+    <button onclick="goBack()" class="btn-gray">
       ← Back to News
     </button>
   `;
