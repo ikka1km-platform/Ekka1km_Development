@@ -1,0 +1,10 @@
+{
+  "appId": "com.ekka1km.app",
+  "appName": "Ekka1km",
+  "webDir": "www",
+  "server": {
+    "url": "https://ekka1km.ikka1-km.workers.dev",
+    "cleartext": false
+  }
+}
+

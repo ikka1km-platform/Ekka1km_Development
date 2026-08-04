@@ -350,14 +350,21 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
           </div>
 
           <div class="locationCard-value" id="gpsText">
-            Civil Lines
+            Shree Shree Ranthambore Ganeshji Temple
           </div>
 
           <div class="locationCard-subtitle" id="locationSubtitle">
-            Raipur, Chhattisgarh
+            Tirla, Madhya Pradesh
           </div>
 
         </div>
+
+        <button
+          class="locationCard-useCurrentBtn"
+          onclick="event.stopPropagation(); useCurrentLocation()">
+          <span class="material-icons">location_on</span>
+          Use Current Location
+        </button>
 
         <span class="material-icons locationCard-arrow">
           expand_more

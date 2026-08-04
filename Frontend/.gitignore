@@ -1,0 +1,17 @@
+# Node
+node_modules/
+npm-debug.log
+
+# Capacitor build output
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/local.properties
+
+# Android Studio
+*.iml
+
+# Release APKs
+Release/
+

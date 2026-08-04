@@ -483,8 +483,21 @@ function reverseGeocodeLocation(lat, lng) {
     .then(function(res) {
 
       if (!res || !res.address) {
-        // Load discovery with GPS coords; Hero Card keeps
-        // its canonical/default resolved names.
+        // Save GPS coords with a readable name even when
+        // reverse geocoding returns no structured address.
+        const displayName =
+          (res && (res.display_name || res.name)) ||
+          "Current Location";
+
+        saveLocation(
+          lat,
+          lng,
+          "Current Location",
+          "",
+          "",
+          displayName
+        );
+
         updateLocationCard();
         loadAll();
         return;
@@ -530,8 +543,17 @@ function reverseGeocodeLocation(lat, lng) {
       loadAll();
     })
     .catch(function() {
-      // Ensure discovery still loads even if reverse
-      // geocoding is unavailable.
+      // Save GPS coords even when reverse geocoding fails
+      // so the location is persisted for future launches.
+      saveLocation(
+        lat,
+        lng,
+        "Current Location",
+        "",
+        "",
+        "Current Location"
+      );
+
       updateLocationCard();
       loadAll();
     });
@@ -545,6 +567,127 @@ GPS
 */
 
 function loadLocation() {
+
+  const gpsText =
+    document.getElementById(
+      "gpsText"
+    );
+
+  const locationSubtitle =
+    document.getElementById(
+      "locationSubtitle"
+    );
+
+  // Determine whether this is a first launch.
+  // A first launch means no persisted location object yet.
+  const savedLocationData =
+    localStorage.getItem(
+      CONFIG.STORAGE_KEYS.LOCATION
+    );
+
+  if (savedLocationData) {
+
+    // Subsequent launch — use stored location immediately.
+    // GPS refresh only happens when the user explicitly
+    // taps "Use Current Location".
+    updateLocationCard();
+    loadAll();
+    return;
+  }
+
+  // First launch — show the canonical fallback location
+  // immediately, then attempt GPS in the background.
+  updateLocationCard();
+
+  if (
+    !navigator.geolocation
+  ) {
+
+    // No geolocation support — persist the fallback
+    // so future launches skip GPS auto-detection.
+    const fallback =
+      getSavedLocation();
+
+    saveLocation(
+      fallback.lat,
+      fallback.lng,
+      fallback.area,
+      fallback.city,
+      fallback.state,
+      fallback.name ||
+        fallback.area + ", " + fallback.city + ", " + fallback.state
+    );
+
+    loadAll();
+    return;
+  }
+
+  navigator.geolocation
+    .getCurrentPosition(
+
+      position => {
+
+        CURRENT_LAT =
+          position.coords.latitude;
+
+        CURRENT_LNG =
+          position.coords.longitude;
+
+        // Reverse geocode so the canonical location object
+        // carries real names, not placeholders.
+        reverseGeocodeLocation(
+          CURRENT_LAT,
+          CURRENT_LNG
+        );
+      },
+
+      () => {
+
+        // GPS failed on first launch — persist the exact
+        // fallback location (Ranthambore Temple) so it is
+        // reused on subsequent launches instead of Jaipur.
+        const fallback =
+          getSavedLocation();
+
+        saveLocation(
+          fallback.lat,
+          fallback.lng,
+          fallback.area,
+          fallback.city,
+          fallback.state,
+          fallback.name ||
+            fallback.area + ", " + fallback.city + ", " + fallback.state
+        );
+
+        updateLocationCard();
+        loadAll();
+      },
+
+      {
+        enableHighAccuracy:
+          CONFIG.GPS.HIGH_ACCURACY,
+
+        timeout:
+          CONFIG.GPS.TIMEOUT,
+
+        maximumAge:
+          CONFIG.GPS.MAXIMUM_AGE
+      }
+    );
+}
+
+
+/*
+============================================================
+USE CURRENT LOCATION (HERO BUTTON)
+============================================================
+
+Forces a GPS refresh when the user taps the Hero Card
+"Use Current Location" button. Updates the Hero Card,
+persists the new coordinates/address, and refreshes all
+discovery modules WITHOUT a page reload.
+*/
+function useCurrentLocation() {
 
   const gpsText =
     document.getElementById(
@@ -574,6 +717,17 @@ function loadLocation() {
     return;
   }
 
+  // Show temporary loading state
+  if (gpsText) {
+    gpsText.innerText =
+      "Detecting location...";
+  }
+
+  if (locationSubtitle) {
+    locationSubtitle.innerText =
+      "Please wait";
+  }
+
   navigator.geolocation
     .getCurrentPosition(
 
@@ -585,8 +739,6 @@ function loadLocation() {
         CURRENT_LNG =
           position.coords.longitude;
 
-        // Reverse geocode so the canonical location object
-        // carries real names, not placeholders.
         reverseGeocodeLocation(
           CURRENT_LAT,
           CURRENT_LNG
@@ -595,6 +747,8 @@ function loadLocation() {
 
       () => {
 
+        // GPS failed — restore saved coordinates and
+        // refresh UI/content without changing location.
         const saved =
           getSavedLocation();
 
@@ -604,10 +758,7 @@ function loadLocation() {
         CURRENT_LNG =
           saved.lng;
 
-        // Reuse whatever resolved object we already have
-        // (GPS, manual, or defaults) for the Hero Card.
         updateLocationCard();
-
         loadAll();
       },
 

@@ -48,12 +48,12 @@ const CONFIG = {
   ============================================================
   */
 
-  DEFAULT_LATITUDE: 26.9124,
-  DEFAULT_LONGITUDE: 75.7873,
+  DEFAULT_LATITUDE: 22.5801613,
+  DEFAULT_LONGITUDE: 75.2382794,
   DEFAULT_RADIUS: "51",
-  DEFAULT_AREA: "Jaipur",
-  DEFAULT_CITY: "Jaipur",
-  DEFAULT_STATE: "Rajasthan",
+  DEFAULT_AREA: "Shree Shree Ranthambore Ganeshji Temple",
+  DEFAULT_CITY: "Tirla",
+  DEFAULT_STATE: "Madhya Pradesh",
 
   /*
   ============================================================
