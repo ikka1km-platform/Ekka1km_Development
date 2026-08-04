@@ -58,7 +58,7 @@ function getStore(e) {
     var products = getSheetData("Products");
     var productsCount = 0;
     products.forEach(function(p) {
-      if (String(p.UserID) === String(business.UserID)) {
+      if (String(p.BusinessID) === String(businessId)) {
         productsCount++;
       }
     });
@@ -106,17 +106,47 @@ function getStoreProducts(e) {
     var business = getRowById("Businesses", "BusinessID", businessId);
     if (!business) return error("Business not found");
 
-    var ownerUserId = business.UserID;
     var allProducts = getSheetData("Products");
     var storeProducts = [];
 
     allProducts.forEach(function(p) {
-      if (String(p.UserID) === String(ownerUserId)) {
+      if (String(p.BusinessID) === String(businessId)) {
         storeProducts.push(p);
       }
     });
 
     return success({ count: storeProducts.length, data: storeProducts }, "Store products loaded");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ============================================================
+ * GET STORE PROPERTIES
+ * ?action=getstoreproperties&businessId=B001
+ * ============================================================
+ */
+function getStoreProperties(e) {
+  try {
+    var businessId = e && e.parameter ? e.parameter.businessId || "" : "";
+    if (!businessId) return error("businessId required");
+
+    var business = getRowById("Businesses", "BusinessID", businessId);
+    if (!business) return error("Business not found");
+
+    var allProperties = getSheetData("Properties");
+    var storeProperties = [];
+
+    allProperties.forEach(function(prop) {
+      if (String(prop.BusinessID) === String(businessId)) {
+        storeProperties.push(prop);
+      }
+    });
+
+    return success({ count: storeProperties.length, data: storeProperties }, "Store properties loaded");
 
   } catch (err) {
     return exception(err);
@@ -136,8 +166,6 @@ function getStoreAnalytics(e) {
 
     var business = getRowById("Businesses", "BusinessID", businessId);
     if (!business) return error("Business not found");
-
-    var ownerUserId = business.UserID;
 
     // Only Active followers
     var followers = getSheetData("BusinessFollowers") || [];
@@ -168,7 +196,7 @@ function getStoreAnalytics(e) {
     var products = getSheetData("Products");
     var productsCount = 0;
     products.forEach(function(p) {
-      if (String(p.UserID) === String(ownerUserId)) productsCount++;
+      if (String(p.BusinessID) === String(businessId)) productsCount++;
     });
 
     return success({

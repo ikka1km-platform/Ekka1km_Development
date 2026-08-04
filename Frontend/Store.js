@@ -175,10 +175,18 @@ function renderStore(data, businessId) {
   html += '<div id="storeProductsList"><p style="text-align:center;color:#888;font-size:13px;">Loading products...</p></div>';
   html += '</div>';
 
+  // Properties Section
+  html += '<div class="store-hij-section">';
+  html += '<h3>Properties</h3>';
+  html += '<div id="storePropertiesList"><p style="text-align:center;color:#888;font-size:13px;">Loading properties...</p></div>';
+  html += '</div>';
+
   container.innerHTML = html;
 
   // Load products separately
-  loadStoreProducts(businessId, business.UserID);
+  loadStoreProducts(businessId);
+  // Load properties separately
+  loadStoreProperties(businessId);
 }
 
 
@@ -188,7 +196,7 @@ LOAD STORE PRODUCTS (Preserved)
 ============================================================
 */
 
-function loadStoreProducts(businessId, ownerUserId) {
+function loadStoreProducts(businessId) {
   var url = getApiUrl() +
     "?action=getstoreproducts" +
     "&businessId=" + encodeURIComponent(businessId);
@@ -214,6 +222,40 @@ function loadStoreProducts(businessId, ownerUserId) {
     })
     .catch(function(err) {
       console.log("Store products error:", err);
+    });
+}
+
+
+/* ============================================================
+   LOAD STORE PROPERTIES
+   ============================================================ */
+
+function loadStoreProperties(businessId) {
+  var url = getApiUrl() +
+    "?action=getstoreproperties" +
+    "&businessId=" + encodeURIComponent(businessId);
+
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      var list = document.getElementById("storePropertiesList");
+      if (!list) return;
+
+      if (res && res.success && res.data && res.data.data && res.data.data.length > 0) {
+        var html = "";
+        res.data.data.forEach(function(p) {
+          html += '<div class="store-hij-productItem">' +
+            '<span class="store-hij-productName">' + (p.Title || "Property") + '</span>' +
+            '<span class="store-hij-productPrice">₹' + (p.Price || "0") + '</span>' +
+            '</div>';
+        });
+        list.innerHTML = html;
+      } else {
+        list.innerHTML = '<p style="text-align:center;color:#888;font-size:13px;">No properties yet</p>';
+      }
+    })
+    .catch(function(err) {
+      console.log("Store properties error:", err);
     });
 }
 

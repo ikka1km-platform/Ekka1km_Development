@@ -17,6 +17,7 @@ function openPostPropertyForm() {
   openPage("postProperty");
   clearPropertyForm();
   setTimeout(initPropertyImageUploads, 100);
+  if (typeof showPublishAsCard === "function") showPublishAsCard("property");
 }
 
 /*
@@ -81,6 +82,7 @@ function submitProperty() {
 
   var formData = {
     userId: userId,
+    businessId: (typeof getPublishAsBusinessId === "function" && !isEdit) ? getPublishAsBusinessId("property") : "",
     title: title,
     description: document.getElementById("propDesc").value.trim(),
     category: document.getElementById("propType").value,
@@ -89,8 +91,8 @@ function submitProperty() {
     city: document.getElementById("propCity").value.trim(),
     state: document.getElementById("propState").value.trim(),
     pincode: "",
-    latitude: "",
-    longitude: "",
+    latitude: getCenterLat(),
+    longitude: getCenterLng(),
     image: images,
     status: "Pending"
   };
@@ -132,6 +134,7 @@ UPDATE PROPERTY
 */
 
 function updatePropertyForm(propertyId, existingProperty) {
+  if (typeof clearPublishAsIndicator === "function") clearPublishAsIndicator("property");
   var userId = getUserId();
   if (!userId) {
     requireLogin();

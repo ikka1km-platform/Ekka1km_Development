@@ -69,6 +69,8 @@ function submitNews() {
     author: document.getElementById("newsAuthor").value.trim(),
     city: document.getElementById("newsCity").value.trim(),
     state: document.getElementById("newsState").value.trim(),
+    latitude: getCenterLat(),
+    longitude: getCenterLng(),
     status: "Pending"
   };
 

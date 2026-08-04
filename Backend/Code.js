@@ -462,6 +462,9 @@ case "liveunreadcount":
       case "getstoreproducts":
         return getStoreProducts(e);
 
+      case "getstoreproperties":
+        return getStoreProperties(e);
+
       case "getstoreanalytics":
         return getStoreAnalytics(e);
 

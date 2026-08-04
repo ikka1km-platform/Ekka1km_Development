@@ -95,6 +95,9 @@ function createProduct(e) {
       status = "Pending";
     }
 
+    var latitude = p.latitude || p.lat || "";
+    var longitude = p.longitude || p.lng || "";
+
     sheet.appendRow([
       productId,
       userId,
@@ -104,8 +107,8 @@ function createProduct(e) {
       p.price || "",
       p.category || "",
       p.imageURL || "",
-      p.lat || "",
-      p.lng || "",
+      latitude,
+      longitude,
       status,
       new Date(),
       0,
@@ -310,6 +313,19 @@ function createProperty(e) {
       status,
       new Date()
     ]);
+
+    // Publish-As: store the selected BusinessID on the new property.
+    // Header-name based write (reuses the existing updateRow helper) so it
+    // is safe regardless of the BusinessID column's position, and silently
+    // no-ops if the column is absent. Personal listings send no businessId,
+    // so this block is skipped and BusinessID stays blank.
+    if (p.businessId) {
+      try {
+        updateRow("Properties", "PropertyID", propertyId, { BusinessID: p.businessId });
+      } catch (be) {
+        Logger.log("Property BusinessID set error: " + be);
+      }
+    }
 
     try {
       if (typeof trackEvent === "function") {

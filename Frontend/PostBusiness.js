@@ -78,8 +78,8 @@ function submitBusiness() {
     city: document.getElementById("bizCity").value.trim(),
     state: document.getElementById("bizState").value.trim(),
     pincode: document.getElementById("bizPincode").value.trim(),
-    latitude: "",
-    longitude: "",
+    latitude: getCenterLat(),
+    longitude: getCenterLng(),
     logo: document.getElementById("bizLogo").value.trim(),
     coverImage: document.getElementById("bizCoverImage").value.trim(),
     status: "Pending"

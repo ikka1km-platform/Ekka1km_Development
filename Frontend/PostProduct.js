@@ -20,6 +20,7 @@ function openPostProductForm() {
   if (typeof initProductImageUploads === "function") {
     initProductImageUploads();
   }
+  if (typeof showPublishAsCard === "function") showPublishAsCard("product");
 }
 
 /*
@@ -77,6 +78,7 @@ function submitProduct() {
 
   var formData = {
     userId: userId,
+    businessId: (typeof getPublishAsBusinessId === "function" && !isEdit) ? getPublishAsBusinessId("product") : "",
     title: title,
     description: document.getElementById("prodDesc").value.trim(),
     price: price,
@@ -90,6 +92,8 @@ function submitProduct() {
     city: document.getElementById("prodCity").value.trim(),
     state: document.getElementById("prodState").value.trim(),
     pincode: document.getElementById("prodPincode").value.trim(),
+    latitude: getCenterLat(),
+    longitude: getCenterLng(),
     phone: document.getElementById("prodPhone").value.trim(),
     whatsapp: document.getElementById("prodWhatsapp").value.trim(),
     delivery: document.getElementById("prodDelivery").value,
@@ -135,6 +139,7 @@ UPDATE PRODUCT
 */
 
 function updateProductForm(productId) {
+  if (typeof clearPublishAsIndicator === "function") clearPublishAsIndicator("product");
   var userId = getUserId();
   if (!userId) {
     requireLogin();
