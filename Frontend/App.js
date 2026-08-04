@@ -405,6 +405,38 @@ function switchPage(pageId) {
   window.scrollTo(0, 0);
 }
 
+function enterDetailView(pageId) {
+
+  const current = getCurrentPageId();
+
+  // Always push the current page onto navStack for back navigation
+  if (current) {
+    const top = navStack.length > 0
+      ? navStack[navStack.length - 1]
+      : null;
+
+    if (top !== current) {
+      navStack.push(current);
+    }
+  }
+
+  // Keep stack bounded to avoid memory issues
+  if (navStack.length > 50) {
+    navStack = navStack.slice(navStack.length - 50);
+  }
+
+  // Sync browser history for Android hardware back support
+  if (window.history && window.history.pushState) {
+    try {
+      history.pushState({pageId: pageId}, "", "#" + pageId);
+    } catch (e) {
+      // silent
+    }
+  }
+
+  switchPage(pageId);
+}
+
 function openPage(pageId) {
 
   const current = getCurrentPageId();

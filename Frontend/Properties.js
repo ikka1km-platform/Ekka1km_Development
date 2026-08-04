@@ -327,7 +327,7 @@ function showPropertyDetails(property) {
   html += '</div>'; // hij-detail
 
   container.innerHTML = html;
-  openPage("properties");
+  enterDetailView("properties");
 }
 
 

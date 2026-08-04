@@ -608,7 +608,7 @@ function showProductDetails(product) {
   html += '</div>'; // hij-detail
 
   container.innerHTML = html;
-  openPage("products");
+  enterDetailView("products");
 }
 
 

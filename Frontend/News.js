@@ -411,7 +411,7 @@ function showNewsDetails(item) {
   `;
 
   container.innerHTML = html;
-  openPage("news");
+  enterDetailView("news");
 
   // Load related news
   loadRelatedNews(item.NewsID || item.id);

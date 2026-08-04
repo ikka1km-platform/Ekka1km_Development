@@ -326,7 +326,7 @@ function showBusinessDetails(business) {
   html += '</div>'; // hij-detail
 
   container.innerHTML = html;
-  openPage("businesses");
+  enterDetailView("businesses");
   trackBusinessView();
 }
 
