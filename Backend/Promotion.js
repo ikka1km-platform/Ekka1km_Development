@@ -344,7 +344,6 @@ function getPipQueue(e) {
     var now = new Date();
     var result = [];
     
-    console.log("Phase5.7C: Campaign Count:", campaigns.length);
 
     campaigns.forEach(function(c) {
       try {
@@ -421,13 +420,11 @@ function getPipQueue(e) {
             
             if (userCompleted) return;
           } catch (histErr) {
-            console.log("Phase5.7C: History filter error:", histErr.toString());
           }
         }
 
         result.push(c);
       } catch (campErr) {
-        console.log("Phase5.7C: Error processing campaign:", campErr.toString());
       }
     });
 
@@ -452,7 +449,6 @@ function getPipQueue(e) {
           return 0;
         });
       } catch (sortErr) {
-        console.log("Phase5.7C: Sort error:", sortErr.toString());
       }
     }
 
@@ -463,11 +459,9 @@ function getPipQueue(e) {
       try {
         trackAdAnalytics(ad.CampaignID, "impression");
       } catch (trackErr) {
-        console.log("Phase5.7C: Track error:", trackErr.toString());
       }
     });
 
-    console.log("Phase5.7C: Queue result - total:", result.length, "queue:", queue.length);
 
     return success({
       queue: queue,
@@ -476,7 +470,6 @@ function getPipQueue(e) {
     }, "PIP Queue Loaded");
 
   } catch (err) {
-    console.log("Phase5.7C: getPipQueue error:", err.toString());
     return success({
       queue: [],
       total: 0,
@@ -663,7 +656,6 @@ function getAdvertisementCenter(e) {
 
         result.push(c);
       } catch (campErr) {
-        console.log("Phase5.7C: AdCenter campaign error:", campErr.toString());
       }
     });
 
@@ -677,7 +669,6 @@ function getAdvertisementCenter(e) {
           }
         });
       } catch (progErr) {
-        console.log("Phase5.7C: Progress map error:", progErr.toString());
       }
     }
 
@@ -744,7 +735,6 @@ function getAdvertisementCenter(e) {
           PageContent: c.PageContent || ""
         };
       } catch (mapErr) {
-        console.log("Phase5.7C: Map error:", mapErr.toString());
         return null;
       }
     }).filter(function(item) { return item !== null; });
@@ -755,7 +745,6 @@ function getAdvertisementCenter(e) {
     }, "Advertisement Center Loaded");
 
   } catch (err) {
-    console.log("Phase5.7C: getAdvertisementCenter error:", err.toString());
     return success({
       count: 0,
       data: []
@@ -2638,7 +2627,6 @@ function getPromotedNearYou(e) {
 
         result.push(publicCampaign);
       } catch (campErr) {
-        console.log("Phase5.7C: Campaign filter error:", campErr.toString());
       }
     });
 
@@ -2661,7 +2649,6 @@ function getPromotedNearYou(e) {
     }, "Promoted Near You Loaded");
 
   } catch (err) {
-    console.log("Phase5.7C: getPromotedNearYou error:", err.toString());
     return success({
       count: 0,
       data: []
