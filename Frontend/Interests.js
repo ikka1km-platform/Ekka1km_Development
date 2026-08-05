@@ -85,24 +85,39 @@ function renderMyInterests(data) {
 
   interests.forEach(function(item) {
     var type = interestSafeRender(item.Type) || interestSafeRender(item.type) || "General";
-    var title = interestSafeRender(item.Title) || interestSafeRender(item.title) || "-";
+
+    // Nested target row — the actual Product/Business/Property/News record
+    var targetData = item.targetData || item.targetdata || {};
+
+    // Title — read from the nested target row first (per content type), then the interest envelope
+    var title = interestSafeRender(targetData.Title) || interestSafeRender(targetData.BusinessName) || interestSafeRender(targetData.Name) || interestSafeRender(item.Title) || interestSafeRender(item.title) || "-";
     var refId = interestSafeRender(item.ReferenceID) || interestSafeRender(item.referenceId) || interestSafeRender(item.id) || "";
     var interestId = interestSafeRender(item.InterestID) || interestSafeRender(item.interestId) || "";
     var status = interestSafeRender(item.Status) || interestSafeRender(item.status) || "";
     var createdAt = interestSafeRender(item.CreatedDate) || interestSafeRender(item.createdAt) || "";
 
     // Image extraction from nested targetData (per content type)
-    // Product/Property → Images (first), News → Image, Business → Logo, otherwise CoverImage
-    var targetData = item.targetData || item.targetdata || {};
+    // Product → ImageURL (then Image2..Image5, like getProductImages()),
+    // Property → Images (CSV, first), News → Image, Business → CoverImage then Logo
     var img = "";
-    if (targetData.Images) {
+    if (targetData.ImageURL) {
+      img = String(targetData.ImageURL).trim();
+    } else if (targetData.Image2) {
+      img = String(targetData.Image2).trim();
+    } else if (targetData.Image3) {
+      img = String(targetData.Image3).trim();
+    } else if (targetData.Image4) {
+      img = String(targetData.Image4).trim();
+    } else if (targetData.Image5) {
+      img = String(targetData.Image5).trim();
+    } else if (targetData.Images) {
       img = String(targetData.Images).split(",")[0].trim();
     } else if (targetData.Image) {
       img = String(targetData.Image).trim();
-    } else if (targetData.Logo) {
-      img = String(targetData.Logo).trim();
     } else if (targetData.CoverImage) {
       img = String(targetData.CoverImage).trim();
+    } else if (targetData.Logo) {
+      img = String(targetData.Logo).trim();
     }
 
     // Price extraction (Product/Property only; absent for Business/News)
