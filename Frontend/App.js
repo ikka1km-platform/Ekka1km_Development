@@ -251,7 +251,7 @@ PAGE NAVIGATION — WITH INTERNAL HISTORY STACK
 ============================================================
 */
 
-let navStack = [];
+let navStack = []; // Array of stage descriptors: { pageId, stage, entityId }
 
 // Pages that represent "root" sections; navigating to them clears history
 const ROOT_PAGES = [
@@ -268,6 +268,29 @@ const LIST_PAGE_IDS = [
   "properties",
   "news"
 ];
+
+function buildStage(pageId, stage, entityId) {
+  return { pageId: pageId, stage: stage, entityId: entityId || null };
+}
+
+function inferStage(pageId) {
+  if (!pageId) return "root";
+  if (ROOT_PAGES.includes(pageId)) return "root";
+  if (LIST_PAGE_IDS.includes(pageId)) return "list";
+  return "page";
+}
+
+function stageEquals(a, b) {
+  if (!a || !b) return a === b;
+  return a.pageId === b.pageId && a.stage === b.stage;
+}
+
+function getCurrentStage() {
+  if (navStack.length > 0) {
+    return navStack[navStack.length - 1];
+  }
+  return buildStage(getCurrentPageId(), inferStage(getCurrentPageId()));
+}
 
 function getListRestoreFn(pageId) {
   switch (pageId) {
@@ -405,34 +428,33 @@ function switchPage(pageId) {
   window.scrollTo(0, 0);
 }
 
-function enterDetailView(pageId) {
+function pushStage(pageId, stage, entityId) {
+  const descriptor = buildStage(pageId, stage, entityId);
+  navStack.push(descriptor);
 
-  const current = getCurrentPageId();
-
-  // Always push the current page onto navStack for back navigation
-  if (current) {
-    const top = navStack.length > 0
-      ? navStack[navStack.length - 1]
-      : null;
-
-    if (top !== current) {
-      navStack.push(current);
-    }
-  }
-
-  // Keep stack bounded to avoid memory issues
   if (navStack.length > 50) {
     navStack = navStack.slice(navStack.length - 50);
   }
 
-  // Sync browser history for Android hardware back support
   if (window.history && window.history.pushState) {
     try {
-      history.pushState({pageId: pageId}, "", "#" + pageId);
+      history.pushState(descriptor, "", "#" + pageId);
     } catch (e) {
       // silent
     }
   }
+}
+
+function enterDetailView(pageId, entityId) {
+  const currentStage = getCurrentStage();
+
+  // Push the current stage if it's not already on top of navStack
+  if (navStack.length === 0 || !stageEquals(navStack[navStack.length - 1], currentStage)) {
+    pushStage(currentStage.pageId, currentStage.stage, currentStage.entityId);
+  }
+
+  // Push the detail stage
+  pushStage(pageId, "detail", entityId);
 
   switchPage(pageId);
 }
@@ -444,50 +466,34 @@ function openPage(pageId) {
   // Avoid no-op navigations
   if (current === pageId) return;
 
-  // Root pages clear history (Home, Login, Register)
-  if (ROOT_PAGES.includes(pageId)) {
+  const isRoot = ROOT_PAGES.includes(pageId);
+
+  // Root pages clear previous history
+  if (isRoot) {
     navStack = [];
-  } else {
-    // Avoid duplicate consecutive entries
-    const top = navStack.length > 0
-      ? navStack[navStack.length - 1]
-      : null;
-
-    if (top === current) {
-      // Already on top of stack — don't push again
-    } else if (top === pageId) {
-      // Target is already on top — skip
-      return;
-    } else {
-      navStack.push(current);
-    }
   }
 
-  // Keep stack bounded to avoid memory issues
-  if (navStack.length > 50) {
-    navStack = navStack.slice(navStack.length - 50);
+  const currentStage = getCurrentStage();
+
+  // Push the current stage if it's not already on top of navStack
+  if (!isRoot && (navStack.length === 0 || !stageEquals(navStack[navStack.length - 1], currentStage))) {
+    pushStage(currentStage.pageId, currentStage.stage, currentStage.entityId);
   }
 
-  // Sync browser history for Android hardware back support
-  if (window.history && window.history.pushState) {
-    try {
-      history.pushState({pageId: pageId}, "", "#" + pageId);
-    } catch (e) {
-      // silent
-    }
-  }
+  // Push the target stage
+  pushStage(pageId, inferStage(pageId));
 
   switchPage(pageId);
 }
 
 function goBack() {
 
-  if (navStack.length === 0) return;
+  if (navStack.length <= 1) return;
+
+  navStack.pop(); // Remove current stage
+  const prev = navStack[navStack.length - 1];
 
   const current = getCurrentPageId();
-  const pageId = navStack.pop();
-
-  // Restore list data if we are leaving a detail view
   const restoreFn = getListRestoreFn(current);
   if (restoreFn) {
     restoreFn();
@@ -496,24 +502,45 @@ function goBack() {
   // Update browser history to reflect the back navigation
   if (window.history && window.history.replaceState) {
     try {
-      history.replaceState({pageId: pageId}, "", "#" + pageId);
+      history.replaceState(prev, "", "#" + prev.pageId);
     } catch (e) {
       // silent
     }
   }
 
-  switchPage(pageId);
+  switchPage(prev.pageId);
 }
 
 // Android / WebView hardware back button support
 window.addEventListener(
   "popstate",
   function(e) {
-    if (navStack.length > 0) {
-      e.preventDefault();
-      goBack();
+    const state = e.state;
+    if (!state || !state.pageId) return;
+
+    const stage = buildStage(
+      state.pageId,
+      state.stage || inferStage(state.pageId),
+      state.entityId
+    );
+
+    // Reconcile navStack with the browser's current position
+    while (navStack.length > 0 && !stageEquals(navStack[navStack.length - 1], stage)) {
+      navStack.pop();
     }
-    // If stack is empty, allow default browser behaviour (e.g., exit app)
+
+    // Ensure navStack describes the visible stage
+    if (navStack.length === 0 || !stageEquals(navStack[navStack.length - 1], stage)) {
+      navStack.push(stage);
+    }
+
+    const current = getCurrentPageId();
+    const restoreFn = current && current !== stage.pageId ? getListRestoreFn(current) : null;
+    if (restoreFn) {
+      restoreFn();
+    }
+
+    switchPage(stage.pageId);
   }
 );
 
