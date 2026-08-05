@@ -43,8 +43,8 @@ function markInterested(e) {
       return error("userId, targetType, and targetId required");
     }
 
-    if (targetType !== "Product" && targetType !== "Property") {
-      return error("targetType must be Product or Property");
+    if (targetType !== "Product" && targetType !== "Property" && targetType !== "Business" && targetType !== "News") {
+      return error("targetType must be Product, Property, Business, or News");
     }
 
     // Get owner of the target
@@ -56,7 +56,15 @@ function markInterested(e) {
     } else if (targetType === "Property") {
       var property = getRowById("Properties", "PropertyID", targetId);
       if (!property) return error("Property not found");
-      ownerUserId = property.UserID || "";
+      ownerUserId = property.UserID || property.OwnerUserID || "";
+    } else if (targetType === "Business") {
+      var business = getRowById("Businesses", "BusinessID", targetId);
+      if (!business) return error("Business not found");
+      ownerUserId = business.UserID || business.OwnerUserID || "";
+    } else if (targetType === "News") {
+      var news = getRowById("News", "NewsID", targetId);
+      if (!news) return error("News not found");
+      ownerUserId = news.UserID || "";
     }
 
     // Seller cannot mark own items
@@ -105,10 +113,17 @@ function markInterested(e) {
       }
     }
 
-    // Track event (ProductInterested or PropertyInterested)
+    // Track event (ProductInterested, PropertyInterested, BusinessInterested, NewsInterested)
     try {
       if (typeof trackEvent === "function") {
-        var eventType = targetType === "Property" ? "PropertyInterested" : "ProductInterested";
+        var eventType = "ProductInterested";
+        if (targetType === "Property") {
+          eventType = "PropertyInterested";
+        } else if (targetType === "Business") {
+          eventType = "BusinessInterested";
+        } else if (targetType === "News") {
+          eventType = "NewsInterested";
+        }
         trackEvent({
           parameter: { eventType: eventType, userId: userId, entityType: targetType, entityId: targetId }
         });
@@ -136,10 +151,11 @@ function removeInterest(e) {
   try {
     var p = e && e.parameter ? e.parameter : {};
     var userId = p.userId || "";
-    var targetType = p.targetType || "";
-    var targetId = p.targetId || "";
+    var targetType = p.targetType || p.type || "";
+    var targetId = p.targetId || p.referenceId || "";
+    var interestId = p.interestId || "";
 
-    if (!userId || !targetType || !targetId) {
+    if (!userId || (!targetType && !interestId) || (!targetId && !interestId)) {
       return error("userId, targetType, and targetId required");
     }
 
@@ -147,16 +163,35 @@ function removeInterest(e) {
     if (!sheet) return error("No interests found");
 
     var data = sheet.getDataRange().getValues();
-    for (var i = 1; i < data.length; i++) {
-      if (String(data[i][1]) === String(userId) && String(data[i][2]) === targetType && String(data[i][3]) === targetId) {
-        // Soft delete
-        sheet.getRange(i + 1, 6).setValue("Removed");
-        sheet.getRange(i + 1, 8).setValue(new Date());
+    var existingRow = -1;
 
-        invalidateDashboardCache(userId);
-
-        return success({ isInterested: false }, "Interest removed successfully");
+    // If interestId is provided, look up the row by InterestID
+    if (interestId) {
+      for (var i = 1; i < data.length; i++) {
+        if (String(data[i][0]) === String(interestId) && String(data[i][1]) === String(userId)) {
+          targetType = data[i][2];
+          targetId = data[i][3];
+          existingRow = i + 1;
+          break;
+        }
       }
+    } else {
+      for (var i = 1; i < data.length; i++) {
+        if (String(data[i][1]) === String(userId) && String(data[i][2]) === targetType && String(data[i][3]) === targetId) {
+          existingRow = i + 1;
+          break;
+        }
+      }
+    }
+
+    if (existingRow > 0) {
+      // Soft delete
+      sheet.getRange(existingRow, 6).setValue("Removed");
+      sheet.getRange(existingRow, 8).setValue(new Date());
+
+      invalidateDashboardCache(userId);
+
+      return success({ isInterested: false }, "Interest removed successfully");
     }
 
     return error("Interest not found");
@@ -187,13 +222,24 @@ function getMyInterests(e) {
           targetData = getRowById("Products", "ProductID", i.TargetID);
         } else if (i.TargetType === "Property") {
           targetData = getRowById("Properties", "PropertyID", i.TargetID);
+        } else if (i.TargetType === "Business") {
+          targetData = getRowById("Businesses", "BusinessID", i.TargetID);
+        } else if (i.TargetType === "News") {
+          targetData = getRowById("News", "NewsID", i.TargetID);
         }
+
+        var title = targetData ? (targetData.Title || targetData.BusinessName || targetData.Name || "-") : "-";
 
         result.push({
           interestId: i.InterestID,
           targetType: i.TargetType,
           targetId: i.TargetID,
           targetData: targetData,
+          Type: i.TargetType,
+          Title: title,
+          ReferenceID: i.TargetID,
+          Status: i.Status || "Active",
+          CreatedDate: i.CreatedDate,
           date: i.CreatedDate
         });
       }

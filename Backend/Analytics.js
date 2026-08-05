@@ -68,6 +68,9 @@ function trackEvent(e) {
         // For interactive events (Interest, Enquiry, Lead) - BLOCK with error
         if (
           eventType === "ProductInterested" ||
+          eventType === "PropertyInterested" ||
+          eventType === "BusinessInterested" ||
+          eventType === "NewsInterested" ||
           eventType === "BusinessEnquiry" ||
           eventType === "LeadCreated"
         ) {

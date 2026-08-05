@@ -195,6 +195,8 @@ function getUserAnalyticsSummary(userId) {
     var followers = 0;
     var productInterestedCount = 0;
     var propertyInterestedCount = 0;
+    var businessInterestedCount = 0;
+    var newsInterestedCount = 0;
     var promotionPerformance = { views: 0, clicks: 0, interested: 0, ctr: 0 };
 
     // Batch read once
@@ -236,6 +238,12 @@ function getUserAnalyticsSummary(userId) {
       if (eventType === "PropertyInterested") {
         propertyInterestedCount++;
       }
+      if (eventType === "BusinessInterested") {
+        businessInterestedCount++;
+      }
+      if (eventType === "NewsInterested") {
+        newsInterestedCount++;
+      }
       if (eventType === "LeadCreated" || eventType === "BusinessEnquiry") {
         totalEnquiries++;
       }
@@ -255,6 +263,10 @@ function getUserAnalyticsSummary(userId) {
       if (String(i.OwnerUserID) === String(userId) && String(i.Status || "Active") !== "Removed") {
         if (i.TargetType === "Property") {
           propertyInterestedCount++;
+        } else if (i.TargetType === "Business") {
+          businessInterestedCount++;
+        } else if (i.TargetType === "News") {
+          newsInterestedCount++;
         } else {
           productInterestedCount++;
         }
@@ -276,7 +288,9 @@ function getUserAnalyticsSummary(userId) {
       followers: followers,
       productInterestedCount: productInterestedCount,
       propertyInterestedCount: propertyInterestedCount,
-      totalInterestedCount: productInterestedCount + propertyInterestedCount,
+      businessInterestedCount: businessInterestedCount,
+      newsInterestedCount: newsInterestedCount,
+      totalInterestedCount: productInterestedCount + propertyInterestedCount + businessInterestedCount + newsInterestedCount,
       promotionPerformance: promotionPerformance
     };
 
@@ -284,7 +298,8 @@ function getUserAnalyticsSummary(userId) {
     Logger.log("getUserAnalyticsSummary error: " + err.toString());
     return {
       totalViews: 0, totalEnquiries: 0, followers: 0,
-      productInterestedCount: 0, propertyInterestedCount: 0, totalInterestedCount: 0,
+      productInterestedCount: 0, propertyInterestedCount: 0,
+      businessInterestedCount: 0, newsInterestedCount: 0, totalInterestedCount: 0,
       promotionPerformance: { views: 0, clicks: 0, interested: 0, ctr: 0 }
     };
   }

@@ -377,7 +377,7 @@ function renderHomeProductsPreview(products) {
           : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">shopping_bag</span></div>`
         }
         ${isFeatured ? `<div class="homePreviewCard-featured">Featured</div>` : ""}
-        <div class="homePreviewCard-wishlist" onclick='event.stopPropagation(); toggleWishlist(this, "${productId}")'>
+        <div class="homePreviewCard-wishlist" onclick='event.stopPropagation(); toggleInterest(this, "${productId}", "Product")'>
           <i class="material-icons">favorite_border</i>
         </div>
         <div class="homePreviewCard-body">
@@ -695,11 +695,19 @@ async function sendInterest() {
     return;
   }
 
-  if (typeof notifyProductInterest === "function") {
-    notifyProductInterest(CURRENT_PRODUCT);
-  }
+  const productId = CURRENT_PRODUCT.ProductID || CURRENT_PRODUCT.productId || "";
 
-  alert("Interest request sent to seller.");
+  try {
+    const url = `${getApiUrl()}?action=markinterested&userId=${encodeURIComponent(userId)}&targetType=Product&targetId=${encodeURIComponent(productId)}`;
+    const res = await fetch(url).then(r => r.json());
+    if (res && res.success) {
+      alert("Interest request sent to seller.");
+    } else {
+      alert(res.message || "Failed to send interest");
+    }
+  } catch (err) {
+    alert("Error sending interest");
+  }
 }
 
 

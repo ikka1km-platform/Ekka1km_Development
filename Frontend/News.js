@@ -326,6 +326,8 @@ function showNewsDetails(item) {
   const trackUrl = `${getApiUrl()}?action=trackevent&eventType=NewsView&userId=${encodeURIComponent(userId)}&entityType=News&entityId=${encodeURIComponent(item.NewsID || item.id)}`;
   fetch(trackUrl).catch(() => {});
 
+  const isOwner = userId && (String(item.UserID) === String(userId) || String(item.OwnerUserID) === String(userId));
+
   const hasImage = item.Image && item.Image.trim();
   const hasVideo = item.VideoURL && item.VideoURL.trim();
   const title = newsSafeRender(item.Title) || "";
@@ -375,6 +377,21 @@ function showNewsDetails(item) {
           ${desc}
         </div>
       </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="card">
+      ${isOwner ? `
+        <div style="padding:12px;background:#fff3e0;border:1px solid #ffe0b2;border-radius:10px;color:#e65100;text-align:center;font-weight:600;font-size:14px;">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">info</i> You are the author of this news.
+        </div>
+      ` : `
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button onclick="sendNewsInterest()" style="flex:1;background:#d32f2f;color:#fff;">
+            <i class="material-icons" style="font-size:16px;vertical-align:middle;">favorite</i> I'm Interested
+          </button>
+        </div>
+      `}
     </div>
 
     <!-- Share Buttons -->
@@ -522,27 +539,92 @@ function trackShare() {
 }
 
 /*
-WISHLIST TOGGLE (Shared across home preview cards)
+INTEREST TOGGLE (Shared across home preview cards)
 */
 
-function toggleWishlist(element, itemId) {
+function toggleInterest(element, itemId, targetType) {
   if (!element) return;
+
+  const userId = getUserId();
+  if (!userId) {
+    requireLogin();
+    return;
+  }
+
   const isActive = element.classList.contains("active");
+  const icon = element.querySelector("i");
+
+  // Optimistic UI update
   if (isActive) {
     element.classList.remove("active");
-    const icon = element.querySelector("i");
     if (icon) icon.textContent = "favorite_border";
   } else {
     element.classList.add("active");
-    const icon = element.querySelector("i");
     if (icon) icon.textContent = "favorite";
   }
-  // Persist wishlist state (client-side only)
+
+  // Call backend
+  const action = isActive ? "removeinterest" : "markinterested";
+  const url = `${getApiUrl()}?action=${action}&userId=${encodeURIComponent(userId)}&targetType=${encodeURIComponent(targetType)}&targetId=${encodeURIComponent(itemId)}`;
+
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      if (!res || !res.success) {
+        // Revert on failure
+        if (isActive) {
+          element.classList.add("active");
+          if (icon) icon.textContent = "favorite";
+        } else {
+          element.classList.remove("active");
+          if (icon) icon.textContent = "favorite_border";
+        }
+        alert(res.message || "Failed to update interest");
+      }
+    })
+    .catch(function(err) {
+      console.log("Interest error:", err);
+      // Revert on error
+      if (isActive) {
+        element.classList.add("active");
+        if (icon) icon.textContent = "favorite";
+      } else {
+        element.classList.remove("active");
+        if (icon) icon.textContent = "favorite_border";
+      }
+      alert("Error updating interest");
+    });
+}
+
+
+/*
+============================================================
+INTEREST (Unified)
+============================================================
+*/
+
+async function sendNewsInterest() {
+  if (!requireLogin()) return;
+  if (!CURRENT_NEWS) return;
+
+  const userId = getUserId();
+  const authorId = CURRENT_NEWS.UserID || CURRENT_NEWS.OwnerUserID || "";
+  if (userId && authorId && String(userId) === String(authorId)) {
+    alert("You cannot interact with your own news.");
+    return;
+  }
+
+  const newsId = CURRENT_NEWS.NewsID || CURRENT_NEWS.id || "";
+
   try {
-    const key = "wishlist_" + itemId;
-    const current = localStorage.getItem(key) === "1";
-    localStorage.setItem(key, current ? "0" : "1");
-  } catch (e) {
-    // silent
+    const url = `${getApiUrl()}?action=markinterested&userId=${encodeURIComponent(userId)}&targetType=News&targetId=${encodeURIComponent(newsId)}`;
+    const res = await fetch(url).then(r => r.json());
+    if (res && res.success) {
+      alert("Interest request sent to news author.");
+    } else {
+      alert(res.message || "Failed to send interest");
+    }
+  } catch (err) {
+    alert("Error sending interest");
   }
 }

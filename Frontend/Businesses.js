@@ -162,7 +162,7 @@ function renderHomeBusinessesPreview(businesses) {
           ? `<div class="homePreviewCard-img"><img src="${coverImage}" alt="${escapeHtml(name)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>store</span></div>'"></div>`
           : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">store</span></div>`
         }
-        <div class="homePreviewCard-wishlist" onclick='event.stopPropagation(); toggleWishlist(this, "${businessId}")'>
+        <div class="homePreviewCard-wishlist" onclick='event.stopPropagation(); toggleInterest(this, "${businessId}", "Business")'>
           <i class="material-icons">favorite_border</i>
         </div>
         <div class="homePreviewCard-body">
@@ -296,17 +296,21 @@ function showBusinessDetails(business) {
           <i class="material-icons" style="font-size:18px;vertical-align:middle;">info</i> You are the owner of this business.
         </div>
       `;
+    } else {
+      html += `
+        <button onclick="sendBusinessInterest()">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">favorite</i> I'm Interested
+        </button>
+
+        <button onclick="callBusiness()">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Business
+        </button>
+
+        <button onclick="contactBusinessOwner()">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> Contact Owner
+        </button>
+      `;
     }
-
-    html += `
-      <button onclick="callBusiness()" ${isOwner ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
-        <i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Business
-      </button>
-
-      <button onclick="contactBusinessOwner()" ${isOwner ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
-        <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> Contact Owner
-      </button>
-    `;
   } else {
     html += `
       <div class="hij-detail-guest">
@@ -346,6 +350,39 @@ function trackBusinessView() {
 
     fetch(`${getApiUrl()}?action=trackevent&eventType=BusinessView&entityType=Business&entityId=${business.BusinessID}&userId=${userId || ""}&lat=${CURRENT_LAT}&lng=${CURRENT_LNG}`)
       .catch(err => console.log("trackBusinessView error:", err));
+  }
+}
+
+
+/*
+============================================================
+INTEREST (Unified)
+============================================================
+*/
+
+async function sendBusinessInterest() {
+  if (!requireLogin()) return;
+  if (!CURRENT_BUSINESS) return;
+
+  const userId = getUserId();
+  const ownerId = CURRENT_BUSINESS.OwnerUserID || CURRENT_BUSINESS.UserID || "";
+  if (userId && ownerId && String(userId) === String(ownerId)) {
+    alert("You cannot interact with your own business.");
+    return;
+  }
+
+  const businessId = CURRENT_BUSINESS.BusinessID || CURRENT_BUSINESS.businessId || "";
+
+  try {
+    const url = `${getApiUrl()}?action=markinterested&userId=${encodeURIComponent(userId)}&targetType=Business&targetId=${encodeURIComponent(businessId)}`;
+    const res = await fetch(url).then(r => r.json());
+    if (res && res.success) {
+      alert("Interest request sent to business owner.");
+    } else {
+      alert(res.message || "Failed to send interest");
+    }
+  } catch (err) {
+    alert("Error sending interest");
   }
 }
 

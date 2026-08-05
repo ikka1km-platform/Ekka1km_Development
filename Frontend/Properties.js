@@ -176,7 +176,7 @@ function renderHomePropertiesPreview(properties) {
           ? `<div class="homePreviewCard-img"><img src="${imgUrl}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>real_estate_agent</span></div>'"></div>`
           : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">real_estate_agent</span></div>`
         }
-        <div class="homePreviewCard-wishlist" onclick='event.stopPropagation(); toggleWishlist(this, "${prop.PropertyID || prop.propertyId || ""}")'>
+        <div class="homePreviewCard-wishlist" onclick='event.stopPropagation(); toggleInterest(this, "${prop.PropertyID || prop.propertyId || ""}", "Property")'>
           <i class="material-icons">favorite_border</i>
         </div>
         <div class="homePreviewCard-body">
@@ -223,6 +223,8 @@ function showPropertyDetails(property) {
   if (!container) return;
 
   const isLogin = !!getCurrentUser();
+  const userId = getUserId();
+  const isOwner = userId && (String(property.UserID) === String(userId) || String(property.OwnerUserID) === String(userId));
   const title = propertySafeRender(property.Title) || "-";
   const price = (property.Price || 0).toLocaleString();
   const desc = propertySafeRender(property.Description);
@@ -306,11 +308,20 @@ function showPropertyDetails(property) {
   html += '<div class="hij-detail-actions">';
 
   if (isLogin) {
-    html += '<button onclick="contactPropertySeller()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> Contact Seller</button>';
-    html += '<button onclick="getPropertyDirections()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">directions</i> Get Directions</button>';
+    if (isOwner) {
+      html += `
+        <div style="padding:12px;background:#fff3e0;border:1px solid #ffe0b2;border-radius:10px;color:#e65100;text-align:center;font-weight:600;font-size:14px;">
+          <i class="material-icons" style="font-size:18px;vertical-align:middle;">info</i> You are the owner of this property.
+        </div>
+      `;
+    } else {
+      html += '<button onclick="sendPropertyInterest()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">favorite</i> I\'m Interested</button>';
+      html += '<button onclick="contactPropertySeller()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> Contact Seller</button>';
+      html += '<button onclick="getPropertyDirections()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">directions</i> Get Directions</button>';
 
-    if (phone) {
-      html += '<button onclick="callPropertySeller(\'' + phone + '\')" style="background:#25D366;"><i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Seller</button>';
+      if (phone) {
+        html += '<button onclick="callPropertySeller(\'' + phone + '\')" style="background:#25D366;"><i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Seller</button>';
+      }
     }
   } else {
     html += '<div class="hij-detail-guest">';
@@ -328,6 +339,39 @@ function showPropertyDetails(property) {
 
   container.innerHTML = html;
   enterDetailView("properties");
+}
+
+
+/*
+============================================================
+INTEREST (Unified)
+============================================================
+*/
+
+async function sendPropertyInterest() {
+  if (!requireLogin()) return;
+  if (!CURRENT_PROPERTY) return;
+
+  const userId = getUserId();
+  const ownerId = CURRENT_PROPERTY.OwnerUserID || CURRENT_PROPERTY.UserID || "";
+  if (userId && ownerId && String(userId) === String(ownerId)) {
+    alert("You cannot interact with your own property.");
+    return;
+  }
+
+  const propertyId = CURRENT_PROPERTY.PropertyID || CURRENT_PROPERTY.propertyId || "";
+
+  try {
+    const url = `${getApiUrl()}?action=markinterested&userId=${encodeURIComponent(userId)}&targetType=Property&targetId=${encodeURIComponent(propertyId)}`;
+    const res = await fetch(url).then(r => r.json());
+    if (res && res.success) {
+      alert("Interest request sent to property seller.");
+    } else {
+      alert(res.message || "Failed to send interest");
+    }
+  } catch (err) {
+    alert("Error sending interest");
+  }
 }
 
 

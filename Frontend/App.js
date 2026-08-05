@@ -425,6 +425,12 @@ function switchPage(pageId) {
     }
   }
 
+  if (pageId === "interests") {
+    if (typeof loadMyInterests === "function") {
+      loadMyInterests();
+    }
+  }
+
   window.scrollTo(0, 0);
 }
 
