@@ -377,7 +377,7 @@ function renderHomeProductsPreview(products) {
           : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">shopping_bag</span></div>`
         }
         ${isFeatured ? `<div class="homePreviewCard-featured">Featured</div>` : ""}
-        <div class="homePreviewCard-wishlist" onclick='event.stopPropagation(); toggleInterest(this, "${productId}", "Product")'>
+        <div class="homePreviewCard-wishlist" data-interest-type="Product" data-interest-id="${productId}" onclick='event.stopPropagation(); toggleInterest(this, "${productId}", "Product")'>
           <i class="material-icons">favorite_border</i>
         </div>
         <div class="homePreviewCard-body">
@@ -390,6 +390,7 @@ function renderHomeProductsPreview(products) {
 
   html += '</div>';
   container.innerHTML = html;
+  if (typeof refreshInterestHearts === "function") refreshInterestHearts();
 }
 
 

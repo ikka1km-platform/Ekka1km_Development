@@ -162,7 +162,7 @@ function renderHomeBusinessesPreview(businesses) {
           ? `<div class="homePreviewCard-img"><img src="${coverImage}" alt="${escapeHtml(name)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>store</span></div>'"></div>`
           : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">store</span></div>`
         }
-        <div class="homePreviewCard-wishlist" onclick='event.stopPropagation(); toggleInterest(this, "${businessId}", "Business")'>
+        <div class="homePreviewCard-wishlist" data-interest-type="Business" data-interest-id="${businessId}" onclick='event.stopPropagation(); toggleInterest(this, "${businessId}", "Business")'>
           <i class="material-icons">favorite_border</i>
         </div>
         <div class="homePreviewCard-body">
@@ -176,6 +176,7 @@ function renderHomeBusinessesPreview(businesses) {
 
   html += '</div>';
   container.innerHTML = html;
+  if (typeof refreshInterestHearts === "function") refreshInterestHearts();
 }
 
 

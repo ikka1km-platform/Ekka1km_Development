@@ -176,7 +176,7 @@ function renderHomePropertiesPreview(properties) {
           ? `<div class="homePreviewCard-img"><img src="${imgUrl}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>real_estate_agent</span></div>'"></div>`
           : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">real_estate_agent</span></div>`
         }
-        <div class="homePreviewCard-wishlist" onclick='event.stopPropagation(); toggleInterest(this, "${prop.PropertyID || prop.propertyId || ""}", "Property")'>
+        <div class="homePreviewCard-wishlist" data-interest-type="Property" data-interest-id="${prop.PropertyID || prop.propertyId || ""}" onclick='event.stopPropagation(); toggleInterest(this, "${prop.PropertyID || prop.propertyId || ""}", "Property")'>
           <i class="material-icons">favorite_border</i>
         </div>
         <div class="homePreviewCard-body">
@@ -194,6 +194,7 @@ function renderHomePropertiesPreview(properties) {
 
   html += '</div>';
   container.innerHTML = html;
+  if (typeof refreshInterestHearts === "function") refreshInterestHearts();
 }
 
 
@@ -206,6 +207,29 @@ function showPropertyDetailsFromHome(property) {
   setTimeout(() => {
     showPropertyDetails(property);
   }, 50);
+}
+
+
+/*
+PROPERTY DETAILS BY ID — open detail from a saved interest / deep link
+Reuses ?action=property&id= and the existing showPropertyDetails() renderer.
+*/
+
+function showPropertyDetailsById(propertyId) {
+  if (!propertyId) return;
+  fetch(`${getApiUrl()}?action=property&id=${encodeURIComponent(propertyId)}`)
+    .then(r => r.json())
+    .then(res => {
+      if (res && res.success && res.data && typeof showPropertyDetails === "function") {
+        showPropertyDetails(res.data);
+      } else {
+        alert("Property not found.");
+      }
+    })
+    .catch(err => {
+      console.log("Property fetch error:", err);
+      alert("Unable to load property details.");
+    });
 }
 
 

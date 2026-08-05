@@ -703,14 +703,23 @@ VIEW INTEREST TARGET
 
 function viewInterestTarget(type, id) {
   if (!id) return;
+  // Delegate to the unified interest->detail navigator (handles all 4 types
+  // and reuses the existing detail pages). Falls back to legacy logic if absent.
+  if (typeof openInterestDetail === "function") {
+    openInterestDetail(type, id);
+    return;
+  }
   if (type === "Product") {
-    fetch(getApiUrl() + "?action=product&id=" + encodeURIComponent(id))
-      .then(function(r) { return r.json(); })
-      .then(function(res) {
-        if (res && res.success && res.data && typeof showProductDetails === "function") {
-          showProductDetails(res.data);
-        }
-      });
+    openPage("products");
+    setTimeout(function() {
+      fetch(getApiUrl() + "?action=product&id=" + encodeURIComponent(id))
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+          if (res && res.success && res.data && typeof showProductDetails === "function") {
+            showProductDetails(res.data);
+          }
+        });
+    }, 100);
   } else if (type === "Property") {
     openPage("properties");
     setTimeout(function() {

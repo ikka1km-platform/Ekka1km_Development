@@ -150,9 +150,13 @@ async function loadNews() {
       const desc = newsSafeRender(item.Description) || "";
       const city = newsSafeRender(item.City);
       const source = newsSafeRender(item.Source);
+      const newsId = item.NewsID || item.id || "";
 
       html += `
         <div class="newsCard-hij" onclick='showNewsDetails(${JSON.stringify(item)})'>
+          <div class="homePreviewCard-wishlist" data-interest-type="News" data-interest-id="${newsId}" onclick='event.stopPropagation(); toggleInterest(this, "${newsId}", "News")'>
+            <i class="material-icons">favorite_border</i>
+          </div>
           ${hasImage ? `
             <div class="newsCard-hij-img">
               <img src="${item.Image}" alt="${title}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'newsCard-hij-img newsCard-hij-imgPlaceholder\\'><i class=\\'material-icons\\'>newspaper</i></div>'">
@@ -191,6 +195,8 @@ async function loadNews() {
     if (typeof renderHomeNewsPreview === "function") {
       renderHomeNewsPreview(allNews);
     }
+    // Sync wishlist hearts (list cards above + any home preview cards) to saved state
+    if (typeof refreshInterestHearts === "function") refreshInterestHearts();
   } catch (err) {
     console.log(err);
     container.innerHTML = '<div class="hij-error"><i class="material-icons">error_outline</i><p>Unable to load news.</p></div>';
@@ -230,6 +236,9 @@ function renderHomeNewsPreview(news) {
           ? `<div class="homePreviewCard-img"><img src="${item.Image}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>newspaper</span></div>'"></div>`
           : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">newspaper</span></div>`
         }
+        <div class="homePreviewCard-wishlist" data-interest-type="News" data-interest-id="${item.NewsID || item.id || ""}" onclick='event.stopPropagation(); toggleInterest(this, "${item.NewsID || item.id || ""}", "News")'>
+          <i class="material-icons">favorite_border</i>
+        </div>
         <div class="homePreviewCard-body">
           <div class="homePreviewCard-title">${title}</div>
           <div class="homePreviewCard-meta">${timeAgoText}</div>
@@ -239,6 +248,7 @@ function renderHomeNewsPreview(news) {
 
   html += '</div>';
   container.innerHTML = html;
+  if (typeof refreshInterestHearts === "function") refreshInterestHearts();
 }
 
 /*
@@ -252,6 +262,29 @@ function showNewsDetailsFromHome(item) {
   setTimeout(() => {
     showNewsDetails(item);
   }, 50);
+}
+
+
+/*
+NEWS DETAILS BY ID — open detail from a saved interest / deep link
+Reuses ?action=article&id= and the existing showNewsDetails() renderer.
+*/
+
+function showNewsDetailsById(newsId) {
+  if (!newsId) return;
+  fetch(`${getApiUrl()}?action=article&id=${encodeURIComponent(newsId)}`)
+    .then(r => r.json())
+    .then(res => {
+      if (res && res.success && res.data && typeof showNewsDetails === "function") {
+        showNewsDetails(res.data);
+      } else {
+        alert("News article not found.");
+      }
+    })
+    .catch(err => {
+      console.log("News fetch error:", err);
+      alert("Unable to load news details.");
+    });
 }
 
 
@@ -283,8 +316,12 @@ async function loadNewsByCategory(category) {
 
     news.forEach(item => {
       const hasImage = item.Image && item.Image.trim();
+      const newsId = item.NewsID || item.id || "";
       html += `
         <div class="newsCard-hij" onclick='showNewsDetails(${JSON.stringify(item)})'>
+          <div class="homePreviewCard-wishlist" data-interest-type="News" data-interest-id="${newsId}" onclick='event.stopPropagation(); toggleInterest(this, "${newsId}", "News")'>
+            <i class="material-icons">favorite_border</i>
+          </div>
           ${hasImage ? `
             <div class="newsCard-hij-img">
               <img src="${item.Image}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
@@ -304,6 +341,7 @@ async function loadNewsByCategory(category) {
     });
 
     container.innerHTML = html;
+    if (typeof refreshInterestHearts === "function") refreshInterestHearts();
   } catch (err) {
     console.log(err);
     container.innerHTML = "<div class='card'>Unable to load category news.</div>";
@@ -570,7 +608,11 @@ function toggleInterest(element, itemId, targetType) {
   fetch(url)
     .then(function(r) { return r.json(); })
     .then(function(res) {
-      if (!res || !res.success) {
+      if (res && res.success) {
+        // Sync client cache + all visible hearts to the new saved state
+        if (typeof invalidateUserInterestCache === "function") invalidateUserInterestCache();
+        if (typeof refreshInterestHearts === "function") refreshInterestHearts();
+      } else {
         // Revert on failure
         if (isActive) {
           element.classList.add("active");
