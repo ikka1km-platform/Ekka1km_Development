@@ -91,10 +91,52 @@ function renderMyInterests(data) {
     var status = interestSafeRender(item.Status) || interestSafeRender(item.status) || "";
     var createdAt = interestSafeRender(item.CreatedDate) || interestSafeRender(item.createdAt) || "";
 
+    // Image extraction from nested targetData (per content type)
+    // Product/Property → Images (first), News → Image, Business → Logo, otherwise CoverImage
+    var targetData = item.targetData || item.targetdata || {};
+    var img = "";
+    if (targetData.Images) {
+      img = String(targetData.Images).split(",")[0].trim();
+    } else if (targetData.Image) {
+      img = String(targetData.Image).trim();
+    } else if (targetData.Logo) {
+      img = String(targetData.Logo).trim();
+    } else if (targetData.CoverImage) {
+      img = String(targetData.CoverImage).trim();
+    }
+
+    // Price extraction (Product/Property only; absent for Business/News)
+    var price = "";
+    if (targetData.Price !== undefined && targetData.Price !== null && targetData.Price !== "") {
+      var priceNum = Number(targetData.Price);
+      if (!isNaN(priceNum)) {
+        price = "₹ " + priceNum.toLocaleString();
+      }
+    }
+
+    // Per-type placeholder icon (matches Home preview cards)
+    var placeholderIcon = "favorite";
+    if (type === "Product") placeholderIcon = "shopping_bag";
+    else if (type === "Business") placeholderIcon = "store";
+    else if (type === "Property") placeholderIcon = "real_estate_agent";
+    else if (type === "News") placeholderIcon = "newspaper";
+
     html += '<div class="interest-hij-card">';
     html += '<div class="interest-hij-left">';
+
+    // Thumbnail — matches Home preview card style; placeholder shows through if image fails
+    html += '<div class="homePreviewCard-img homePreviewCard-imgPlaceholder" style="position:relative;flex-shrink:0;">';
+    html += '<span class="material-icons">' + placeholderIcon + '</span>';
+    if (img) {
+      html += '<img src="' + img + '" alt="' + title + '" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" onerror="this.style.display=\'none\'">';
+    }
+    html += '</div>';
+
     html += '<div class="interest-hij-type">' + type + '</div>';
     html += '<div class="interest-hij-title">' + title + '</div>';
+    if (price) {
+      html += '<div class="interest-hij-price" style="font-weight:600;color:var(--primary);font-size:14px;margin-top:2px;">' + price + '</div>';
+    }
     html += '<div class="interest-hij-meta">' +
       (status ? '<span>Status: ' + status + '</span>' : '') +
       (createdAt ? ' <span>' + createdAt + '</span>' : '') +
