@@ -251,304 +251,336 @@ PAGE NAVIGATION — WITH INTERNAL HISTORY STACK
 ============================================================
 */
 
-let navStack = []; // Array of stage descriptors: { pageId, stage, entityId }
+/*
+============================================================
+NAVIGATION MANAGER
+Stage-based navigation engine. Single source of truth
+for both the internal navigation stack and browser history.
+Only this module touches history.pushState(),
+history.replaceState(), history.back(), and navStack.
+============================================================
+*/
 
-// Pages that represent "root" sections; navigating to them clears history
-const ROOT_PAGES = [
-  "home",
-  "login",
-  "register"
-];
+const NavigationManager = (() => {
+  let _suppressPopState = false;
 
-// List pages whose data is overwritten by in-page detail views
-// Functions are resolved at call-time because they are defined in later scripts
-const LIST_PAGE_IDS = [
-  "businesses",
-  "products",
-  "properties",
-  "news"
-];
+  const ROOT_PAGES = new Set(["home", "login", "register"]);
+  const LIST_PAGE_IDS = new Set(["businesses", "products", "properties", "news"]);
+  const MAX_STACK = 50;
 
-function buildStage(pageId, stage, entityId) {
-  return { pageId: pageId, stage: stage, entityId: entityId || null };
-}
+  let navStack = [];
 
-function inferStage(pageId) {
-  if (!pageId) return "root";
-  if (ROOT_PAGES.includes(pageId)) return "root";
-  if (LIST_PAGE_IDS.includes(pageId)) return "list";
-  return "page";
-}
-
-function stageEquals(a, b) {
-  if (!a || !b) return a === b;
-  return a.pageId === b.pageId && a.stage === b.stage;
-}
-
-function getCurrentStage() {
-  if (navStack.length > 0) {
-    return navStack[navStack.length - 1];
-  }
-  return buildStage(getCurrentPageId(), inferStage(getCurrentPageId()));
-}
-
-function getListRestoreFn(pageId) {
-  switch (pageId) {
-    case "businesses": return typeof loadBusinesses === "function" ? loadBusinesses : null;
-    case "products":   return typeof loadProducts   === "function" ? loadProducts   : null;
-    case "properties": return typeof loadProperties === "function" ? loadProperties : null;
-    case "news":       return typeof loadNews       === "function" ? loadNews       : null;
-    default:           return null;
-  }
-}
-
-function canGoBack() {
-  return navStack.length > 0;
-}
-
-function switchPage(pageId) {
-
-  const pages =
-    document.querySelectorAll(
-      ".page"
-    );
-
-  pages.forEach(page => {
-    page.classList.remove(
-      "activePage"
-    );
-  });
-
-  const target =
-    document.getElementById(
-      pageId
-    );
-
-  if (target) {
-    target.classList.add(
-      "activePage"
-    );
+  function buildStage(pageId, stage, entityId) {
+    return { pageId: pageId, stage: stage, entityId: entityId || null };
   }
 
-  const header =
-    document.getElementById(
-      "appHeader"
-    );
+  function inferStage(pageId) {
+    if (!pageId) return "root";
+    if (ROOT_PAGES.has(pageId)) return "root";
+    if (LIST_PAGE_IDS.has(pageId)) return "list";
+    return "page";
+  }
 
-  const bottomNav =
-    document.getElementById(
-      "bottomNav"
-    );
+  function stageEquals(a, b) {
+    if (!a || !b) return a === b;
+    return a.pageId === b.pageId && a.stage === b.stage;
+  }
 
-  const disco =
-    document.getElementById(
-      "globalDisco"
-    );
+  function getCurrentStage() {
+    if (navStack.length > 0) {
+      return navStack[navStack.length - 1];
+    }
+    return buildStage(getCurrentPageId(), inferStage(getCurrentPageId()));
+  }
 
-  // Update Bottom Navigation Active State
-  updateBottomNavActiveState(pageId);
-
-  // Sync drawer active pill with current page
-  updateDrawerActiveState(pageId);
-
-  if (disco) {
-    const discoPages = ["home"];
-    const compactPages = ["products","businesses","properties","news","live"];
-
-    if (discoPages.includes(pageId)) {
-      disco.classList.remove("disco-compact");
-      disco.classList.add("disco-full");
-    } else if (compactPages.includes(pageId)) {
-      disco.classList.remove("disco-full");
-      disco.classList.add("disco-compact");
-      syncDiscoCompact();
-    } else {
-      disco.classList.remove("disco-full","disco-compact");
-      disco.style.display = "none";
+  function getListRestoreFn(pageId) {
+    switch (pageId) {
+      case "businesses": return typeof loadBusinesses === "function" ? loadBusinesses : null;
+      case "products":   return typeof loadProducts   === "function" ? loadProducts   : null;
+      case "properties": return typeof loadProperties === "function" ? loadProperties : null;
+      case "news":       return typeof loadNews       === "function" ? loadNews       : null;
+      default:           return null;
     }
   }
 
-  if (
-    pageId === "login" ||
-    pageId === "register"
-  ) {
-    if (header)
-      header.style.display =
-        "none";
+  function pushHistoryState(state, pageId) {
+    if (window.history && window.history.pushState) {
+      try {
+        history.pushState(state, "", "#" + pageId);
+      } catch (e) {
+        // silent
+      }
+    }
+  }
 
-    if (bottomNav)
-      bottomNav.style.display =
-        "none";
+  function replaceHistoryState(state, pageId) {
+    if (window.history && window.history.replaceState) {
+      try {
+        history.replaceState(state, "", "#" + pageId);
+      } catch (e) {
+        // silent
+      }
+    }
+  }
+
+  function canGoBack() {
+    return navStack.length > 0;
+  }
+
+  function switchPage(pageId) {
+
+    const pages =
+      document.querySelectorAll(
+        ".page"
+      );
+
+    pages.forEach(page => {
+      page.classList.remove(
+        "activePage"
+      );
+    });
+
+    const target =
+      document.getElementById(
+        pageId
+      );
+
+    if (target) {
+      target.classList.add(
+        "activePage"
+      );
+    }
+
+    const header =
+      document.getElementById(
+        "appHeader"
+      );
+
+    const bottomNav =
+      document.getElementById(
+        "bottomNav"
+      );
+
+    const disco =
+      document.getElementById(
+        "globalDisco"
+      );
+
+    // Update Bottom Navigation Active State
+    updateBottomNavActiveState(pageId);
+
+    // Sync drawer active pill with current page
+    updateDrawerActiveState(pageId);
+
+    if (disco) {
+      const discoPages = ["home"];
+      const compactPages = ["products","businesses","properties","news","live"];
+
+      if (discoPages.includes(pageId)) {
+        disco.classList.remove("disco-compact");
+        disco.classList.add("disco-full");
+      } else if (compactPages.includes(pageId)) {
+        disco.classList.remove("disco-full");
+        disco.classList.add("disco-compact");
+        syncDiscoCompact();
+      } else {
+        disco.classList.remove("disco-full","disco-compact");
+        disco.style.display = "none";
+      }
+    }
 
     if (
-      typeof autoFillMobile ===
-      "function"
+      pageId === "login" ||
+      pageId === "register"
     ) {
-      autoFillMobile();
+      if (header)
+        header.style.display =
+          "none";
+
+      if (bottomNav)
+        bottomNav.style.display =
+          "none";
+
+      if (
+        typeof autoFillMobile ===
+        "function"
+      ) {
+        autoFillMobile();
+      }
     }
-  }
-  else {
-    if (header)
-      header.style.display =
-        "flex";
+    else {
+      if (header)
+        header.style.display =
+          "flex";
 
-    if (bottomNav)
-      bottomNav.style.display =
-        "flex";
-  }
-
-  if (pageId === "adcenter") {
-    if (typeof openAdCenterPage === "function") {
-      setTimeout(openAdCenterPage, 100);
-    }
-  }
-
-  if (pageId === "dashboard") {
-    loadDashboard();
-  }
-
-  if (pageId === "myContent") {
-    if (typeof loadMyContent === "function") {
-      loadMyContent();
-    }
-  }
-
-  if (pageId === "orders") {
-    if (typeof loadOrdersPage === "function") {
-      loadOrdersPage();
-    }
-  }
-
-  if (pageId === "promotions") {
-    if (typeof openPromotionsPage === "function") {
-      openPromotionsPage();
-    }
-  }
-
-  if (pageId === "interests") {
-    if (typeof loadMyInterests === "function") {
-      loadMyInterests();
-    }
-  }
-
-  window.scrollTo(0, 0);
-}
-
-function pushStage(pageId, stage, entityId) {
-  const descriptor = buildStage(pageId, stage, entityId);
-  navStack.push(descriptor);
-
-  if (navStack.length > 50) {
-    navStack = navStack.slice(navStack.length - 50);
-  }
-
-  if (window.history && window.history.pushState) {
-    try {
-      history.pushState(descriptor, "", "#" + pageId);
-    } catch (e) {
-      // silent
-    }
-  }
-}
-
-function enterDetailView(pageId, entityId) {
-  const currentStage = getCurrentStage();
-
-  // Push the current stage if it's not already on top of navStack
-  if (navStack.length === 0 || !stageEquals(navStack[navStack.length - 1], currentStage)) {
-    pushStage(currentStage.pageId, currentStage.stage, currentStage.entityId);
-  }
-
-  // Push the detail stage
-  pushStage(pageId, "detail", entityId);
-
-  switchPage(pageId);
-}
-
-function openPage(pageId) {
-
-  const current = getCurrentPageId();
-
-  // Avoid no-op navigations
-  if (current === pageId) return;
-
-  const isRoot = ROOT_PAGES.includes(pageId);
-
-  // Root pages clear previous history
-  if (isRoot) {
-    navStack = [];
-  }
-
-  const currentStage = getCurrentStage();
-
-  // Push the current stage if it's not already on top of navStack
-  if (!isRoot && (navStack.length === 0 || !stageEquals(navStack[navStack.length - 1], currentStage))) {
-    pushStage(currentStage.pageId, currentStage.stage, currentStage.entityId);
-  }
-
-  // Push the target stage
-  pushStage(pageId, inferStage(pageId));
-
-  switchPage(pageId);
-}
-
-function goBack() {
-
-  if (navStack.length <= 1) return;
-
-  navStack.pop(); // Remove current stage
-  const prev = navStack[navStack.length - 1];
-
-  const current = getCurrentPageId();
-  const restoreFn = getListRestoreFn(current);
-  if (restoreFn) {
-    restoreFn();
-  }
-
-  // Update browser history to reflect the back navigation
-  if (window.history && window.history.replaceState) {
-    try {
-      history.replaceState(prev, "", "#" + prev.pageId);
-    } catch (e) {
-      // silent
-    }
-  }
-
-  switchPage(prev.pageId);
-}
-
-// Android / WebView hardware back button support
-window.addEventListener(
-  "popstate",
-  function(e) {
-    const state = e.state;
-    if (!state || !state.pageId) return;
-
-    const stage = buildStage(
-      state.pageId,
-      state.stage || inferStage(state.pageId),
-      state.entityId
-    );
-
-    // Reconcile navStack with the browser's current position
-    while (navStack.length > 0 && !stageEquals(navStack[navStack.length - 1], stage)) {
-      navStack.pop();
+      if (bottomNav)
+        bottomNav.style.display =
+          "flex";
     }
 
-    // Ensure navStack describes the visible stage
-    if (navStack.length === 0 || !stageEquals(navStack[navStack.length - 1], stage)) {
-      navStack.push(stage);
+    if (pageId === "adcenter") {
+      if (typeof openAdCenterPage === "function") {
+        setTimeout(openAdCenterPage, 100);
+      }
     }
+
+    if (pageId === "dashboard") {
+      loadDashboard();
+    }
+
+    if (pageId === "myContent") {
+      if (typeof loadMyContent === "function") {
+        loadMyContent();
+      }
+    }
+
+    if (pageId === "orders") {
+      if (typeof loadOrdersPage === "function") {
+        loadOrdersPage();
+      }
+    }
+
+    if (pageId === "promotions") {
+      if (typeof openPromotionsPage === "function") {
+        openPromotionsPage();
+      }
+    }
+
+    if (pageId === "interests") {
+      if (typeof loadMyInterests === "function") {
+        loadMyInterests();
+      }
+    }
+
+    window.scrollTo(0, 0);
+  }
+
+  function pushStage(pageId, stage, entityId) {
+    const descriptor = buildStage(pageId, stage, entityId);
+    navStack.push(descriptor);
+
+    if (navStack.length > MAX_STACK) {
+      navStack = navStack.slice(navStack.length - MAX_STACK);
+    }
+
+    pushHistoryState(descriptor, pageId);
+  }
+
+  function enterDetailView(pageId, entityId) {
+    const currentStage = getCurrentStage();
+
+    // Push the current stage if it's not already on top of navStack
+    if (navStack.length === 0 || !stageEquals(navStack[navStack.length - 1], currentStage)) {
+      pushStage(currentStage.pageId, currentStage.stage, currentStage.entityId);
+    }
+
+    // Push the detail stage
+    pushStage(pageId, "detail", entityId);
+
+    switchPage(pageId);
+  }
+
+  function openPage(pageId) {
 
     const current = getCurrentPageId();
-    const restoreFn = current && current !== stage.pageId ? getListRestoreFn(current) : null;
+
+    // Avoid no-op navigations
+    if (current === pageId) return;
+
+    const isRoot = ROOT_PAGES.has(pageId);
+
+    // Root pages clear previous history
+    if (isRoot) {
+      navStack = [];
+    }
+
+    const currentStage = getCurrentStage();
+
+    // Push the current stage if it's not already on top of navStack
+    if (!isRoot && (navStack.length === 0 || !stageEquals(navStack[navStack.length - 1], currentStage))) {
+      pushStage(currentStage.pageId, currentStage.stage, currentStage.entityId);
+    }
+
+    // Push the target stage
+    pushStage(pageId, inferStage(pageId));
+
+    switchPage(pageId);
+  }
+
+  function goBack() {
+
+    if (navStack.length <= 1) return;
+
+    navStack.pop(); // Remove current stage
+    const prev = navStack[navStack.length - 1];
+
+    const current = getCurrentPageId();
+    const restoreFn = getListRestoreFn(current);
     if (restoreFn) {
       restoreFn();
     }
 
-    switchPage(stage.pageId);
+    _suppressPopState = true;
+    try {
+      history.back();
+    } catch (e) {
+      _suppressPopState = false;
+      replaceHistoryState(prev, prev.pageId);
+    }
+
+    // Safety net: reset suppress flag if popstate is delayed
+    setTimeout(() => { _suppressPopState = false; }, 50);
+
+    switchPage(prev.pageId);
   }
-);
+
+  // Browser back / popstate handler
+  window.addEventListener(
+    "popstate",
+    function(e) {
+      if (_suppressPopState) {
+        _suppressPopState = false;
+        return;
+      }
+
+      const state = e.state;
+      if (!state || !state.pageId) return;
+
+      const stage = buildStage(
+        state.pageId,
+        state.stage || inferStage(state.pageId),
+        state.entityId
+      );
+
+      // Reconcile navStack with the browser's current position
+      while (navStack.length > 0 && !stageEquals(navStack[navStack.length - 1], stage)) {
+        navStack.pop();
+      }
+
+      // Ensure navStack describes the visible stage
+      if (navStack.length === 0 || !stageEquals(navStack[navStack.length - 1], stage)) {
+        navStack.push(stage);
+      }
+
+      const current = getCurrentPageId();
+      const restoreFn = current && current !== stage.pageId ? getListRestoreFn(current) : null;
+      if (restoreFn) {
+        restoreFn();
+      }
+
+      switchPage(stage.pageId);
+    }
+  );
+
+  // Expose public API to global scope
+  window.canGoBack = canGoBack;
+  window.switchPage = switchPage;
+  window.enterDetailView = enterDetailView;
+  window.openPage = openPage;
+  window.goBack = goBack;
+
+  return { canGoBack, switchPage, enterDetailView, openPage, goBack };
+})();
 
 /*
 BOTTOM NAVIGATION ACTIVE STATE
