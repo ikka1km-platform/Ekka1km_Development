@@ -12,6 +12,41 @@ let CURRENT_LAT =
 let CURRENT_LNG =
   CONFIG.DEFAULT_LONGITUDE;
 
+/* ============================================================
+   NATIVE ANDROID LOCATION BRIDGE
+   ============================================================
+   Registers the EkkaNativeLocation Capacitor plugin when running
+   inside the Android APK. On web/Chrome, window.EkkaNativeLocation
+   remains null and the existing browser geolocation is used.
+   ============================================================ */
+
+(function initNativeLocationBridge() {
+    try {
+        if (
+            window.Capacitor &&
+            window.Capacitor.isNativePlatform &&
+            window.Capacitor.isNativePlatform()
+        ) {
+            window.EkkaNativeLocation = window.Capacitor.registerPlugin(
+                "EkkaNativeLocation",
+                {
+                    web: () => ({
+                        getCurrentLocation: () =>
+                            Promise.reject(
+                                new Error("NATIVE_BRIDGE_UNAVAILABLE")
+                            )
+                    })
+                }
+            );
+        } else {
+            window.EkkaNativeLocation = null;
+        }
+    } catch (e) {
+        window.EkkaNativeLocation = null;
+    }
+})();
+
+
 
 /*
 ============================================================
@@ -1005,6 +1040,18 @@ function useCurrentLocation() {
       "locationSubtitle"
     );
 
+  const nativeLocation =
+    window.EkkaNativeLocation || null;
+
+  if (nativeLocation) {
+    useNativeCurrentLocation(
+      nativeLocation,
+      gpsText,
+      locationSubtitle
+    );
+    return;
+  }
+
   if (
     !navigator.geolocation
   ) {
@@ -1079,6 +1126,126 @@ function useCurrentLocation() {
           CONFIG.GPS.MAXIMUM_AGE
       }
     );
+}
+
+/*
+============================================================
+USE NATIVE CURRENT LOCATION (ANDROID BRIDGE)
+============================================================
+
+Called only when window.EkkaNativeLocation is available
+(inside the Android APK). Returns the same result shape
+as the browser GPS success path so reverseGeocodeLocation()
+and the existing location pipeline continue to work unchanged.
+*/
+
+async function useNativeCurrentLocation(
+  nativeLocation,
+  gpsText,
+  locationSubtitle
+) {
+
+  if (gpsText) {
+    gpsText.innerText =
+      "Detecting location...";
+  }
+
+  if (locationSubtitle) {
+    locationSubtitle.innerText =
+      "Please wait";
+  }
+
+  try {
+
+    const result =
+      await nativeLocation.getCurrentLocation();
+
+    if (
+      result &&
+      result.latitude != null &&
+      result.longitude != null
+    ) {
+
+      CURRENT_LAT = result.latitude;
+      CURRENT_LNG = result.longitude;
+
+      reverseGeocodeLocation(
+        CURRENT_LAT,
+        CURRENT_LNG
+      );
+    } else {
+      throw new Error(
+        "No location data received"
+      );
+    }
+  } catch (error) {
+
+    console.log(
+      "Native location error:",
+      error
+    );
+
+    let errorMessage =
+      "Location unavailable";
+
+    const errorCode =
+      error && error.code
+        ? error.code
+        : null;
+
+    switch (errorCode) {
+      case "PERMISSION_DENIED":
+        errorMessage =
+          "Location permission denied";
+        break;
+
+      case "PERMISSION_PERMANENTLY_DENIED":
+        errorMessage =
+          "Enable location permission in settings";
+        break;
+
+      case "LOCATION_TIMEOUT":
+        errorMessage =
+          "Location timed out";
+        break;
+
+      case "LOCATION_DISABLED":
+        errorMessage =
+          "Enable location services";
+        break;
+
+      case "LOCATION_UNAVAILABLE":
+        errorMessage =
+          "Location unavailable";
+        break;
+
+      default:
+        errorMessage =
+          "Location service unavailable";
+    }
+
+    if (gpsText) {
+      gpsText.innerText = errorMessage;
+    }
+
+    if (locationSubtitle) {
+      locationSubtitle.innerText = "";
+    }
+
+    // GPS failed — restore saved coordinates and
+    // refresh UI/content without changing location.
+    const saved =
+      getSavedLocation();
+
+    CURRENT_LAT =
+      saved.lat;
+
+    CURRENT_LNG =
+      saved.lng;
+
+    updateLocationCard();
+    loadAll();
+  }
 }
 
 
