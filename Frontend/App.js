@@ -262,7 +262,8 @@ history.replaceState(), history.back(), and navStack.
 */
 
 const NavigationManager = (() => {
-  let _suppressPopState = false;
+  // All Back transitions are handled authoritatively by the popstate handler.
+  let _restoreActive = false;
 
   const ROOT_PAGES = new Set(["home", "login", "register"]);
   const LIST_PAGE_IDS = new Set(["businesses", "products", "properties", "news"]);
@@ -283,7 +284,11 @@ const NavigationManager = (() => {
 
   function stageEquals(a, b) {
     if (!a || !b) return a === b;
-    return a.pageId === b.pageId && a.stage === b.stage;
+    // Detail stages are distinct when they reference different entities
+    // (products/detail/P1 must not be treated as products/detail/P2).
+    return a.pageId === b.pageId &&
+           a.stage === b.stage &&
+           (a.entityId || null) === (b.entityId || null);
   }
 
   function getCurrentStage() {
@@ -299,6 +304,39 @@ const NavigationManager = (() => {
       case "products":   return typeof loadProducts   === "function" ? loadProducts   : null;
       case "properties": return typeof loadProperties === "function" ? loadProperties : null;
       case "news":       return typeof loadNews       === "function" ? loadNews       : null;
+      default:           return null;
+    }
+  }
+
+  function getDetailRestoreFn(pageId) {
+    switch (pageId) {
+      case "businesses": return typeof showBusinessDetailsById === "function" ? showBusinessDetailsById : null;
+      case "products":   return typeof showProductDetailsById   === "function" ? showProductDetailsById   : null;
+      case "properties": return typeof showPropertyDetailsById  === "function" ? showPropertyDetailsById  : null;
+      case "news":       return typeof showNewsDetailsById      === "function" ? showNewsDetailsById      : null;
+      default:           return null;
+    }
+  }
+
+  function getCurrentEntityId(pageId) {
+    let ent = null;
+    try {
+      switch (pageId) {
+        case "businesses": ent = (typeof CURRENT_BUSINESS  !== "undefined" && CURRENT_BUSINESS)  ? CURRENT_BUSINESS  : null; break;
+        case "products":   ent = (typeof CURRENT_PRODUCT   !== "undefined" && CURRENT_PRODUCT)   ? CURRENT_PRODUCT   : null; break;
+        case "properties": ent = (typeof CURRENT_PROPERTY  !== "undefined" && CURRENT_PROPERTY)  ? CURRENT_PROPERTY  : null; break;
+        case "news":       ent = (typeof CURRENT_NEWS      !== "undefined" && CURRENT_NEWS)      ? CURRENT_NEWS      : null; break;
+        default:           return null;
+      }
+    } catch (e) {
+      return null;
+    }
+    if (!ent) return null;
+    switch (pageId) {
+      case "businesses": return ent.BusinessID || ent.businessId || null;
+      case "products":   return ent.ProductID   || ent.productId   || null;
+      case "properties": return ent.PropertyID  || ent.propertyId  || null;
+      case "news":       return ent.NewsID      || ent.newsId      || ent.id || null;
       default:           return null;
     }
   }
@@ -324,7 +362,8 @@ const NavigationManager = (() => {
   }
 
   function canGoBack() {
-    return navStack.length > 0;
+    // Only true when there is a previous in-app page on the stack.
+    return navStack.length > 1;
   }
 
   function switchPage(pageId) {
@@ -467,14 +506,29 @@ const NavigationManager = (() => {
   }
 
   function enterDetailView(pageId, entityId) {
+    if (entityId == null) {
+      entityId = getCurrentEntityId(pageId);
+    }
+
+    const detailStage = buildStage(pageId, "detail", entityId);
+    const top = navStack.length > 0 ? navStack[navStack.length - 1] : null;
+
+    // Back-restore / idempotency guard: if this exact detail stage is already
+    // the current one on top of navStack (or we are inside a Back restore),
+    // do NOT create a duplicate stack/history entry; just re-render.
+    if (_restoreActive || stageEquals(top, detailStage)) {
+      switchPage(pageId);
+      return;
+    }
+
     const currentStage = getCurrentStage();
 
-    // Push the current stage if it's not already on top of navStack
-    if (navStack.length === 0 || !stageEquals(navStack[navStack.length - 1], currentStage)) {
+    // Push the list/parent stage beneath if the stack is out of sync.
+    if (navStack.length === 0 || !stageEquals(top, currentStage)) {
       pushStage(currentStage.pageId, currentStage.stage, currentStage.entityId);
     }
 
-    // Push the detail stage
+    // Push the detail stage (entity-aware).
     pushStage(pageId, "detail", entityId);
 
     switchPage(pageId);
@@ -489,62 +543,76 @@ const NavigationManager = (() => {
 
     const isRoot = ROOT_PAGES.has(pageId);
 
-    // Root pages clear previous history
     if (isRoot) {
-      navStack = [];
+      // Root pages are the navigation anchor: reset the internal stack.
+      const rootStage = buildStage(pageId, "root");
+      navStack = [rootStage];
+
+      // If we are already at this root hash (e.g. fresh startup at #home),
+      // replace the top entry instead of adding a duplicate #home entry.
+      if (location.hash === ("#" + pageId)) {
+        replaceHistoryState(rootStage, pageId);
+      } else {
+        pushHistoryState(rootStage, pageId);
+      }
+    } else {
+      // Non-root: push a single stage (stack + history stay 1:1).
+      pushStage(pageId, inferStage(pageId));
     }
-
-    const currentStage = getCurrentStage();
-
-    // Push the current stage if it's not already on top of navStack
-    if (!isRoot && (navStack.length === 0 || !stageEquals(navStack[navStack.length - 1], currentStage))) {
-      pushStage(currentStage.pageId, currentStage.stage, currentStage.entityId);
-    }
-
-    // Push the target stage
-    pushStage(pageId, inferStage(pageId));
 
     switchPage(pageId);
   }
 
   function goBack() {
-
-    if (navStack.length <= 1) return;
-
-    navStack.pop(); // Remove current stage
-    const prev = navStack[navStack.length - 1];
-
-    const current = getCurrentPageId();
-    const restoreFn = getListRestoreFn(current);
-    if (restoreFn) {
-      restoreFn();
-    }
-
-    _suppressPopState = true;
-    try {
+    // Browser history is the single authoritative back mechanism.
+    // goBack() only steps history.back(); the popstate handler performs the
+    // actual transition (reconcile navStack, re-render target, switchPage).
+    // No direct switchPage(), no manual navStack.pop(), no suppression timer.
+    if (!canGoBack()) return;
+    if (window.history && history.back) {
       history.back();
-    } catch (e) {
-      _suppressPopState = false;
-      replaceHistoryState(prev, prev.pageId);
+    } else {
+      const root = navStack[0] || buildStage("home", "root");
+      switchPage(root.pageId);
     }
-
-    // Safety net: reset suppress flag if popstate is delayed
-    setTimeout(() => { _suppressPopState = false; }, 50);
-
-    switchPage(prev.pageId);
   }
 
-  // Browser back / popstate handler
+  // Renders the resolved target stage after any Back transition.
+  // Only restores a list when the TARGET is actually a list stage, and only
+  // re-renders a detail (never the list) when the TARGET is a detail stage.
+  function renderStage(stage) {
+    switchPage(stage.pageId);
+
+    if (stage.stage === "list") {
+      const fn = getListRestoreFn(stage.pageId);
+      if (fn) fn();
+    } else if (stage.stage === "detail") {
+      const fn = getDetailRestoreFn(stage.pageId);
+      if (fn && stage.entityId) {
+        _restoreActive = true;
+        try {
+          fn(stage.entityId);
+        } catch (e) {
+          // page container is already active; ignore render errors
+        } finally {
+          _restoreActive = false;
+        }
+      }
+    }
+  }
+
+  // Browser back / popstate handler — the single authoritative Back transition.
   window.addEventListener(
     "popstate",
     function(e) {
-      if (_suppressPopState) {
-        _suppressPopState = false;
+      const state = e.state;
+      if (!state || !state.pageId) {
+        // Entry with no app state (e.g. the pre-app base URL): stay on root.
+        const root = navStack[0] || buildStage("home", "root");
+        replaceHistoryState(root, root.pageId);
+        switchPage(root.pageId);
         return;
       }
-
-      const state = e.state;
-      if (!state || !state.pageId) return;
 
       const stage = buildStage(
         state.pageId,
@@ -552,7 +620,17 @@ const NavigationManager = (() => {
         state.entityId
       );
 
-      // Reconcile navStack with the browser's current position
+      // ROOT ABSORB: if the stack is anchored at an in-app root and the browser
+      // reached a stale pre-root app page (e.g. after tapping bottom-nav Home
+      // from deep navigation), do NOT jump back into that old page.
+      if (!ROOT_PAGES.has(stage.pageId) && navStack.length <= 1) {
+        const root = navStack[0] || buildStage("home", "root");
+        replaceHistoryState(root, root.pageId);
+        switchPage(root.pageId);
+        return;
+      }
+
+      // Reconcile navStack to the target stage (entity-aware).
       while (navStack.length > 0 && !stageEquals(navStack[navStack.length - 1], stage)) {
         navStack.pop();
       }
@@ -562,13 +640,8 @@ const NavigationManager = (() => {
         navStack.push(stage);
       }
 
-      const current = getCurrentPageId();
-      const restoreFn = current && current !== stage.pageId ? getListRestoreFn(current) : null;
-      if (restoreFn) {
-        restoreFn();
-      }
-
-      switchPage(stage.pageId);
+      // Render the resolved target stage.
+      renderStage(stage);
     }
   );
 
