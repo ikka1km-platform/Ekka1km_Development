@@ -341,20 +341,44 @@ const NavigationManager = (() => {
     }
   }
 
-  function pushHistoryState(state, pageId) {
+  /*
+  ============================================================
+  URL GENERATION CENTER (single source of truth for the hash)
+  Every distinct navigable screen gets a distinct URL so that the
+  Android/Chrome system Back can step through them explicitly:
+
+    root:   #home / #login / #register
+    list:   #products / #businesses / #properties / #news
+    detail: #products/<entityId>  (entityId is URL-encoded)
+
+  history.state remains { pageId, stage, entityId } — the hash is for
+  URL/history identity only; state stays the navigation data used by
+  NavigationManager for reconcile/restore.
+  ============================================================
+  */
+  function buildStageHash(descriptor) {
+    const d = descriptor || {};
+    let hash = "#" + (d.pageId || "home");
+    if (d.stage === "detail" && d.entityId) {
+      hash += "/" + encodeURIComponent(d.entityId);
+    }
+    return hash;
+  }
+
+  function pushHistoryState(state) {
     if (window.history && window.history.pushState) {
       try {
-        history.pushState(state, "", "#" + pageId);
+        history.pushState(state, "", buildStageHash(state));
       } catch (e) {
         // silent
       }
     }
   }
 
-  function replaceHistoryState(state, pageId) {
+  function replaceHistoryState(state) {
     if (window.history && window.history.replaceState) {
       try {
-        history.replaceState(state, "", "#" + pageId);
+        history.replaceState(state, "", buildStageHash(state));
       } catch (e) {
         // silent
       }
@@ -502,7 +526,7 @@ const NavigationManager = (() => {
       navStack = navStack.slice(navStack.length - MAX_STACK);
     }
 
-    pushHistoryState(descriptor, pageId);
+    pushHistoryState(descriptor);
   }
 
   function enterDetailView(pageId, entityId) {
@@ -551,9 +575,9 @@ const NavigationManager = (() => {
       // If we are already at this root hash (e.g. fresh startup at #home),
       // replace the top entry instead of adding a duplicate #home entry.
       if (location.hash === ("#" + pageId)) {
-        replaceHistoryState(rootStage, pageId);
+        replaceHistoryState(rootStage);
       } else {
-        pushHistoryState(rootStage, pageId);
+        pushHistoryState(rootStage);
       }
     } else {
       // Non-root: push a single stage (stack + history stay 1:1).
@@ -609,7 +633,7 @@ const NavigationManager = (() => {
       if (!state || !state.pageId) {
         // Entry with no app state (e.g. the pre-app base URL): stay on root.
         const root = navStack[0] || buildStage("home", "root");
-        replaceHistoryState(root, root.pageId);
+        replaceHistoryState(root);
         switchPage(root.pageId);
         return;
       }
@@ -625,7 +649,7 @@ const NavigationManager = (() => {
       // from deep navigation), do NOT jump back into that old page.
       if (!ROOT_PAGES.has(stage.pageId) && navStack.length <= 1) {
         const root = navStack[0] || buildStage("home", "root");
-        replaceHistoryState(root, root.pageId);
+        replaceHistoryState(root);
         switchPage(root.pageId);
         return;
       }
