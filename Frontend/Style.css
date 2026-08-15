@@ -11460,3 +11460,114 @@ select:focus {
    END OF DISCOVERY SCREEN ENHANCEMENTS
 ========================================================== */
 
+/* ==========================================================
+   PCC - SINGLE-CARD PROMOTION CAMPAIGN CONFIGURATION
+========================================================== */
+.promo-pcc-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  max-width: 720px;
+  margin: 16px auto;
+}
+.pcc-head h2 { margin: 0 0 4px; font-size: 22px; }
+.pcc-head p { margin: 0 0 16px; color: #888; font-size: 14px; }
+.pcc-section {
+  border: 1px solid #eee;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  background: #fafafa;
+}
+.pcc-section-title { font-weight: 600; font-size: 14px; color: #333; margin-bottom: 10px; }
+.pcc-pill-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.pcc-pill {
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  color: #444;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.pcc-pill.active {
+  background: var(--primary, #0f9d58);
+  border-color: var(--primary, #0f9d58);
+  color: #fff;
+}
+.pcc-select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 10px;
+  font-size: 14px;
+  background: #fff;
+}
+.pcc-selected-note { margin-top: 8px; font-size: 13px; color: var(--primary, #0f9d58); }
+.pcc-muted { color: #888; font-size: 13px; margin: 4px 0 10px; }
+.pcc-location-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pcc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  color: #333;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.pcc-btn-ghost { border-color: transparent; color: var(--primary, #0f9d58); }
+.pcc-location-display { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pcc-location-info { flex: 1; min-width: 0; }
+.pcc-location-name { font-size: 14px; font-weight: 600; color: #222; }
+.pcc-location-coords { font-size: 12px; color: #888; }
+.pcc-search-box { margin-top: 10px; }
+.pcc-search-row { display: flex; gap: 8px; }
+.pcc-search-input { flex: 1 1 auto; min-width: 0; padding: 10px 12px; border: 1px solid #d0d0d0; border-radius: 10px; font-size: 14px; }
+.pcc-search-results { margin-top: 8px; border: 1px solid #eee; border-radius: 10px; overflow: hidden; }
+.pcc-result-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-bottom: 1px solid #eee;
+  cursor: pointer; font-size: 13px;
+}
+.pcc-result-item:last-child { border-bottom: none; }
+.pcc-result-item:hover { background: #f5f5f5; }
+.pcc-cost-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0; font-size: 14px; border-bottom: 1px solid #f0f0f0;
+}
+.pcc-cost-row:last-child { border-bottom: none; }
+.pcc-balance-after strong { color: var(--primary, #0f9d58); }
+.pcc-insufficient {
+  margin-top: 10px; padding: 12px; background: #fff3e0;
+  border: 1px solid #ffe0b2; border-radius: 12px;
+}
+.pcc-insufficient-title { font-weight: 600; color: #c62828; margin-bottom: 6px; font-size: 14px; }
+.pcc-need-row strong { color: #c62828; }
+.pcc-btn-wallet {
+  margin-top: 8px; width: 100%; background: var(--primary, #0f9d58);
+  border-color: var(--primary, #0f9d58); color: #fff;
+  justify-content: center; padding: 12px;
+}
+.pcc-launch {
+  width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--primary, #0f9d58); color: #fff; border: none;
+  border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 600; cursor: pointer;
+}
+.pcc-launch:hover { opacity: .92; }
+/* Radius & Duration in one compact horizontal row */
+.pcc-duo-row { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+
+@media (max-width: 480px) {
+  .promo-pcc-card { padding: 14px; margin: 10px 4px; }
+}
+
+/* Narrow screens: stack Radius & Duration vertically */
+@media (max-width: 480px) {
+  .pcc-duo-row { flex-direction: column; align-items: stretch; gap: 12px; }
+  .pcc-duo-row .promo-wizard-field { flex: none !important; width: 100%; }
+}

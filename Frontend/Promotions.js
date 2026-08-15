@@ -15,18 +15,19 @@ var PROMO_VIEW = "list";        // "list" | "detail" | "create" | "analytics"
 var PROMO_CAMPAIGNS = [];
 var PROMO_SELECTED_CAMPAIGN = null;
 var PROMO_WALLET_BALANCE = 0;
-var PROMO_WIZARD_STEP = 1;
-var PROMO_WIZARD = {
-  targetType: "Product",
-  targetId: "",
-  targetTitle: "",
-  targetImage: "",
-  promotionType: "Silver",
-  radius: "51",
-  duration: "7",
-  rewardCoins: 0,
-  totalPrice: 0
-};
+var PROMO_CREATING = false;
+// PCC state - single card configuration
+var PROMO_PROMOTION_TYPE = "Product";  // Product | Business | Property
+var PROMO_TARGET_LOCATION = "";        // display name
+var PROMO_TARGET_LAT = 0;              // latitude
+var PROMO_TARGET_LNG = 0;              // longitude
+var PROMO_TARGET_ID = "";          // selected listing id
+var PROMO_TARGET_TITLE = "";       // selected listing title
+
+var PROMO_RADIUS = "51";               // 1|5|10|25|51|100|All India
+var PROMO_DURATION = "7";              // 1|3|7|15|30
+var PROMO_BASE_PRICE = 0;
+var PROMO_TOTAL_PRICE = 0;
 var PROMO_LOADING = false;
 var PROMO_ERROR = null;
 
@@ -196,7 +197,7 @@ function renderPromotionsPage() {
   if (!container) return;
 
   if (PROMO_VIEW === "create") {
-    renderCreateWizard(container);
+    renderPCCCard(container);
     return;
   }
 
@@ -775,335 +776,246 @@ function stopCampaignAction(id, idx) {
 }
 
 /* ==========================================================
-   CREATE CAMPAIGN WIZARD
+   CREATE CAMPAIGN (PCC) — single-card configuration
    ========================================================== */
+function pccResetState() {
+  PROMO_PROMOTION_TYPE = "Product";
+  PROMO_TARGET_ID = "";
+  PROMO_TARGET_TITLE = "";
+  PROMO_TARGET_LOCATION = "";
+  PROMO_TARGET_LAT = 0;
+  PROMO_TARGET_LNG = 0;
+  PROMO_RADIUS = "51";
+  PROMO_DURATION = "7";
+  calculatePCCTotalPrice();
+}
+
 function openCreateWizard() {
-  PROMO_WIZARD_STEP = 1;
-  PROMO_WIZARD = {
-    targetType: "Product",
-    targetId: "",
-    targetTitle: "",
-    targetImage: "",
-    promotionType: "Silver",
-    radius: "51",
-    duration: "7",
-    rewardCoins: 0,
-    totalPrice: 0
-  };
   PROMO_VIEW = "create";
+  PROMO_CREATING = true;
+  pccResetState();
   renderPromotionsPage();
 }
 
-function renderCreateWizard(container) {
-  var html = '<div class="promo-wizard">';
+function pccBackToList() {
+  PROMO_VIEW = "list";
+  PROMO_CREATING = false;
+  renderPromotionsPage();
+}
 
-  // Back button
-  html += '<button class="promo-btn-back" onclick="cancelCreateWizard()"><i class="material-icons" style="font-size:20px;vertical-align:middle;">arrow_back</i> Back to Campaigns</button>';
-  html += '<h2 class="promo-wizard-title">🚀 Create Campaign</h2>';
+function renderPCCCard(container) {
+  calculatePCCTotalPrice();
 
-  // Step indicator
-  html += '<div class="promo-wizard-steps">';
-  var steps = [
-    { label: "Listing", icon: "inventory_2" },
-    { label: "Type", icon: "category" },
-    { label: "Radius", icon: "location_on" },
-    { label: "Duration", icon: "calendar_today" },
-    { label: "Budget", icon: "account_balance_wallet" },
-    { label: "Review", icon: "checklist" }
+  var html = '';
+  html += '<button class="promo-btn-back" onclick="pccBackToList()"><i class="material-icons" style="font-size:20px;vertical-align:middle;">arrow_back</i> Back to Campaigns</button>';
+  html += '<div class="promo-pcc-card">';
+
+  html += '<div class="pcc-head">';
+  html += '<h2>🚀 Create Campaign</h2>';
+  html += '<p>Configure your promotion campaign on a single card.</p>';
+  html += '</div>';
+
+  // --- 1. Choose What to Promote (original visual design preserved) ---
+  html += '<div class="pcc-section">';
+  html += '<div class="pcc-section-title" style="font-size:17px;">Choose What to Promote</div>';
+  html += '<p class="promo-wizard-desc">Select the type of listing you want to promote.</p>';
+  html += '<div class="promo-wizard-options">';
+  var pccTypes = [
+    { id: "Product",  icon: "shopping_bag",      desc: "Promote a product listing" },
+    { id: "Business", icon: "store",             desc: "Promote your business" },
+    { id: "Property", icon: "real_estate_agent", desc: "Promote a property" }
   ];
-  steps.forEach(function(s, i) {
-    var stepNum = i + 1;
-    var isActive = stepNum === PROMO_WIZARD_STEP;
-    var isDone = stepNum < PROMO_WIZARD_STEP;
-    var cls = isActive ? "promo-wizard-step active" : isDone ? "promo-wizard-step done" : "promo-wizard-step";
-    html += '<div class="' + cls + '" onclick="' + (isDone ? 'goToWizardStep(' + stepNum + ')' : '') + '">';
-    html += '<div class="promo-wizard-step-icon">';
-    if (isDone) html += '<i class="material-icons">check</i>';
-    else html += '<i class="material-icons">' + s.icon + '</i>';
-    html += '</div>';
-    html += '<div class="promo-wizard-step-label">' + s.label + '</div>';
+  pccTypes.forEach(function(t) {
+    var cardSel = t.id === PROMO_PROMOTION_TYPE ? ' promo-option-card selected' : ' promo-option-card';
+    html += '<div class="' + cardSel + '" onclick="pccSelectListingType(\'' + t.id + '\')">';
+    html += '<div class="promo-option-icon"><i class="material-icons">' + t.icon + '</i></div>';
+    html += '<div class="promo-option-label">' + t.id + '</div>';
+    html += '<div class="promo-option-desc">' + t.desc + '</div>';
     html += '</div>';
   });
   html += '</div>';
-
-  // Step content
-  html += '<div class="promo-wizard-content">';
-  html += renderWizardStep();
+  html += '<div class="promo-wizard-field" style="margin-bottom:0;">';
+  html += '<label>Select your ' + PROMO_PROMOTION_TYPE + '</label>';
+  html += '<select id="pccListingSelect" class="promo-wizard-select" onchange="pccSelectTarget()">';
+  html += '<option value="">Select a ' + PROMO_PROMOTION_TYPE.toLowerCase() + '...</option>';
+  html += '</select>';
+  html += '</div>';
+  html += '<div id="pccListingNote" class="pcc-selected-note"></div>';
   html += '</div>';
 
-  html += '</div>'; // end promo-wizard
+  // --- 2. Target Location ---
+  html += '<div class="pcc-section">';
+  html += '<div class="pcc-section-title">Target Location</div>';
+  if (PROMO_TARGET_LOCATION) {
+    html += '<div class="pcc-location-display">';
+    html += '<i class="material-icons" style="color:var(--primary, #0f9d58);">location_on</i>';
+    html += '<div class="pcc-location-info">';
+    html += '<div class="pcc-location-name">' + escapeHtml(PROMO_TARGET_LOCATION) + '</div>';
+    if (PROMO_TARGET_LAT && PROMO_TARGET_LNG) {
+      html += '<div class="pcc-location-coords">' + PROMO_TARGET_LAT.toFixed(4) + ', ' + PROMO_TARGET_LNG.toFixed(4) + '</div>';
+    }
+    html += '</div>';
+    html += '<button type="button" class="pcc-btn pcc-btn-ghost" onclick="pccChangeLocation()"><i class="material-icons" style="font-size:16px;vertical-align:middle;">edit_location_alt</i> Change</button>';
+    html += '</div>';
+  } else {
+    html += '<p class="pcc-muted">Campaign target stays separate from your current discovery location.</p>';
+    html += '<div class="pcc-location-actions">';
+    html += '<button type="button" class="pcc-btn" onclick="pccUseCurrentLocation()"><i class="material-icons" style="font-size:16px;vertical-align:middle;">my_location</i> Use Current Location</button>';
+    html += '<button type="button" class="pcc-btn" onclick="pccToggleSearch(true)"><i class="material-icons" style="font-size:16px;vertical-align:middle;">search</i> Search Location</button>';
+    html += '<button type="button" class="pcc-btn" onclick="pccUseCurrentLocation()"><i class="material-icons" style="font-size:16px;vertical-align:middle;">map</i> GPS</button>';
+    html += '</div>';
+    html += '<div id="pccSearchBox" class="pcc-search-box" style="display:none;">';
+    html += '<div class="pcc-search-row">';
+    html += '<input id="pccSearchInput" class="pcc-search-input" type="text" placeholder="Search city, area or landmark (e.g. Indore)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();pccSearchLocation();}">';
+    html += '<button type="button" class="pcc-btn" onclick="pccSearchLocation()">Search</button>';
+    html += '</div>';
+    html += '<div id="pccSearchResults" class="pcc-search-results"></div>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // --- 3. Radius & Duration (one compact horizontal row) ---
+  html += '<div class="pcc-section">';
+  html += '<div class="pcc-section-title">Radius &amp; Duration</div>';
+  html += '<div class="pcc-duo-row">';
+  html += '<div class="promo-wizard-field" style="margin-bottom:0;flex:1;">';
+  html += '<label>Radius</label>';
+  html += '<select id="pccRadiusSelect" class="promo-wizard-select" onchange="pccSetRadius(this.value)">';
+  ["1", "5", "10", "25", "51", "100", "All India"].forEach(function(r) {
+    var selected = String(r) === String(PROMO_RADIUS) ? ' selected' : '';
+    var label = r === "All India" ? "All India" : r + " km";
+    html += '<option value="' + r + '"' + selected + '>' + label + '</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+  html += '<div class="promo-wizard-field" style="margin-bottom:0;flex:1;">';
+  html += '<label>Duration</label>';
+  html += '<select id="pccDurationSelect" class="promo-wizard-select" onchange="pccSetDuration(this.value)">';
+  ["1", "3", "7", "15", "30"].forEach(function(d) {
+    var selected = String(d) === String(PROMO_DURATION) ? ' selected' : '';
+    var label = d + (d === "1" ? " day" : " days");
+    html += '<option value="' + d + '"' + selected + '>' + label + '</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+  html += '</div>';
+  html += '</div>';
+
+  // --- 5. Campaign cost & wallet ---
+  html += '<div class="pcc-section">';
+  html += '<div class="pcc-section-title">Campaign Cost</div>';
+  html += '<div id="pccWalletBlock"></div>';
+  html += '</div>';
+
+  html += '<div id="pccLaunchArea"></div>';
+
+  html += '</div>'; // end promo-pcc-card
+
   container.innerHTML = html;
-
-  // Post-render setup for current step
-  setupWizardStep();
+  setupPCCStep();
 }
 
-function renderWizardStep() {
-  var step = PROMO_WIZARD_STEP;
-  var html = "";
 
-  if (step === 1) {
-    // Step 1: Choose Listing
-    html += '<div class="promo-wizard-step-content">';
-    html += '<h3>Choose What to Promote</h3>';
-    html += '<p class="promo-wizard-desc">Select the type of listing you want to promote.</p>';
-    html += '<div class="promo-wizard-options">';
-    var types = [
-      { id: "Product", icon: "shopping_bag", desc: "Promote a product listing" },
-      { id: "Business", icon: "store", desc: "Promote your business" },
-      { id: "Property", icon: "real_estate_agent", desc: "Promote a property" }
-    ];
-    types.forEach(function(t) {
-      var sel = t.id === PROMO_WIZARD.targetType ? 'class="promo-option-card selected"' : 'class="promo-option-card"';
-      html += '<div ' + sel + ' onclick="selectWizardTargetType(\'' + t.id + '\')">';
-      html += '<div class="promo-option-icon"><i class="material-icons">' + t.icon + '</i></div>';
-      html += '<div class="promo-option-label">' + t.id + '</div>';
-      html += '<div class="promo-option-desc">' + t.desc + '</div>';
-      html += '</div>';
-    });
-    html += '</div>';
-    html += '<div class="promo-wizard-field" id="promoWizardTargetField" style="margin-top:15px;">';
-    html += '<label>Select your ' + PROMO_WIZARD.targetType + '</label>';
-    html += '<select id="promoWizardTargetSelect" class="promo-wizard-select" onchange="updateWizardTargetId()">';
-    html += '<option value="">Loading your ' + PROMO_WIZARD.targetType.toLowerCase() + 's...</option>';
-    html += '</select>';
-    html += '</div>';
-    html += '<button class="promo-btn-primary promo-wizard-next" onclick="wizardNextStep()">Next: Promotion Type <i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_forward</i></button>';
-    html += '</div>';
 
-  } else if (step === 2) {
-    // Step 2: Promotion Type
-    html += '<div class="promo-wizard-step-content">';
-    html += '<h3>Choose Promotion Type</h3>';
-    html += '<p class="promo-wizard-desc">Select the reach and visibility level for your campaign.</p>';
-    html += '<div class="promo-wizard-options">';
-    var types = [
-      { id: "Silver", icon: "looks_one", desc: "Basic promotion — standard visibility", color: "#757575" },
-      { id: "Gold", icon: "looks_two", desc: "Better visibility — highlighted placement", color: "#f57c00" },
-      { id: "Titanium", icon: "looks_3", desc: "Maximum exposure — top placement", color: "#0f9d58" }
-    ];
-    types.forEach(function(t) {
-      var sel = t.id === PROMO_WIZARD.promotionType ? 'class="promo-option-card selected"' : 'class="promo-option-card"';
-      html += '<div ' + sel + ' onclick="selectWizardPromoType(\'' + t.id + '\')">';
-      html += '<div class="promo-option-icon" style="color:' + t.color + ';"><i class="material-icons">' + t.icon + '</i></div>';
-      html += '<div class="promo-option-label" style="color:' + t.color + ';">' + t.id + '</div>';
-      html += '<div class="promo-option-desc">' + t.desc + '</div>';
-      html += '</div>';
-    });
-    html += '</div>';
-    html += '<div class="promo-wizard-nav">';
-    html += '<button class="promo-btn-secondary" onclick="wizardPrevStep()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back</button>';
-    html += '<button class="promo-btn-primary promo-wizard-next" onclick="wizardNextStep()">Next: Radius <i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_forward</i></button>';
-    html += '</div>';
-    html += '</div>';
-
-  } else if (step === 3) {
-    // Step 3: Radius
-    html += '<div class="promo-wizard-step-content">';
-    html += '<h3>Select Radius</h3>';
-    html += '<p class="promo-wizard-desc">Choose the geographic reach of your campaign.</p>';
-    html += '<div class="promo-wizard-field">';
-    html += '<label>Radius</label>';
-    html += '<select id="promoWizardRadius" class="promo-wizard-select" onchange="updateWizardRadius()">';
-    var radii = ["1","5","10","25","51","100","All India"];
-    radii.forEach(function(r) {
-      var sel = r === PROMO_WIZARD.radius ? "selected" : "";
-      var label = r === "All India" ? "All India" : r + " KM";
-      html += '<option value="' + r + '" ' + sel + '>' + label + '</option>';
-    });
-    html += '</select>';
-    html += '</div>';
-    html += '<div class="promo-wizard-nav">';
-    html += '<button class="promo-btn-secondary" onclick="wizardPrevStep()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back</button>';
-    html += '<button class="promo-btn-primary promo-wizard-next" onclick="wizardNextStep()">Next: Duration <i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_forward</i></button>';
-    html += '</div>';
-    html += '</div>';
-
-  } else if (step === 4) {
-    // Step 4: Duration
-    html += '<div class="promo-wizard-step-content">';
-    html += '<h3>Select Duration</h3>';
-    html += '<p class="promo-wizard-desc">How long should your campaign run?</p>';
-    html += '<div class="promo-wizard-field">';
-    html += '<label>Duration</label>';
-    html += '<select id="promoWizardDuration" class="promo-wizard-select" onchange="updateWizardDuration()">';
-    var durations = [
-      { value: "1", label: "1 Day" },
-      { value: "3", label: "3 Days" },
-      { value: "7", label: "7 Days" },
-      { value: "15", label: "15 Days" },
-      { value: "30", label: "30 Days" }
-    ];
-    durations.forEach(function(d) {
-      var sel = d.value === PROMO_WIZARD.duration ? "selected" : "";
-      html += '<option value="' + d.value + '" ' + sel + '>' + d.label + '</option>';
-    });
-    html += '</select>';
-    html += '</div>';
-    html += '<div class="promo-wizard-nav">';
-    html += '<button class="promo-btn-secondary" onclick="wizardPrevStep()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back</button>';
-    html += '<button class="promo-btn-primary promo-wizard-next" onclick="wizardNextStep()">Next: Budget <i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_forward</i></button>';
-    html += '</div>';
-    html += '</div>';
-
-  } else if (step === 5) {
-    // Step 5: Budget Summary
-    var price = calculateWizardPrice();
-    var rewardPool = Math.floor(price * PROMO_POOL_RATIO);
-    html += '<div class="promo-wizard-step-content">';
-    html += '<h3>Budget Summary</h3>';
-    html += '<p class="promo-wizard-desc">Review the cost of your campaign.</p>';
-    html += '<div class="promo-wizard-budget">';
-    html += '<div class="promo-budget-card">';
-    html += '<div class="promo-budget-row"><span>Promotion Type</span><strong>' + PROMO_WIZARD.promotionType + '</strong></div>';
-    html += '<div class="promo-budget-row"><span>Radius</span><strong>' + (PROMO_WIZARD.radius === "All India" ? "All India" : PROMO_WIZARD.radius + " KM") + '</strong></div>';
-    html += '<div class="promo-budget-row"><span>Duration</span><strong>' + PROMO_WIZARD.duration + ' day(s)</strong></div>';
-    html += '<div class="promo-budget-divider"></div>';
-    html += '<div class="promo-budget-row"><span>Base Price</span><strong>' + getBasePrice() + ' coins/day</strong></div>';
-    html += '<div class="promo-budget-row"><span>Duration Multiplier</span><strong>' + PROMO_WIZARD.duration + 'x</strong></div>';
-    html += '<div class="promo-budget-divider"></div>';
-    html += '<div class="promo-budget-row promo-budget-total"><span>Total Cost</span><strong class="promo-budget-amount">' + price + ' coins</strong></div>';
-    html += '<div class="promo-budget-row"><span>Reward Pool (70%)</span><strong>' + rewardPool + ' coins</strong></div>';
-    html += '<div class="promo-budget-row"><span>Current Balance</span><strong>' + PROMO_WALLET_BALANCE + ' coins</strong></div>';
-    if (PROMO_WALLET_BALANCE < price) {
-      html += '<div class="promo-budget-warning"><i class="material-icons" style="font-size:16px;vertical-align:middle;">warning</i> Insufficient balance! You need ' + (price - PROMO_WALLET_BALANCE) + ' more coins.</div>';
-    }
-    html += '</div>';
-    html += '</div>';
-    html += '<div class="promo-wizard-nav">';
-    html += '<button class="promo-btn-secondary" onclick="wizardPrevStep()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back</button>';
-    html += '<button class="promo-btn-primary promo-wizard-next" onclick="wizardNextStep()">Next: Review <i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_forward</i></button>';
-    html += '</div>';
-    html += '</div>';
-
-  } else if (step === 6) {
-    // Step 6: Review & Launch
-    var price = calculateWizardPrice();
-    var rewardPool = Math.floor(price * PROMO_POOL_RATIO);
-    html += '<div class="promo-wizard-step-content">';
-    html += '<h3>Review & Launch</h3>';
-    html += '<p class="promo-wizard-desc">Review your campaign details before launching.</p>';
-    html += '<div class="promo-wizard-review">';
-    html += '<div class="promo-review-card">';
-    html += '<h4>Campaign Summary</h4>';
-    html += '<div class="promo-review-row"><span>Target</span><strong>' + PROMO_WIZARD.targetType + '</strong></div>';
-    html += '<div class="promo-review-row"><span>Target ID</span><strong>' + (PROMO_WIZARD.targetId || "—") + '</strong></div>';
-    html += '<div class="promo-review-row"><span>Promotion Type</span><strong>' + PROMO_WIZARD.promotionType + '</strong></div>';
-    html += '<div class="promo-review-row"><span>Radius</span><strong>' + (PROMO_WIZARD.radius === "All India" ? "All India" : PROMO_WIZARD.radius + " KM") + '</strong></div>';
-    html += '<div class="promo-review-row"><span>Duration</span><strong>' + PROMO_WIZARD.duration + ' day(s)</strong></div>';
-    html += '<div class="promo-review-row promo-review-total"><span>Total Cost</span><strong class="promo-review-amount">' + price + ' coins</strong></div>';
-    html += '<div class="promo-review-row"><span>Reward Pool</span><strong>' + rewardPool + ' coins</strong></div>';
-    if (PROMO_WALLET_BALANCE < price) {
-      html += '<div class="promo-budget-warning"><i class="material-icons" style="font-size:16px;vertical-align:middle;">warning</i> Insufficient balance!</div>';
-    }
-    html += '</div>';
-    html += '</div>';
-    html += '<div class="promo-wizard-nav">';
-    html += '<button class="promo-btn-secondary" onclick="wizardPrevStep()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">arrow_back</i> Back</button>';
-    html += '<button class="promo-btn-primary promo-wizard-launch" onclick="launchCampaign()" ' + (PROMO_WALLET_BALANCE < price ? 'disabled style="opacity:0.5;"' : '') + '>';
-    html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">rocket_launch</i> Launch Campaign</button>';
-    html += '</div>';
-    html += '</div>';
-  }
-
-  return html;
+/* ==========================================================
+   PCC — PRICE CALCULATION
+   ========================================================== */
+function calculatePCCTotalPrice() {
+  var base = 0;
+  var prices = PROMO_PRICES["Silver"];
+  if (prices) base = prices[PROMO_RADIUS] || 0;
+  var mult = PROMO_DURATION_MULTIPLIER[PROMO_DURATION] || 1;
+  PROMO_BASE_PRICE = base;
+  PROMO_TOTAL_PRICE = base * mult;
+  return PROMO_TOTAL_PRICE;
 }
 
 /* ==========================================================
-   WIZARD NAVIGATION
+   PCC — SETUP (lightweight init, no wizard)
    ========================================================== */
-function wizardNextStep() {
-  // Validate current step
-  if (PROMO_WIZARD_STEP === 1) {
-    if (!PROMO_WIZARD.targetId) {
-      showToast("Please select a " + PROMO_WIZARD.targetType.toLowerCase() + " to promote");
-      return;
-    }
-  }
-  if (PROMO_WIZARD_STEP < 6) {
-    PROMO_WIZARD_STEP++;
-    renderPromotionsPage();
-  }
-}
-
-function wizardPrevStep() {
-  if (PROMO_WIZARD_STEP > 1) {
-    PROMO_WIZARD_STEP--;
-    renderPromotionsPage();
-  }
-}
-
-function goToWizardStep(step) {
-  if (step >= 1 && step <= 6 && step < PROMO_WIZARD_STEP) {
-    PROMO_WIZARD_STEP = step;
-    renderPromotionsPage();
-  }
-}
-
-function cancelCreateWizard() {
-  PROMO_VIEW = "list";
-  renderPromotionsPage();
-}
-
-/* ==========================================================
-   WIZARD SELECTION HANDLERS
-   ========================================================== */
-function selectWizardTargetType(type) {
-  PROMO_WIZARD.targetType = type;
-  PROMO_WIZARD.targetId = "";
-  PROMO_WIZARD.targetTitle = "";
-  PROMO_WIZARD.targetImage = "";
-  renderPromotionsPage();
-  // Load user's items for this type
+function setupPCCStep() {
   loadUserItemsForTarget();
+  pccRefreshCost();
 }
 
-function selectWizardPromoType(type) {
-  PROMO_WIZARD.promotionType = type;
-  renderPromotionsPage();
-}
+/* ==========================================================
+   PCC — WALLET / COST REFRESH
+   ========================================================== */
+function pccRefreshCost() {
+  calculatePCCTotalPrice();
+  var sufficient = PROMO_WALLET_BALANCE >= PROMO_TOTAL_PRICE && PROMO_TOTAL_PRICE > 0;
+  var balanceAfter = Math.max(0, PROMO_WALLET_BALANCE - PROMO_TOTAL_PRICE);
+  var need = Math.max(0, PROMO_TOTAL_PRICE - PROMO_WALLET_BALANCE);
 
-function updateWizardRadius() {
-  var el = document.getElementById("promoWizardRadius");
-  if (el) PROMO_WIZARD.radius = el.value;
-}
+  pccSyncPills("pccRadiusGroup", PROMO_RADIUS);
+  pccSyncPills("pccDurationGroup", PROMO_DURATION);
 
-function updateWizardDuration() {
-  var el = document.getElementById("promoWizardDuration");
-  if (el) PROMO_WIZARD.duration = el.value;
-}
+  var wb = document.getElementById("pccWalletBlock");
+  if (wb) {
+    var h = "";
+    h += '<div class="pcc-cost-row"><span>Campaign Cost</span><strong>' + PROMO_TOTAL_PRICE + ' coins</strong></div>';
+    h += '<div class="pcc-cost-row"><span>Wallet Balance</span><strong>' + PROMO_WALLET_BALANCE + ' coins</strong></div>';
+    if (sufficient) {
+      h += '<div class="pcc-cost-row pcc-balance-after"><span>Balance After</span><strong>' + balanceAfter + ' coins</strong></div>';
+    } else {
+      h += '<div class="pcc-insufficient">';
+      h += '<div class="pcc-insufficient-title"><i class="material-icons" style="font-size:18px;vertical-align:middle;">error_outline</i> Insufficient Coins</div>';
+      h += '<div class="pcc-cost-row"><span>Campaign Cost</span><strong>' + PROMO_TOTAL_PRICE + ' coins</strong></div>';
+      h += '<div class="pcc-cost-row"><span>Wallet Balance</span><strong>' + PROMO_WALLET_BALANCE + ' coins</strong></div>';
+      h += '<div class="pcc-cost-row pcc-need-row"><span>Need</span><strong>' + need + ' more coins</strong></div>';
+      h += '<button type="button" class="pcc-btn pcc-btn-wallet" onclick="showToast(\'Coin purchase coming soon\')"><i class="material-icons" style="font-size:16px;vertical-align:middle;">add_card</i> Buy More Coins</button>';
+      h += '</div>';
+    }
+    wb.innerHTML = h;
+  }
 
-function updateWizardTargetId() {
-  var el = document.getElementById("promoWizardTargetSelect");
-  if (el) {
-    var val = el.value;
-    var text = el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : "";
-    PROMO_WIZARD.targetId = val;
-    PROMO_WIZARD.targetTitle = text;
+  var la = document.getElementById("pccLaunchArea");
+  if (la) {
+    if (sufficient) {
+      la.innerHTML = '<button type="button" class="pcc-launch" onclick="launchPCCCampaign()"><i class="material-icons" style="font-size:18px;vertical-align:middle;">rocket_launch</i> Launch Campaign</button>';
+    } else {
+      la.innerHTML = '';
+    }
   }
 }
 
 /* ==========================================================
-   WIZARD SETUP (post-render)
+   PCC — RADIUS / DURATION
    ========================================================== */
-function setupWizardStep() {
-  if (PROMO_WIZARD_STEP === 1) {
-    loadUserItemsForTarget();
+function pccSyncPills(groupId, currentVal) {
+  var group = document.getElementById(groupId);
+  if (!group) return;
+  var btns = group.querySelectorAll(".pcc-pill");
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].classList.toggle("active", String(btns[i].getAttribute("data-val")) === String(currentVal));
   }
 }
 
+function pccSetRadius(val) {
+  PROMO_RADIUS = String(val);
+  pccRefreshCost();
+}
+
+function pccSetDuration(val) {
+  PROMO_DURATION = String(val);
+  pccRefreshCost();
+}
+
+/* ==========================================================
+   PCC — LISTING SELECTION
+   ========================================================== */
 function loadUserItemsForTarget() {
   var userId = getUserId();
   if (!userId) return;
 
-  var targetType = PROMO_WIZARD.targetType;
+  var targetType = PROMO_PROMOTION_TYPE;
   var action = targetType === "Product" ? "products" : targetType === "Business" ? "businesses" : "properties";
 
   var url = getApiUrl() + "?action=" + action + "&userId=" + encodeURIComponent(userId);
   fetch(url)
     .then(function(r) { return r.json(); })
     .then(function(res) {
-      var select = document.getElementById("promoWizardTargetSelect");
+      var select = document.getElementById("pccListingSelect");
       if (!select) return;
       var items = [];
       if (res && res.success && res.data) {
@@ -1120,69 +1032,177 @@ function loadUserItemsForTarget() {
         html += '<option value="' + id + '">' + escapeHtml(title) + '</option>';
       });
       select.innerHTML = html;
-
-      // Auto-select if only one
-      if (items.length === 1) {
+      if (PROMO_TARGET_ID) {
+        select.value = PROMO_TARGET_ID;
+      } else if (items.length === 1) {
         select.value = items[0].ProductID || items[0].BusinessID || items[0].PropertyID || "";
-        PROMO_WIZARD.targetId = select.value;
-        PROMO_WIZARD.targetTitle = items[0].Title || items[0].Name || items[0].BusinessName || "Untitled";
+        PROMO_TARGET_ID = select.value;
+        PROMO_TARGET_TITLE = items[0].Title || items[0].Name || items[0].BusinessName || "Untitled";
       }
+      pccRefreshLocationNote();
     })
     .catch(function(err) {
       console.log("loadUserItems error:", err);
-      var select = document.getElementById("promoWizardTargetSelect");
-      if (select) {
-        select.innerHTML = '<option value="">Error loading items</option>';
-      }
+      var select = document.getElementById("pccListingSelect");
+      if (select) select.innerHTML = '<option value="">Error loading items</option>';
     });
 }
 
-/* ==========================================================
-   PRICE CALCULATION
-   ========================================================== */
-function getBasePrice() {
-  var prices = PROMO_PRICES[PROMO_WIZARD.promotionType];
-  if (!prices) return 0;
-  return prices[PROMO_WIZARD.radius] || 0;
+function pccSelectListingType(type) {
+  PROMO_PROMOTION_TYPE = type;
+  PROMO_TARGET_ID = "";
+  PROMO_TARGET_TITLE = "";
+  renderPromotionsPage();
 }
 
-function calculateWizardPrice() {
-  var basePrice = getBasePrice();
-  if (basePrice === 0) return 0;
-  var multiplier = PROMO_DURATION_MULTIPLIER[PROMO_WIZARD.duration] || 1;
-  return basePrice * multiplier;
+function pccSelectTarget() {
+  var el = document.getElementById("pccListingSelect");
+  if (!el) return;
+  PROMO_TARGET_ID = el.value;
+  var text = el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : "";
+  var isPlaceholder = (text === "Select a " + PROMO_PROMOTION_TYPE.toLowerCase() + "...");
+  var isNone = (text.indexOf("No ") === 0);
+  if (!PROMO_TARGET_ID || isPlaceholder || isNone) {
+    PROMO_TARGET_ID = "";
+    PROMO_TARGET_TITLE = "";
+  } else {
+    PROMO_TARGET_TITLE = text;
+  }
+  renderPromotionsPage();
+}
+
+function pccRefreshLocationNote() {
+  var note = document.getElementById("pccListingNote");
+  if (!note) return;
+  if (PROMO_TARGET_ID && PROMO_TARGET_TITLE) {
+    note.innerHTML = '<i class="material-icons" style="font-size:16px;vertical-align:middle;">check_circle</i> ' + escapeHtml(PROMO_TARGET_TITLE);
+  } else {
+    note.innerHTML = '';
+  }
 }
 
 /* ==========================================================
-   LAUNCH CAMPAIGN
+   PCC — TARGET LOCATION
    ========================================================== */
-function launchCampaign() {
+function pccUseCurrentLocation() {
+  var lat = 0, lng = 0, name = "Current Location";
+  if (typeof getEffectiveCenter === "function") {
+    var c = getEffectiveCenter();
+    if (c) { lat = c.lat || 0; lng = c.lng || 0; }
+  }
+  if ((!lat || !lng) && typeof getCenterLat === "function") {
+    lat = getCenterLat() || 0;
+    lng = getCenterLng() || 0;
+  }
+  if (typeof getCenterDisplayName === "function") {
+    name = getCenterDisplayName() || "Current Location";
+  }
+  PROMO_TARGET_LAT = lat;
+  PROMO_TARGET_LNG = lng;
+  PROMO_TARGET_LOCATION = name || "Current Location";
+  renderPromotionsPage();
+}
+
+function pccToggleSearch(show) {
+  var box = document.getElementById("pccSearchBox");
+  if (!box) return;
+  box.style.display = show ? "block" : "none";
+  if (show) {
+    var input = document.getElementById("pccSearchInput");
+    if (input) input.focus();
+  }
+}
+
+function pccSearchLocation() {
+  var input = document.getElementById("pccSearchInput");
+  var results = document.getElementById("pccSearchResults");
+  if (!input || !results) return;
+  var q = input.value.trim();
+  if (!q) {
+    results.innerHTML = "<div class='pcc-muted'>Please enter a city, area or landmark.</div>";
+    return;
+  }
+  results.innerHTML = "<div class='pcc-muted'>Searching...</div>";
+  var url = "https://nominatim.openstreetmap.org/search?q=" + encodeURIComponent(q) + "&format=json&limit=5&countrycodes=IN";
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data || data.length === 0) {
+        results.innerHTML = "<div class='pcc-muted'>No results found. Try a different search term.</div>";
+        return;
+      }
+      var html = "";
+      data.forEach(function(place) {
+        var lat = parseFloat(place.lat);
+        var lng = parseFloat(place.lon);
+        var name = (place.display_name || "").split(",").slice(0, 3).join(",").trim() || place.display_name;
+        var safeName = String(name).replace(/'/g, "").replace(/"/g, "");
+        html += '<div class="pcc-result-item" onclick="pccPickLocation(' + lat + ',' + lng + ',\'' + safeName + '\')">';
+        html += '<i class="material-icons" style="color:var(--primary,#0f9d58);">place</i>';
+        html += '<span>' + (name || "") + '</span>';
+        html += '</div>';
+      });
+      results.innerHTML = html;
+    })
+    .catch(function(err) {
+      console.log("PCC location search error:", err);
+      results.innerHTML = "<div class='pcc-muted'>Search failed. Please try again.</div>";
+    });
+}
+
+function pccPickLocation(lat, lng, name) {
+  PROMO_TARGET_LAT = lat;
+  PROMO_TARGET_LNG = lng;
+  PROMO_TARGET_LOCATION = name || "Selected Location";
+  renderPromotionsPage();
+}
+
+function pccChangeLocation() {
+  PROMO_TARGET_LOCATION = "";
+  PROMO_TARGET_LAT = 0;
+  PROMO_TARGET_LNG = 0;
+  renderPromotionsPage();
+}
+
+/* ==========================================================
+   PCC — LAUNCH CAMPAIGN
+   ========================================================== */
+function launchPCCCampaign() {
   var userId = getUserId();
   if (!userId) {
     requireLogin();
     return;
   }
-
-  var totalPrice = calculateWizardPrice();
-  if (totalPrice <= 0) {
-    showToast("Invalid campaign cost");
+  if (!PROMO_TARGET_ID) {
+    showToast("Please select a " + PROMO_PROMOTION_TYPE.toLowerCase() + " to promote");
+    return;
+  }
+  if (!PROMO_TARGET_LOCATION) {
+    showToast("Please select a target location");
     return;
   }
 
-  if (PROMO_WALLET_BALANCE < totalPrice) {
+  calculatePCCTotalPrice();
+  if (PROMO_TOTAL_PRICE <= 0) {
+    showToast("Invalid campaign cost");
+    return;
+  }
+  if (PROMO_WALLET_BALANCE < PROMO_TOTAL_PRICE) {
     showToast("Insufficient balance. Please add more coins to your wallet.");
-    openPage("wallet");
     return;
   }
 
   var url = getApiUrl() +
     "?action=createpromotion" +
     "&userId=" + encodeURIComponent(userId) +
-    "&promotionType=" + encodeURIComponent(PROMO_WIZARD.promotionType) +
-    "&targetType=" + encodeURIComponent(PROMO_WIZARD.targetType) +
-    "&targetId=" + encodeURIComponent(PROMO_WIZARD.targetId) +
-    "&radius=" + encodeURIComponent(PROMO_WIZARD.radius) +
-    "&duration=" + encodeURIComponent(PROMO_WIZARD.duration);
+    "&promotionType=Silver" +
+    "&targetType=" + encodeURIComponent(PROMO_PROMOTION_TYPE) +
+    "&targetId=" + encodeURIComponent(PROMO_TARGET_ID) +
+    "&radius=" + encodeURIComponent(PROMO_RADIUS) +
+    "&duration=" + encodeURIComponent(PROMO_DURATION) +
+    "&targetLocation=" + encodeURIComponent(PROMO_TARGET_LOCATION) +
+    "&latitude=" + encodeURIComponent(PROMO_TARGET_LAT) +
+    "&longitude=" + encodeURIComponent(PROMO_TARGET_LNG);
 
   // Show launching state
   var container = document.getElementById("promotionsContent");
@@ -1195,17 +1215,19 @@ function launchCampaign() {
     .then(function(res) {
       if (res && res.success) {
         showToast("Campaign launched successfully! 🎉");
-        PROMO_WIZARD_STEP = 1;
         PROMO_VIEW = "list";
+        PROMO_CREATING = false;
         loadPromotionsData();
       } else {
-        showToast(res.message || "Failed to launch campaign");
+        // Surface the backend error normally.
+        // PCC frontend launch path reached the known V2 backend failure.
+        showToast((res && res.message) || "Failed to launch campaign");
         PROMO_VIEW = "create";
         renderPromotionsPage();
       }
     })
     .catch(function(err) {
-      console.log("Launch campaign error:", err);
+      console.log("PCC launch error:", err);
       showToast("Error launching campaign");
       PROMO_VIEW = "create";
       renderPromotionsPage();
@@ -1311,12 +1333,10 @@ function escapeHtml(str) {
    Preserve old function names so existing navigation works
    ========================================================== */
 function openPromotionWizard() {
-  openPromotionsPage();
+  openCreateWizard();
 }
 
 function loadMyPromotions() {
-  // This is now handled by loadPromotionsData
-  // Keep for backward compatibility
   if (document.getElementById("promotionsContent")) {
     openPromotionsPage();
   }
