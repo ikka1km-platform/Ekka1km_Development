@@ -1003,25 +1003,6 @@ case "onboarding":
       case "getcampaignanalytics":
         return getCampaignAnalytics(e);
 
-      // V5.13.0 - PIP ECONOMY CONFIGURATION (Admin-controlled sub-mechanism)
-      case "adminpipeconomy":
-        return getAdminPipEconomy(e);
-
-      case "adminpipeconomyversions":
-        return getAdminPipEconomyVersions(e);
-
-      case "adminpipeconomycreate":
-        return createAdminPipEconomy(e);
-
-      case "adminpipeconomyupdate":
-        return updateAdminPipEconomy(e);
-
-      case "adminpipeconomyactivate":
-        return activateAdminPipEconomy(e);
-
-      case "adminpipeconomydeactivate":
-        return deactivateAdminPipEconomy(e);
-
       default:
         return error("Unknown action: " + action);
     }
