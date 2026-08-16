@@ -168,7 +168,14 @@ const CONFIG = {
 
     TASKS: "Tasks",
 
-    TASK_HISTORY: "TaskHistory"
+    TASK_HISTORY: "TaskHistory",
+
+    //==========================================================
+    // V5.13.0 PIP ECONOMY CONFIGURATION (Admin-controlled sub-mechanism)
+    // Versioned single shared economy consumed later by Admin PIP + PCC
+    //==========================================================
+
+    PIP_ECONOMY: "PIPEconomyConfig"
   },
 
   //============================================================
