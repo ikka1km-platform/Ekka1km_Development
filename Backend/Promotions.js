@@ -94,7 +94,7 @@ function calculatePromotionPrice(e) {
  * Orchestrates: Wallet Validation → Deduction → Promotion Engine → Transactions
  * ============================================================
  */
-function createPromotionTransaction(userId, promotionType, targetType, targetId, radius, duration, totalCoins) {
+function createPromotionTransaction(userId, promotionType, targetType, targetId, radius, duration, totalCoins, latitude, longitude) {
   // V2 Backend Migration: Delegate to Promotion Economy V2
   var campaignType = "PROMOTE_" + targetType.toUpperCase();
   
@@ -130,7 +130,7 @@ function createPromotionTransaction(userId, promotionType, targetType, targetId,
   var durationInSeconds = parseInt(duration) * 86400;
   var endDate = new Date(Date.now() + parseInt(duration) * 24 * 60 * 60 * 1000);
   
-  var v2Result = createPromotionCampaign({
+  var v2Raw = createPromotionCampaign({
     parameter: {
       userId: userId,
       campaignType: campaignType,
@@ -144,18 +144,30 @@ function createPromotionTransaction(userId, promotionType, targetType, targetId,
       targetCategory: targetCategory,
       targetCity: targetCity,
       targetState: targetState,
+      // H2: campaign-specific target location
+      latitude: latitude || "",
+      longitude: longitude || "",
       pipEnabled: "Yes",
       featured: "No",
       creativeType: "IMAGE",
       promotionTier: promotionType
     }
   });
-  
-  if (!v2Result || !v2Result.success) {
-    throw new Error((v2Result && v2Result.message) || "Failed to create V2 campaign");
+
+  // H1: Internal return-contract normalization.
+  // createPromotionCampaign() may return a ContentService.TextOutput (because the
+  // active global success/error/exception helpers resolve via Response.js) OR a
+  // plain object (via Code.js). Normalize to a plain object before inspection so
+  // the .success check below behaves identically in both cases.
+  var v2 = v2Raw && typeof v2Raw.getContent === "function"
+    ? JSON.parse(v2Raw.getContent())
+    : v2Raw;
+
+  if (!v2 || !v2.success) {
+    throw new Error((v2 && v2.message) || "Failed to create V2 campaign");
   }
-  
-  var campaignData = v2Result.data || v2Result;
+
+  var campaignData = v2.data || v2;
   var promotionId = campaignData.campaignId || ("PR" + Utilities.getUuid().substring(0, 8));
   
   return {
@@ -183,6 +195,9 @@ function createPromotion(e) {
     var targetId = p.targetId || "";
     var radius = p.radius || "51";
     var duration = p.duration || "1";
+    // H2: PCC campaign-specific target location
+    var latitude = p.latitude || "";
+    var longitude = p.longitude || "";
 
     if (!userId || !targetType || !targetId) {
       return error("userId, targetType, and targetId required");
@@ -222,7 +237,7 @@ function createPromotion(e) {
     }
 
     // Atomic transaction via orchestration layer
-    var result = createPromotionTransaction(userId, promotionType, targetType, targetId, radius, duration, totalCoins);
+    var result = createPromotionTransaction(userId, promotionType, targetType, targetId, radius, duration, totalCoins, latitude, longitude);
 
     return success(result, "Promotion created successfully");
 

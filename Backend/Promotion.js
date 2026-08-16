@@ -1813,8 +1813,8 @@ function createPromotionCampaign(e) {
         p.targetCategory || "",          // District (TargetCategory - backward compatible)
         p.targetState || "",             // State (TargetState)
         p.targetCountry || "",           // Country (TargetCountry)
-        "",                              // Latitude
-        "",                              // Longitude
+        p.latitude || "",                // Latitude
+        p.longitude || "",                // Longitude
         0,                               // Views
         0,                               // Clicks
         0,                               // Interested
