@@ -125,6 +125,23 @@ AdminModules.register("advertisements", async function(container) {
     if (n >= 1000) return (n / 1000).toFixed(1) + "K";
     return String(n);
   }
+/* ============================================================
+  HELPER: SAFE FORMAT PAGE CONTENT
+  Renders PageContent in the campaign detail modal. PageContent is
+  expected to be a JSON string, but existing rows can contain plain
+  strings (e.g. "NO"). When it parses, pretty-print it; otherwise
+  return the raw string so no campaign field is silently dropped and
+  no JSON.parse error bubbles up to the modal renderer.
+  ============================================================ */
+  function safeFormatPageContent(value) {
+    if (!value) return "";
+    try {
+      var parsed = JSON.parse(String(value));
+      return JSON.stringify(parsed, null, 2);
+    } catch (err) {
+      return String(value);
+    }
+  }
 
   /*
   ============================================================
@@ -421,7 +438,7 @@ AdminModules.register("advertisements", async function(container) {
     }
     if (campaign.PageContent) {
       mhtml += '      <div style="margin-bottom:8px;"><strong>Page Content (JSON):</strong>';
-      mhtml += '      <pre style="background:var(--bg-secondary);padding:10px;border-radius:6px;font-size:11px;overflow-x:auto;margin-top:4px;color:var(--text-secondary);">' + escapeHtml(JSON.stringify(JSON.parse(campaign.PageContent), null, 2)) + '</pre></div>';
+      mhtml += '      <pre style="background:var(--bg-secondary);padding:10px;border-radius:6px;font-size:11px;overflow-x:auto;margin-top:4px;color:var(--text-secondary);">' + escapeHtml(safeFormatPageContent(campaign.PageContent)) + '</pre></div>';
     }
     mhtml += '    </div>';
     // Description

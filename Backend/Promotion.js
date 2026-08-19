@@ -72,8 +72,12 @@ function ensurePromotionSheets() {
       } else if (name === "AdAnalytics") {
         s.appendRow(["AnalyticsID", "CampaignID", "Impressions", "Views", "UniqueViewers", "Skips", "Completions", "CompletionRate", "RewardsPaid", "TotalRewardPaid", "RemainingFuel", "RewardedUsersCount", "CTR", "UpdatedAt"]);
       } else if (name === "PromotionCampaigns") {
-        // Promotion Engine V2 schema - Fuel economy
-        s.appendRow(["CampaignID", "CampaignType", "OwnerUserID", "TargetType", "TargetID", "CoinsConsumed", "PromotionFuel", "RemainingFuel", "Radius", "City", "District", "State", "Country", "Latitude", "Longitude", "Views", "Clicks", "Interested", "Shares", "StartDate", "EndDate", "Status", "CreatedDate", "ImageURL", "VideoURL", "ExternalURL", "Duration", "RewardCoins", "RewardRatePerSecond", "EstimatedViewSeconds", "EstimatedViews", "CreativeType", "CTA", "DestinationType", "PageContent", "Priority", "Featured", "PIPEnabled", "PromotionTier"]);
+        // Promotion Engine LIVE schema - 44 columns (physical source of truth).
+        // This only defines the schema for a fresh/never-created sheet, aligning
+        // it with the production layout. Do NOT let the V2 migration below append
+        // or reorder columns on an existing 44-column sheet (it stays a no-op
+        // there because every required header already exists in the live layout).
+        s.appendRow(["CampaignID", "CampaignTitle", "CampaignSource", "OwnerUserID", "TargetType", "TargetID", "PromotionFuel", "RemainingFuel", "RewardRatePerSecond", "EstimatedViewSeconds", "EstimatedViews", "CoinsConsumed", "Radius", "PromotionLocation", "City", "District", "State", "Country", "Latitude", "Longitude", "Views", "Clicks", "Interested", "Shares", "StartDate", "EndDate", "Status", "CreatedDate", "UpdatedDate", "ImageURL", "VideoURL", "ExternalURL", "MediaDuration", "CreativeType", "CTA", "DestinationType", "PageContent", "PushNotification", "Featured", "PIPEnabled", "Remarks", "Duration", "RewardCoins", "Priority"]);
       }
     }
   });
@@ -1805,48 +1809,73 @@ function createPromotionCampaign(e) {
         }, "Promotion campaign already created and deducted");
       }
 
-      // V2: New schema with PromotionFuel economy
-      sheet.appendRow([
-        campaignId,                      // CampaignID
-        campaignType,                    // CampaignType
-        userId,                          // OwnerUserID
-        p.promotedEntityType || "",      // TargetType
-        p.promotedEntityID || "",        // TargetID
-        coinsConsumed,                   // CoinsConsumed (V2, was CoinsSpent)
-        promotionFuel,                   // PromotionFuel (V2, was RewardPool)
-        remainingFuel,                   // RemainingFuel (V2, was RemainingRewardCoins)
-        p.targetRadius || "All India",   // Radius
-        p.targetCity || "",              // City (TargetCity)
-        p.targetCategory || "",          // District (TargetCategory - backward compatible)
-        p.targetState || "",             // State (TargetState)
-        p.targetCountry || "",           // Country (TargetCountry)
-        p.latitude || "",                // Latitude
-        p.longitude || "",                // Longitude
-        0,                               // Views
-        0,                               // Clicks
-        0,                               // Interested
-        0,                               // Shares
-        now,                             // StartDate
-        p.endDate ? new Date(p.endDate) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // EndDate
-        "Active",                        // Status
-        now,                             // CreatedDate
-        p.imageURL || "",                // ImageURL
-        p.videoURL || "",                // VideoURL
-        p.externalURL || "",             // ExternalURL
-        String(duration),                // Duration
-        String(rewardCoins),             // RewardCoins
-        String(rewardRatePerSecond),     // RewardRatePerSecond (V2)
-        String(estimatedViewSeconds),    // EstimatedViewSeconds (V2)
-        String(estimatedViews),          // EstimatedViews (V2)
-        p.creativeType || "IMAGE",       // CreativeType
-        p.cta || "Learn More",           // CTA
-        p.destinationType || "",         // DestinationType
-        p.pageContent || "",             // PageContent
-        p.priority || "0",               // Priority
-        p.featured || "No",              // Featured
-        p.pipEnabled || "Yes",           // PIPEnabled
-        p.promotionTier || ""            // PromotionTier
-      ]);
+      // ============================================================
+      // LIVE-schema aligned row construction.
+      // The live PromotionCampaigns sheet is the physical source of
+      // truth (44 columns). Build the new row keyed by the live header
+      // names so every value lands in the correct column regardless of
+      // physical column positions. Do NOT assume a fixed A/B/C/... order.
+      // Any live column that the campaign flow does not produce is "".
+      // ============================================================
+      var liveHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+      var campaignData = {
+        CampaignID: campaignId,
+        CampaignTitle: p.campaignTitle || "",
+        CampaignSource: p.campaignSource || "",
+        OwnerUserID: userId,
+        TargetType: p.promotedEntityType || "",
+        TargetID: p.promotedEntityID || "",
+        PromotionFuel: promotionFuel,
+        RemainingFuel: remainingFuel,
+        RewardRatePerSecond: String(rewardRatePerSecond),
+        EstimatedViewSeconds: String(estimatedViewSeconds),
+        EstimatedViews: String(estimatedViews),
+        CoinsConsumed: coinsConsumed,
+        Radius: p.targetRadius || "All India",
+        PromotionLocation: p.targetLocation || p.promotionLocation || "",
+        City: p.targetCity || "",
+        District: p.targetCategory || "",
+        State: p.targetState || "",
+        Country: p.targetCountry || "",
+        Latitude: p.latitude || "",
+        Longitude: p.longitude || "",
+        Views: 0,
+        Clicks: 0,
+        Interested: 0,
+        Shares: 0,
+        StartDate: now,
+        EndDate: p.endDate ? new Date(p.endDate) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+        Status: "Active",
+        CreatedDate: now,
+        UpdatedDate: p.updatedDate || "",
+        ImageURL: p.imageURL || "",
+        VideoURL: p.videoURL || "",
+        ExternalURL: p.externalURL || "",
+        MediaDuration: p.mediaDuration || "",
+        CreativeType: p.creativeType || "IMAGE",
+        CTA: p.cta || "Learn More",
+        DestinationType: p.destinationType || "",
+        PageContent: p.pageContent || "",
+        PushNotification: p.pushNotification || "",
+        Featured: p.featured || "No",
+        PIPEnabled: p.pipEnabled || "Yes",
+        Remarks: p.remarks || "",
+        Duration: String(duration),
+        RewardCoins: String(rewardCoins),
+        Priority: p.priority || "0"
+      };
+
+      // Map the campaign data onto the live header order. Unknown/unused
+      // live columns are left empty; campaign-only keys with no matching
+      // live header are simply not written.
+      var liveRow = liveHeaders.map(function (header) {
+        return Object.prototype.hasOwnProperty.call(campaignData, header)
+          ? campaignData[header]
+          : "";
+      });
+
+      sheet.appendRow(liveRow);
 
       // H3: Deduct promotionFuel from the user's wallet and record a DEBIT
       // transaction. If deduction OR transaction creation fails, roll back the
