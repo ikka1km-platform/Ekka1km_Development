@@ -849,7 +849,7 @@ function getAdminPromotionCampaigns(e) {
         Duration: duration,
         StartDate: c.StartDate || "",
         EndDate: c.EndDate || "",
-        Status: c.Status || "",
+        Status: String(c.Status || ""),
         CreatedDate: c.CreatedDate || c.CreatedAt || "",
         Priority: Number(c.Priority || 0),
         // Normalize Featured/PIPEnabled to consistent format for frontend
