@@ -1752,26 +1752,14 @@ function createPromotionCampaign(e) {
         return error("Insufficient EkkaCoins. Required: " + promotionFuel + ", Available: " + balance);
       }
 
-      // PHASE 1.7C: Deduct from wallet (will be finalized in future phase)
-      // Temporarily keeping for validation - comment out for now
-      /*
-      var afterDeduction = balance - promotionFuel;
-      updateRow("Wallet", "WalletID", wallet.WalletID, {
-        Balance: afterDeduction,
-        TotalSpent: Number(wallet.TotalSpent || 0) + promotionFuel,
-        LastUpdated: new Date()
-      });
-
-      createWalletTransaction(
-        wallet.WalletID,
-        userId,
-        -promotionFuel,
-        balance,
-        afterDeduction,
-        "CAMPAIGN_" + campaignType,
-        "Promotion Campaign - " + campaignType
-      );
-      */
+      // ============================================================
+      // H3: Wallet deduction for Promotion Campaign
+      // The exact amount deducted is promotionFuel = the full campaign
+      // budget / cost. Never deduct RewardPool / RemainingRewardCoins /
+      // CoinsConsumed. The deduction + DEBIT transaction run AFTER the
+      // campaign row is created so a failed campaign never deducts coins.
+      // ============================================================
+      var deductAmount = promotionFuel;
 
       var sheet = getSheet("PromotionCampaigns");
       var campaignId = "C" + Utilities.getUuid().substring(0, 8);
@@ -1797,6 +1785,25 @@ function createPromotionCampaign(e) {
       // V2: Initial fuel state
       var remainingFuel = promotionFuel; // Start with full fuel
       var coinsConsumed = 0; // Nothing consumed yet
+
+      // H3: ReferenceID used for the DEBIT transaction and duplicate/retry guard.
+      var referenceId = "CAMPAIGN_" + campaignId;
+
+      // H3 duplicate/retry protection: if a DEBIT transaction already exists for
+      // this user + campaign reference, do not deduct a second time.
+      // LockService remains the primary concurrent-request protection.
+      if (hasWalletTransactionForReference(userId, referenceId)) {
+        return success({
+          campaignId: campaignId,
+          cost: promotionFuel,
+          promotionFuel: promotionFuel,
+          remainingFuel: remainingFuel,
+          rewardRatePerSecond: rewardRatePerSecond,
+          estimatedViewSeconds: estimatedViewSeconds,
+          estimatedViews: estimatedViews,
+          balanceRemaining: balance
+        }, "Promotion campaign already created and deducted");
+      }
 
       // V2: New schema with PromotionFuel economy
       sheet.appendRow([
@@ -1841,6 +1848,32 @@ function createPromotionCampaign(e) {
         p.promotionTier || ""            // PromotionTier
       ]);
 
+      // H3: Deduct promotionFuel from the user's wallet and record a DEBIT
+      // transaction. If deduction OR transaction creation fails, roll back the
+      // wallet and remove the just-created campaign row so no partially-created
+      // campaign is left behind.
+      var originalBalance = balance;
+      var originalTotalSpent = Number(wallet.TotalSpent || 0);
+      var afterDeduction = balance;
+      try {
+        var debitResult = debitWallet(
+          userId,
+          deductAmount,
+          referenceId,
+          "Promotion Campaign - " + campaignType,
+          "PROMOTION"
+        );
+        afterDeduction = debitResult.after;
+      } catch (debitErr) {
+        updateRow("Wallet", "WalletID", wallet.WalletID, {
+          Balance: originalBalance,
+          TotalSpent: originalTotalSpent,
+          LastUpdated: new Date()
+        });
+        removeCampaignRowByCampaignId(campaignId);
+        return exception(debitErr);
+      }
+
       return success({
         campaignId: campaignId,
         cost: promotionFuel,
@@ -1849,7 +1882,7 @@ function createPromotionCampaign(e) {
         rewardRatePerSecond: rewardRatePerSecond,
         estimatedViewSeconds: estimatedViewSeconds,
         estimatedViews: estimatedViews,
-        balanceRemaining: balance
+        balanceRemaining: afterDeduction
       }, "Promotion campaign created! PromotionFuel: " + promotionFuel + " EkkaCoins");
 
     } catch (err) {
@@ -1860,6 +1893,36 @@ function createPromotionCampaign(e) {
 
   } catch (err) {
     return exception(err);
+  }
+}
+
+
+/**
+ * ============================================================
+ * H3 ROLLBACK HELPER - REMOVE CAMPAIGN ROW
+ * Removes a PromotionCampaigns row by CampaignID (native Sheets deleteRow).
+ * Used only to roll back a campaign when the wallet deduction or the DEBIT
+ * transaction fails after the campaign row was already appended.
+ * ============================================================
+ */
+function removeCampaignRowByCampaignId(campaignId) {
+  try {
+    if (!campaignId) return false;
+
+    var sheet = getSheet("PromotionCampaigns");
+    if (!sheet) return false;
+
+    var values = sheet.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][0]) === String(campaignId)) {
+        sheet.deleteRow(i + 1);
+        return true;
+      }
+    }
+    return false;
+  } catch (err) {
+    Logger.log("removeCampaignRowByCampaignId error: " + err);
+    return false;
   }
 }
 

@@ -303,7 +303,9 @@ function createWalletTransaction(
   before,
   after,
   referenceId,
-  reason
+  reason,
+  type,
+  source
 ) {
   const sheet =
     getSheet("WalletTransactions");
@@ -317,9 +319,9 @@ function createWalletTransaction(
     transactionId,
     walletId,
     userId,
-    "REWARD",
+    type || "REWARD",
     reason || "Reward",
-    "ADVERTISEMENT",
+    source || "ADVERTISEMENT",
     referenceId,
     coins,
     before,
@@ -328,4 +330,113 @@ function createWalletTransaction(
     new Date(),
     "SYSTEM"
   ]);
+}
+/**
+ * ============================================================
+ * CANONICAL WALLET DEBIT (H3)
+ * Deducts coins from a user's wallet with negative-balance protection
+ * and records a DEBIT WalletTransactions row via the shared writer.
+ * ============================================================
+ * @param {string} userId - User ID
+ * @param {number} coins - Positive amount to deduct
+ * @param {string} referenceId - Linked entity reference (e.g. "CAMPAIGN_<id>")
+ * @param {string} reason - Human-readable description
+ * @param {string} source - Transaction source (defaults to "PROMOTION")
+ * @returns {object} { walletId, userId, coins, before, after }
+ */
+function debitWallet(
+  userId,
+  coins,
+  referenceId,
+  reason,
+  source
+) {
+  const wallet =
+    getWalletRow(userId);
+
+  if (!wallet) {
+    throw new Error("Wallet not found. Please create a wallet first.");
+  }
+
+  const debitAmount =
+    Number(coins || 0);
+
+  if (debitAmount <= 0) {
+    throw new Error("Invalid debit amount.");
+  }
+
+  const before =
+    Number(wallet.Balance || 0);
+
+  // Never allow negative balance
+  if (before < debitAmount) {
+    throw new Error("Insufficient EkkaCoins. Required: " + debitAmount + ", Available: " + before);
+  }
+
+  const after = before - debitAmount;
+  if (after < 0) {
+    throw new Error("Transaction would result in negative balance.");
+  }
+
+  updateRow(
+    "Wallet",
+    "WalletID",
+    wallet.WalletID,
+    {
+      Balance: after,
+      TotalSpent:
+        Number(wallet.TotalSpent || 0)
+        + debitAmount,
+      LastUpdated: new Date()
+    }
+  );
+
+  createWalletTransaction(
+    wallet.WalletID,
+    userId,
+    -debitAmount,
+    before,
+    after,
+    referenceId,
+    reason,
+    "DEBIT",
+    source || "PROMOTION"
+  );
+
+  return {
+    walletId: wallet.WalletID,
+    userId: userId,
+    coins: debitAmount,
+    before: before,
+    after: after
+  };
+}
+
+
+/**
+ * ============================================================
+ * H3 DUPLICATE / RETRY PROTECTION
+ * Returns true if a WalletTransactions row already exists for the
+ * given (userId, referenceId). Used to avoid double-deduction when a
+ * campaign creation request is retried.
+ * ============================================================
+ */
+function hasWalletTransactionForReference(userId, referenceId) {
+  if (!referenceId) return false;
+
+  const data =
+    getSheetData("WalletTransactions");
+
+  for (let i = 0; i < data.length; i++) {
+    const ref =
+      (data[i].ReferenceID !== undefined ? data[i].ReferenceID : data[i].ReferenceId) || "";
+    if (
+      String(ref) === String(referenceId) &&
+      String(data[i].UserID || "") === String(userId)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
