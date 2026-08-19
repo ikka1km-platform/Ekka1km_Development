@@ -762,22 +762,22 @@ function getAdminPromotionCampaigns(e) {
 
     if (search) {
       campaigns = campaigns.filter(function(c) {
-        return (c.CampaignID || "").toLowerCase().indexOf(search) !== -1 ||
-               (c.CampaignType || "").toLowerCase().indexOf(search) !== -1 ||
-               (c.TargetType || "").toLowerCase().indexOf(search) !== -1 ||
-               (c.TargetID || "").toLowerCase().indexOf(search) !== -1 ||
-               (c.Title || "").toLowerCase().indexOf(search) !== -1 ||
-               (c.City || "").toLowerCase().indexOf(search) !== -1 ||
-               (c.State || "").toLowerCase().indexOf(search) !== -1 ||
-               (c.OwnerUserID || "").toLowerCase().indexOf(search) !== -1 ||
-               (userMap[c.OwnerUserID] || "").toLowerCase().indexOf(search) !== -1;
+        return String(c.CampaignID || "").toLowerCase().indexOf(search) !== -1 ||
+               String(c.CampaignType || "").toLowerCase().indexOf(search) !== -1 ||
+               String(c.TargetType || "").toLowerCase().indexOf(search) !== -1 ||
+               String(c.TargetID || "").toLowerCase().indexOf(search) !== -1 ||
+               String(c.Title || "").toLowerCase().indexOf(search) !== -1 ||
+               String(c.City || "").toLowerCase().indexOf(search) !== -1 ||
+               String(c.State || "").toLowerCase().indexOf(search) !== -1 ||
+               String(c.OwnerUserID || "").toLowerCase().indexOf(search) !== -1 ||
+               String(userMap[c.OwnerUserID] || "").toLowerCase().indexOf(search) !== -1;
       });
     }
 
     if (statusFilter) {
       var statusLower = statusFilter;
       campaigns = campaigns.filter(function(c) {
-        var cs = (c.Status || "").toLowerCase();
+        var cs = String(c.Status || "").toLowerCase();
         // Support grouping: "expired" includes Ended/Completed
         if (statusLower === "expired" || statusLower === "ended") {
           return cs === "expired" || cs === "ended" || cs === "completed";
@@ -791,7 +791,7 @@ function getAdminPromotionCampaigns(e) {
 
     if (creativeFilter) {
       campaigns = campaigns.filter(function(c) {
-        return (c.CreativeType || "").toLowerCase() === creativeFilter.toLowerCase();
+        return String(c.CreativeType || "").toLowerCase() === creativeFilter.toLowerCase();
       });
     }
 
@@ -886,7 +886,7 @@ function getAdminPromotionCampaigns(e) {
     };
 
     enriched.forEach(function(c) {
-      var s = (c.Status || "").toLowerCase();
+      var s = String(c.Status || "").toLowerCase();
       if (s === "active") stats.activeCount++;
       else if (s === "paused") stats.pausedCount++;
       else if (s === "pending") stats.pendingCount++;
