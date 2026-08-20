@@ -561,6 +561,10 @@ function startAdWatchTimer() {
   AD_WATCH_SECONDS = 0;
   const duration = Number(CURRENT_PIP_AD.Duration || CURRENT_PIP_AD.duration || 10);
   AD_WATCH_TIMER = setInterval(function() {
+    if (!CURRENT_PIP_AD) {
+      stopAdWatchTimer();
+      return;
+    }
     AD_WATCH_SECONDS++;
     const progress = Math.min(100, Math.round((AD_WATCH_SECONDS / duration) * 100));
     const progressBar = document.getElementById("pipProgressBar");
@@ -1028,6 +1032,7 @@ function exitRewardAdMode() {
   if (REWARD_AD_MODE_VIDEO_TIMER) { clearTimeout(REWARD_AD_MODE_VIDEO_TIMER); REWARD_AD_MODE_VIDEO_TIMER = null; }
   if (REWARD_AD_MODE_CONTROLS_TIMER) { clearTimeout(REWARD_AD_MODE_CONTROLS_TIMER); REWARD_AD_MODE_CONTROLS_TIMER = null; }
   if (REWARD_AD_MODE_OVERLAY) { REWARD_AD_MODE_OVERLAY.remove(); REWARD_AD_MODE_OVERLAY = null; }
+  stopAdWatchTimer();
   REWARD_AD_MODE_ACTIVE = false;
   REWARD_AD_MODE_CONTROLS_VISIBLE = true;
   CURRENT_PIP_AD = null;

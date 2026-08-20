@@ -133,6 +133,9 @@ function doGet(e) {
       case "adminpromotioncampaigns":
         return getAdminPromotionCampaigns(e);
 
+      case "promotednearby":
+        return getPromotedNearYou(e);
+
       // News
       case "news":
         return getNews(e);
