@@ -459,6 +459,12 @@ function getPipQueue(e) {
     var limit = Math.min(result.length, 3);
     var queue = result.slice(0, limit);
 
+    // Audience-safe viewer length for the targeted-ad display. Does not touch
+    // stored Duration/reward economy.
+    queue.forEach(function(ad) {
+      try { ad.AdDurationSeconds = resolveAdDurationSeconds(ad); } catch (adE) {}
+    });
+
     queue.forEach(function(ad) {
       try {
         trackAdAnalytics(ad.CampaignID, "impression");
@@ -520,6 +526,8 @@ function getPipCreativeData(e) {
       TargetID: campaign.TargetID || "",
       PageContent: campaign.PageContent || "",
       Duration: Number(campaign.Duration || 5),
+      // Audience-facing viewer length (separate from campaign lifetime).
+      AdDurationSeconds: resolveAdDurationSeconds(campaign),
       RewardCoins: Number(campaign.RewardCoins || 0),
       RewardRatePerSecond: Number(campaign.RewardRatePerSecond || 1),
       AdType: campaign.AdType || "IMAGE",
@@ -613,6 +621,47 @@ function trackPipClick(e) {
 
 
 /**
+/**
+ * ============================================================
+ * VIEWER AD DURATION RESOLVER (V2 audience-safe)
+ * ============================================================
+ * Separates CAMPAIGN LIFETIME from VIEWER AD DURATION.
+ *
+ * The `Duration` column is overloaded in the live schema:
+ *  - Admin / entity constructors store the viewer ad-view length in
+ *    seconds (5/10/15/30).
+ *  - The public PCC campaign path historically stored campaign lifetime
+ *    in seconds (days * 86400), e.g. 259200 for a 3-day campaign.
+ *
+ * We NEVER redefine or migrate the stored `Duration` column here. This
+ * resolver only produces the audience-facing viewer window at READ time:
+ *  - If the stored value is a realistic viewer length (<= 120s) it is used.
+ *  - If it is a campaign-lifetime artifact (> 120s, e.g. 259200) a sane
+ *    default viewer length (10s) is returned.
+ * Reward/economy columns (Duration, RewardRatePerSecond, EstimatedViews)
+ * are intentionally left untouched for existing campaigns.
+ * ============================================================
+ */
+function resolveAdDurationSeconds(c) {
+  try {
+    var raw = Number((c && (c.AdDurationSeconds || c.Duration)) || 5);
+    if (!raw || isNaN(raw) || raw <= 0) raw = 5;
+    // Campaign-lifetime-seconds artifact (e.g. days*86400). Not a viewer length.
+    if (raw > 120) return 10;
+    return Math.max(3, Math.round(raw));
+  } catch (e) {
+    return 10;
+  }
+}
+
+
+/**
+ * ============================================================
+ * GET ADVERTISEMENT CENTER
+ * ?action=getadcenter&userId=U001&category=Products&lat=26.91&lng=75.78&radius=51
+ * Uses RemainingFuel for Promotion Engine V2
+ * ============================================================
+ */
  * ============================================================
  * GET ADVERTISEMENT CENTER
  * ?action=getadcenter&userId=U001&category=Products&lat=26.91&lng=75.78&radius=51
@@ -705,6 +754,8 @@ function getAdvertisementCenter(e) {
           ImageURL: c.ImageURL || "",
           VideoURL: c.VideoURL || "",
           Duration: totalDuration,
+          // Audience-facing viewer length (separate from campaign lifetime).
+          AdDurationSeconds: resolveAdDurationSeconds(c),
           RewardCoins: actualReward,
           RewardPerSecond: Number(c.RewardRatePerSecond || c.RewardPerSecond || 1),
           RepeatRewardType: c.RepeatRewardType || "ONCE",
@@ -985,7 +1036,7 @@ function startAdWatch(e) {
     return success({
       watchId: watchId,
       campaignId: campaignId,
-      totalDuration: Number(campaign.Duration || 5),
+      totalDuration: resolveAdDurationSeconds(campaign),
       totalReward: Number(campaign.RewardCoins || 0),
       rewardPerSecond: Number(campaign.RewardRatePerSecond || campaign.RewardPerSecond || 1),
       rewardPerUser: rewardPerUser,
@@ -994,7 +1045,7 @@ function startAdWatch(e) {
       rewardCap: rewardCap,
       watchedSeconds: existingProgress ? existingProgress.WatchedSeconds : 0,
       rewardPaid: existingProgress ? existingProgress.RewardPaid : 0,
-      remainingSeconds: Math.max(0, Number(campaign.Duration || 5) - (existingProgress ? existingProgress.WatchedSeconds : 0)),
+      remainingSeconds: Math.max(0, resolveAdDurationSeconds(campaign) - (existingProgress ? existingProgress.WatchedSeconds : 0)),
       remainingReward: Math.max(0, rewardCap - (existingProgress ? existingProgress.RewardPaid : 0)),
       isResume: existingProgress !== null,
       adType: campaign.AdType || "IMAGE",
@@ -1046,7 +1097,7 @@ function updateAdProgress(e) {
     
     campaign = normalizeCampaign(campaign);
 
-    var totalDuration = Number(campaign.Duration || 5);
+    var totalDuration = resolveAdDurationSeconds(campaign);
     var rewardPerSecond = Number(campaign.RewardRatePerSecond || campaign.RewardPerSecond || 1);
     // V2: Use RemainingFuel
     var remainingFuel = Number(campaign.RemainingFuel || campaign.RemainingRewardPool || 0);
@@ -1178,7 +1229,7 @@ function completeAdWatch(e) {
     
     campaign = normalizeCampaign(campaign);
 
-    var totalDuration = Number(campaign.Duration || 5);
+    var totalDuration = resolveAdDurationSeconds(campaign);
     var rewardPerSecond = Number(campaign.RewardRatePerSecond || campaign.RewardPerSecond || 1);
     var totalReward = Number(campaign.RewardCoins || 0);
     // V2: Use RemainingFuel
@@ -1315,7 +1366,7 @@ function skipAdWatch(e) {
     
     campaign = normalizeCampaign(campaign);
 
-    var totalDuration = Number(campaign.Duration || 5);
+    var totalDuration = resolveAdDurationSeconds(campaign);
     var rewardPerSecond = Number(campaign.RewardRatePerSecond || campaign.RewardPerSecond || 1);
     // V2: Use RemainingFuel
     var remainingFuel = Number(campaign.RemainingFuel || campaign.RemainingRewardPool || 0);

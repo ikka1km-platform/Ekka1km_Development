@@ -25,6 +25,41 @@ let AD_WATCH_SECONDS = 0;
 let CURRENT_WATCHING_CAMPAIGN = null;
 let AD_CENTER_TAB = "All";
 let PIP_QUEUE_LOADED = false;
+let CURRENT_AD_CENTER_ADS = [];
+
+/*
+============================================================
+VIEWER AD DURATION (audience-safe helper)
+============================================================
+Returns the viewer-facing ad length in seconds. The backend stamps
+AdDurationSeconds for audience consumption; when absent we defensively
+clamp the stored Duration so a campaign-lifetime artifact (e.g. 259200)
+is never shown to the audience as an ad length.
+============================================================
+*/
+function getAdDurationSeconds(campaign) {
+  if (!campaign) return 5;
+  var raw = Number(campaign.AdDurationSeconds || campaign.Duration || campaign.duration || 5);
+  if (!raw || isNaN(raw) || raw <= 0) raw = 5;
+  if (raw > 120) raw = 10; // campaign-lifetime artifact, not an ad length
+  return Math.max(3, Math.round(raw));
+}
+
+/*
+============================================================
+RESOLVE AUDIENCE DESTINATION (Learn More)
+============================================================
+Reuses the existing destination architecture (handlePipAdClick) so an
+internal Ekka1km promotion opens the EXACT target entity and an external
+promotion keeps its ExternalURL behavior. No new routing system.
+============================================================
+*/
+function openAdCenterLearnMore(campaignId) {
+  var ad = CURRENT_AD_CENTER_ADS.find(function(a) {
+    return String(a.CampaignID || a.campaignId) === String(campaignId);
+  });
+  if (ad) handlePipAdClick(ad);
+}
 
 /*
 ============================================================
@@ -559,7 +594,10 @@ AD WATCH TIMER
 function startAdWatchTimer() {
   if (AD_WATCH_TIMER) clearInterval(AD_WATCH_TIMER);
   AD_WATCH_SECONDS = 0;
-  const duration = Number(CURRENT_PIP_AD.Duration || CURRENT_PIP_AD.duration || 10);
+  if (!CURRENT_PIP_AD) return;
+  // Audience-safe viewer length (never campaign lifetime). Reward timer
+  // interval/completion logic is otherwise unchanged.
+  const duration = getAdDurationSeconds(CURRENT_PIP_AD);
   AD_WATCH_TIMER = setInterval(function() {
     if (!CURRENT_PIP_AD) {
       stopAdWatchTimer();
@@ -697,58 +735,64 @@ function renderAdCenter(ads) {
     container.innerHTML = "<div class='card'>No reward ads available.</div>";
     return;
   }
-  let totalEarnable = 0;
-  ads.forEach(function(ad) {
-    if (ad.CanWatch !== false) totalEarnable += Number(ad.RewardCoins || 0);
-  });
+  CURRENT_AD_CENTER_ADS = ads;
   let html = "";
-  if (ads.length > 1 && totalEarnable > 0) {
+  if (ads.length > 1) {
     html += '<button onclick="watchAllAds()" style="margin-bottom:15px;background:linear-gradient(135deg,var(--primary),#ff6f00);padding:12px;width:100%;">' +
-      '<i class="material-icons" style="font-size:20px;vertical-align:middle;">play_circle</i> Watch All &mdash; Earn ' + totalEarnable + ' Coins</button>';
+      '<i class="material-icons" style="font-size:20px;vertical-align:middle;">play_circle</i> Watch All Ads</button>';
   }
   ads.forEach(function(ad) {
-    const totalReward = Number(ad.RewardCoins || ad.rewardCoins || 0);
-    const progressPercent = Number(ad.ProgressPercent || 0);
     const canWatch = ad.CanWatch !== false;
-    const remainingReward = Number(ad.RemainingReward || 0);
     const watchedSeconds = Number(ad.WatchedSeconds || 0);
     const imageUrl = ad.ImageURL || ad.imageURL || "";
-    const title = ad.Title || ad.title || "";
+    const videoUrl = ad.VideoURL || ad.videoURL || "";
+    const title = ad.Title || ad.title || "Promotion";
     const desc = ad.Description || ad.description || "";
-    const adType = ad.AdType || ad.adType || "IMAGE";
-    const campaignType = ad.CampaignType || ad.campaignType || "";
     const campaignId = ad.CampaignID || ad.campaignId || "";
-    const creativeType = ad.CreativeType || "IMAGE";
-    const cta = ad.CTA || "Learn More";
-    html += '<div class="card" style="margin-bottom:15px;">';
-    if (imageUrl && isValidImageUrl(imageUrl)) {
-      html += '<img src="' + imageUrl + '" style="width:100%;border-radius:15px;margin-bottom:10px;max-height:200px;object-fit:cover;">';
-    }
-    html += '<h3 style="font-size:16px;">' + title + '</h3>';
-    html += '<p style="font-size:13px;color:#666;">' + desc + '</p>';
-    html += '<div style="display:flex;gap:5px;margin:8px 0;flex-wrap:wrap;">';
-    html += '<span class="badge" style="background:var(--primary);color:#fff;">' + adType + '</span>';
-    html += '<span class="badge" style="background:#1565c0;color:#fff;">' + creativeType + '</span>';
-    if (campaignType) html += '<span class="badge">' + campaignType.replace("PROMOTE_", "") + '</span>';
-    if (ad.Featured === "Yes") html += '<span class="badge" style="background:#ff6f00;color:#fff;">&#11088; Featured</span>';
-    if (cta) html += '<span class="badge" style="background:#333;color:#fff;">' + cta + '</span>';
-    html += '</div>';
-    html += '<div style="background:#f5f5f5;border-radius:12px;padding:12px;margin:10px 0;">';
-    html += '<div style="display:flex;justify-content:space-between;margin-bottom:5px;">';
-    html += '<span style="font-size:13px;font-weight:600;">&#11088; ' + totalReward + ' Coins</span>';
-    html += '<span style="font-size:12px;color:#666;">' + watchedSeconds + '/' + (ad.Duration || 10) + 's</span></div>';
-    html += '<div style="background:#e0e0e0;border-radius:10px;height:8px;overflow:hidden;margin:5px 0;">';
-    html += '<div id="progress_' + campaignId + '" style="background:var(--primary);height:100%;width:' + progressPercent + '%;border-radius:10px;transition:width 0.3s;"></div></div>';
-    html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:#666;">';
-    html += '<span>' + progressPercent + '% complete</span>';
-    html += '<span>&#128176; ' + remainingReward + ' coins remaining</span></div></div>';
-    if (canWatch) {
-      html += '<button onclick="openAdWatchModal(\'' + campaignId + '\')" style="width:100%;">';
-      html += '<i class="material-icons" style="font-size:18px;vertical-align:middle;">' + (watchedSeconds > 0 ? 'play_circle' : 'play_arrow') + '</i> ';
-      html += (watchedSeconds > 0 ? 'Continue Watching' : 'Watch & Earn') + '</button>';
+    const creativeType = String(ad.CreativeType || ad.AdType || "IMAGE").toUpperCase();
+    const adDuration = getAdDurationSeconds(ad);
+
+    // Creative: campaign creative first, then a neutral placeholder (never
+    // an empty black area, never fabricated artwork).
+    let creativeHtml = "";
+    const isVideo = creativeType === "VIDEO" && videoUrl && /^https?:\/\//i.test(videoUrl);
+    if (isVideo) {
+      creativeHtml = '<video src="' + videoUrl + '" controls muted playsinline preload="metadata" style="width:100%;border-radius:15px;margin-bottom:10px;max-height:220px;background:#000;object-fit:contain;"></video>';
+    } else if (imageUrl && isValidImageUrl(imageUrl)) {
+      creativeHtml = '<img src="' + imageUrl + '" style="width:100%;border-radius:15px;margin-bottom:10px;max-height:200px;object-fit:cover;" onerror="this.style.display=\'none\';">';
     } else {
-      html += '<button disabled style="width:100%;opacity:0.5;"><i class="material-icons" style="font-size:18px;vertical-align:middle;">check_circle</i> Completed</button>';
+      creativeHtml = '<div style="width:100%;height:120px;background:linear-gradient(135deg,#0f9d58,#1a1a1a);border-radius:15px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;">' + escapeHtml(title) + '</div>';
     }
+
+    html += '<div class="card" style="margin-bottom:15px;">';
+    html += '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#888;margin-bottom:6px;">Promotion</div>';
+    html += creativeHtml;
+    html += '<h3 style="font-size:16px;margin:0 0 4px;">' + escapeHtml(title) + '</h3>';
+    if (desc) html += '<p style="font-size:13px;color:#666;margin:0 0 8px;">' + escapeHtml(desc) + '</p>';
+
+    // Simple viewer duration — audience-facing only.
+    html += '<div style="display:flex;align-items:center;gap:6px;margin:6px 0;">' +
+      '<span class="badge" style="background:var(--primary);color:#fff;">' + adDuration + ' sec ad</span></div>';
+
+    // Progress bar only when the viewer is currently watching this ad.
+    if (watchedSeconds > 0) {
+      const total = Math.max(adDuration, 1);
+      const pct = Math.min(100, Math.round((watchedSeconds / total) * 100));
+      html += '<div style="background:#e0e0e0;border-radius:10px;height:8px;overflow:hidden;margin:8px 0;">' +
+        '<div style="background:var(--primary);height:100%;width:' + pct + '%;border-radius:10px;transition:width 0.3s;"></div></div>';
+    }
+
+    html += '<div style="display:flex;gap:8px;margin-top:10px;">';
+    if (canWatch) {
+      html += '<button onclick="openAdWatchModal(\'' + campaignId + '\')" style="flex:1;">' +
+        '<i class="material-icons" style="font-size:18px;vertical-align:middle;">' + (watchedSeconds > 0 ? 'play_circle' : 'play_arrow') + '</i> ' +
+        (watchedSeconds > 0 ? 'Continue Watching' : 'Watch & Earn') + '</button>';
+    } else {
+      html += '<button disabled style="flex:1;opacity:0.5;"><i class="material-icons" style="font-size:18px;vertical-align:middle;">check_circle</i> Completed</button>';
+    }
+    // Learn More — exact target (internal) or ExternalURL, via existing routing.
+    html += '<button onclick="openAdCenterLearnMore(\'' + campaignId + '\')" style="flex:1;background:#333;color:#fff;">Learn More</button>';
+    html += '</div>';
     html += '</div>';
   });
   container.innerHTML = html;
@@ -1085,19 +1129,38 @@ function renderRewardAdFromQueue() {
   closeBtn.style.cssText = "position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.65);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:99999;font-size:18px;border:1px solid rgba(255,255,255,0.25);";
   closeBtn.onclick = exitRewardAdMode;
   player.appendChild(closeBtn);
+
+  // Ekka1km platform mark — top-left, small/subtle, only on the actual
+  // targeted ad display. The close X remains top-right. Uses the existing
+  // app icon asset. Never appears inside the Rewards card.
+  const brandMark = document.createElement("img");
+  brandMark.src = "assets/icon.png";
+  brandMark.style.cssText = "position:absolute;top:8px;left:8px;width:30px;height:30px;border-radius:8px;object-fit:cover;background:rgba(0,0,0,0.4);padding:3px;z-index:99999;cursor:default;";
+  brandMark.alt = "Ekka1km";
+  brandMark.title = "Ekka1km";
+  brandMark.onerror = function(){ brandMark.style.display = "none"; };
+  player.appendChild(brandMark);
+
   const creativeType = String(campaign.CreativeType || campaign.creativeType || "IMAGE").toUpperCase();
-  const rewardCoins = Number(campaign.RewardCoins || campaign.rewardCoins || 0);
-  const duration = Number(campaign.Duration || campaign.duration || 10);
+  const adDuration = getAdDurationSeconds(campaign);
   const imageUrl = campaign.ImageURL || campaign.imageURL || "";
   const videoUrl = campaign.VideoURL || campaign.videoURL || "";
   const title = campaign.Title || campaign.title || "Reward Ad";
   const description = campaign.Description || campaign.description || "";
   const destinationType = campaign.DestinationType || campaign.destinationType || "None";
+  const targetType = campaign.TargetType || campaign.targetType || "";
+  const targetId = campaign.TargetID || campaign.targetId || "";
+  const externalUrl = campaign.ExternalURL || campaign.externalURL || "";
+  const canNavigate = (targetType && targetId) || (externalUrl && /^https?:\/\//i.test(externalUrl));
   const mediaContainer = document.createElement("div");
-  mediaContainer.style.cssText = "position:relative;width:100%;flex:1 1 auto;display:flex;align-items:center;justify-content:center;background:#000;min-height:0;";
+  const hasVideo = creativeType === "VIDEO" && videoUrl;
+  const hasImage = !hasVideo && imageUrl && isValidImageUrl(imageUrl);
+  // Neutral media backdrop — prevents an empty black area when no creative
+  // exists, while video still plays naturally on a dark surface.
+  mediaContainer.style.cssText = "position:relative;width:100%;flex:1 1 auto;display:flex;align-items:center;justify-content:center;background:" + (hasVideo ? "#000" : "linear-gradient(135deg,#0f9d58,#1a1a1a)") + ";min-height:0;";
   const mediaWrap = document.createElement("div");
   mediaWrap.style.cssText = "position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;";
-  if (creativeType === "VIDEO" && videoUrl) {
+  if (hasVideo) {
     const video = document.createElement("video");
     video.src = videoUrl;
     video.controls = false;
@@ -1126,12 +1189,18 @@ function renderRewardAdFromQueue() {
     video.addEventListener("ended", function() { onRewardAdCompleted(); });
     video.play().catch(function(){ });
   } else {
-    if (imageUrl && isValidImageUrl(imageUrl)) {
+    if (hasImage) {
       const img = document.createElement("img");
       img.src = imageUrl;
       img.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;";
       img.onerror = function() { img.style.display = "none"; };
       mediaWrap.appendChild(img);
+    } else {
+      // Neutral placeholder — no fabricated art, no empty black area.
+      const ph = document.createElement("div");
+      ph.style.cssText = "color:#fff;font-size:16px;font-weight:600;text-align:center;padding:20px;";
+      ph.textContent = title || "Promotion";
+      mediaWrap.appendChild(ph);
     }
   }
   mediaContainer.appendChild(mediaWrap);
@@ -1142,10 +1211,11 @@ function renderRewardAdFromQueue() {
   titleEl.style.cssText = "font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
   titleEl.textContent = title || "Reward Ad";
   destStrip.appendChild(titleEl);
-  const reward = document.createElement("div");
-  reward.style.cssText = "font-size:11px;font-weight:700;color:#ffd54f;white-space:nowrap;";
-  reward.innerHTML = String.fromCharCode(11088) + " " + rewardCoins + " coins";
-  destStrip.appendChild(reward);
+  // Audience-facing viewer duration (never coins / campaign lifetime).
+  const durLabel = document.createElement("div");
+  durLabel.style.cssText = "font-size:12px;font-weight:700;white-space:nowrap;";
+  durLabel.textContent = adDuration + " sec ad";
+  destStrip.appendChild(durLabel);
   player.appendChild(destStrip);
   const thinProgress = document.createElement("div");
   thinProgress.id = "rewardAdProgress";
@@ -1167,6 +1237,15 @@ function renderRewardAdFromQueue() {
   skipBtn.style.cssText = "padding:6px 12px;border-radius:16px;background:rgba(255,255,255,0.2);color:#fff;cursor:pointer;font-size:12px;";
   skipBtn.onclick = function() { skipCurrentPipAd(); };
   controls.appendChild(skipBtn);
+  // Learn More — uses the existing destination architecture
+  // (handlePipAdClick: internal exact-entity or external URL).
+  if (canNavigate) {
+    const learnBtn = document.createElement("div");
+    learnBtn.innerHTML = "Learn More >>";
+    learnBtn.style.cssText = "padding:6px 12px;border-radius:16px;background:var(--primary);color:#fff;cursor:pointer;font-size:12px;";
+    learnBtn.onclick = function() { handlePipAdClick(CURRENT_PIP_AD); };
+    controls.appendChild(learnBtn);
+  }
   player.appendChild(controls);
   showRewardAdControls();
   resetRewardControlsTimer();

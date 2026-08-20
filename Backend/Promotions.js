@@ -145,6 +145,32 @@ function createPromotionTransaction(userId, promotionType, targetType, targetId,
       targetCity: targetCity,
       targetState: targetState,
       // H2: campaign-specific target location
+  // Audience creative: if the promoter did not explicitly supply a creative,
+  // fall back to the promoted entity's existing primary image where safe.
+  var creativeImageURL = "";
+  if (targetType === "Product") {
+    creativeImageURL = (product && (product.ImageURL || product.image2 || "")) || "";
+  } else if (targetType === "Business") {
+    creativeImageURL = (business && (business.Logo || business.CoverImage || "")) || "";
+  } else if (targetType === "Property") {
+    creativeImageURL = (property && (property.ImageURL || "")) || "";
+  }
+
+  var v2Raw = createPromotionCampaign({
+    parameter: {
+      userId: userId,
+      campaignType: campaignType,
+      promotedEntityType: targetType,
+      promotedEntityID: targetId,
+      imageURL: creativeImageURL,
+      campaignBudget: String(totalCoins),
+      rewardCoins: String(Math.floor(totalCoins * 0.7)),
+      duration: String(durationInSeconds),
+      endDate: endDate.toISOString(),
+      targetRadius: targetRadius,
+      targetCategory: targetCategory,
+      targetCity: targetCity,
+      targetState: targetState,
       latitude: latitude || "",
       longitude: longitude || "",
       pipEnabled: "Yes",
