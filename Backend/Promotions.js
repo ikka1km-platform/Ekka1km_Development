@@ -130,23 +130,9 @@ function createPromotionTransaction(userId, promotionType, targetType, targetId,
   var durationInSeconds = parseInt(duration) * 86400;
   var endDate = new Date(Date.now() + parseInt(duration) * 24 * 60 * 60 * 1000);
   
-  var v2Raw = createPromotionCampaign({
-    parameter: {
-      userId: userId,
-      campaignType: campaignType,
-      promotedEntityType: targetType,
-      promotedEntityID: targetId,
-      campaignBudget: String(totalCoins),
-      rewardCoins: String(Math.floor(totalCoins * 0.7)),
-      duration: String(durationInSeconds),
-      endDate: endDate.toISOString(),
-      targetRadius: targetRadius,
-      targetCategory: targetCategory,
-      targetCity: targetCity,
-      targetState: targetState,
-      // H2: campaign-specific target location
-  // Audience creative: if the promoter did not explicitly supply a creative,
-  // fall back to the promoted entity's existing primary image where safe.
+  // Audience creative: public promotion fallback. If the promoter did not
+  // explicitly supply a creative, fall back to the promoted entity's existing
+  // primary image where safe. Never fabricates artwork.
   var creativeImageURL = "";
   if (targetType === "Product") {
     creativeImageURL = (product && (product.ImageURL || product.image2 || "")) || "";

@@ -778,6 +778,8 @@ function renderAdCenter(ads) {
     if (watchedSeconds > 0) {
       const total = Math.max(adDuration, 1);
       const pct = Math.min(100, Math.round((watchedSeconds / total) * 100));
+      // Viewer-facing progress — viewer time, never campaign lifetime.
+      html += '<div style="font-size:12px;color:#666;margin:0 0 6px;font-weight:600;">' + watchedSeconds + ' / ' + total + ' sec</div>';
       html += '<div style="background:#e0e0e0;border-radius:10px;height:8px;overflow:hidden;margin:8px 0;">' +
         '<div style="background:var(--primary);height:100%;width:' + pct + '%;border-radius:10px;transition:width 0.3s;"></div></div>';
     }
@@ -786,7 +788,7 @@ function renderAdCenter(ads) {
     if (canWatch) {
       html += '<button onclick="openAdWatchModal(\'' + campaignId + '\')" style="flex:1;">' +
         '<i class="material-icons" style="font-size:18px;vertical-align:middle;">' + (watchedSeconds > 0 ? 'play_circle' : 'play_arrow') + '</i> ' +
-        (watchedSeconds > 0 ? 'Continue Watching' : 'Watch & Earn') + '</button>';
+        (watchedSeconds > 0 ? 'Continue Watching' : 'Watch Ad') + '</button>';
     } else {
       html += '<button disabled style="flex:1;opacity:0.5;"><i class="material-icons" style="font-size:18px;vertical-align:middle;">check_circle</i> Completed</button>';
     }
@@ -1071,7 +1073,7 @@ function enterRewardAdMode() {
   renderRewardAdFromQueue();
 }
 
-function exitRewardAdMode() {
+function exitRewardAdMode(skipReload) {
   if (!REWARD_AD_MODE_ACTIVE) return;
   if (REWARD_AD_MODE_VIDEO_TIMER) { clearTimeout(REWARD_AD_MODE_VIDEO_TIMER); REWARD_AD_MODE_VIDEO_TIMER = null; }
   if (REWARD_AD_MODE_CONTROLS_TIMER) { clearTimeout(REWARD_AD_MODE_CONTROLS_TIMER); REWARD_AD_MODE_CONTROLS_TIMER = null; }
@@ -1090,7 +1092,9 @@ function exitRewardAdMode() {
   if (disco) disco.style.display = "";
   const mainContent = document.querySelector("main.content") || document.querySelector(".content") || document.querySelector("main");
   if (mainContent) mainContent.style.display = "";
-  if (typeof loadAll === "function") loadAll();
+  // When navigating straight to a promoted entity (Learn More), skip the
+  // full page reload so the list re-render cannot cover the destination.
+  if (typeof loadAll === "function" && !skipReload) loadAll();
 }
 
 function buildRewardAdOverlay() {
@@ -1243,7 +1247,16 @@ function renderRewardAdFromQueue() {
     const learnBtn = document.createElement("div");
     learnBtn.innerHTML = "Learn More >>";
     learnBtn.style.cssText = "padding:6px 12px;border-radius:16px;background:var(--primary);color:#fff;cursor:pointer;font-size:12px;";
-    learnBtn.onclick = function() { handlePipAdClick(CURRENT_PIP_AD); };
+    learnBtn.onclick = function() {
+      // Dismiss the targeted-ad overlay cleanly before navigating. Capture
+      // the campaign first because exitRewardAdMode() nulls CURRENT_PIP_AD.
+      // Reuses the existing overlay cleanup (stops the watch timer, removes
+      // the overlay, restores nav state) with skipReload so the async list
+      // re-render cannot cover the exact destination that follows.
+      var camp = CURRENT_PIP_AD;
+      exitRewardAdMode(true);
+      if (camp) handlePipAdClick(camp);
+    };
     controls.appendChild(learnBtn);
   }
   player.appendChild(controls);

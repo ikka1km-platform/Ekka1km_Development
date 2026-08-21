@@ -662,12 +662,6 @@ function resolveAdDurationSeconds(c) {
  * Uses RemainingFuel for Promotion Engine V2
  * ============================================================
  */
- * ============================================================
- * GET ADVERTISEMENT CENTER
- * ?action=getadcenter&userId=U001&category=Products&lat=26.91&lng=75.78&radius=51
- * Uses RemainingFuel for Promotion Engine V2
- * ============================================================
- */
 function getAdvertisementCenter(e) {
   try {
     ensurePromotionSheets();
@@ -750,6 +744,8 @@ function getAdvertisementCenter(e) {
           AdType: c.AdType || "IMAGE",
           PromotedEntityID: c.PromotedEntityID || c.TargetID || "",
           PromotedEntityType: c.PromotedEntityType || c.TargetType || "",
+          TargetType: c.TargetType || c.PromotedEntityType || "",
+          TargetID: c.TargetID || c.PromotedEntityID || "",
           ExternalURL: c.ExternalURL || "",
           ImageURL: c.ImageURL || "",
           VideoURL: c.VideoURL || "",
