@@ -211,6 +211,28 @@ function createPromotion(e) {
     var latitude = p.latitude || "";
     var longitude = p.longitude || "";
 
+    // ============================================================
+    // SECURITY HARDENING — FUNDING SOURCE BYPASS (V2 treasury audit)
+    // The PUBLIC createpromotion route is strictly USER-funded.
+    // A malicious caller must NOT be able to set fundingSource to
+    // Admin / Treasury / System to skip the user-wallet debit.
+    // The server determines funding source here: always "User".
+    // A future, separate ADMIN route is the ONLY place allowed to
+    // request treasury funding, and it will enforce an admin
+    // session/role server-side.
+    // ============================================================
+    var suppliedFundingSource = String(
+      p.fundingSource || p.campaignSource || "User"
+    ).toLowerCase();
+    var isAdminFundingAttempt =
+      suppliedFundingSource === "admin" ||
+      suppliedFundingSource === "treasury" ||
+      suppliedFundingSource === "system";
+    if (isAdminFundingAttempt) {
+      return error(
+        "Authorization required: public promotion creation only supports USER funding."
+      );
+    }
     if (!userId || !targetType || !targetId) {
       return error("userId, targetType, and targetId required");
     }
