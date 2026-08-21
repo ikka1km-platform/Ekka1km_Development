@@ -139,6 +139,28 @@ function doGet(e) {
       case "promotednearby":
         return getPromotedNearYou(e);
 
+      // Promotion Pass + Platform Promotion Treasury (V2 Treasury foundation)
+      case "passcatalog":
+        return getPromotionPassCatalogRoute(e);
+
+      case "adminpassupsert":
+        return adminUpsertPromotionPass(e);
+
+      case "createpasspurchase":
+        return createPassPurchaseEndpoint(e);
+
+      case "confirmpasspurchase":
+        return confirmPassPurchaseEndpoint(e);
+
+      case "mypurchasedpasses":
+        return myPurchasedPassesEndpoint(e);
+
+      case "admintreasuryoverview":
+        return adminTreasuryOverview(e);
+
+      case "admintreasuryledger":
+        return adminTreasuryLedger(e);
+
       // News
       case "news":
         return getNews(e);

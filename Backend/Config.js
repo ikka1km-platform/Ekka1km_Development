@@ -62,6 +62,16 @@ const CONFIG = {
 
     PROMOTION_CAMPAIGNS: "PromotionCampaigns",
 
+    //============================================================
+    // V2 - PROMOTION PASS + PLATFORM PROMOTION TREASURY (Treasury foundation)
+    //============================================================
+
+    PROMOTION_PASSES: "PromotionPasses",
+
+    PASS_PURCHASES: "PassPurchases",
+
+    PROMOTION_TREASURY: "PromotionTreasury",
+
     ORDERS: "Orders",
 
     LIVE: "Live",
