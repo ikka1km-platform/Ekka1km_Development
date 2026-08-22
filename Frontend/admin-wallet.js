@@ -383,7 +383,7 @@ AdminModules.register("wallet", async function(container) {
         html += '        <td><span style="color:' + (amount > 0 ? 'var(--accent-green)' : 'var(--accent-red)') + ';font-weight:600;">' + (amount > 0 ? '+' : '') + amount + '</span></td>';
         html += '        <td>' + fmt(tx.Before || 0) + '</td>';
         html += '        <td>' + fmt(tx.After || 0) + '</td>';
-        html += '        <td><span class="status-badge status-' + (tx.Status || "").toLowerCase() + '">' + esc(tx.Status || "\u2014") + '</span></td>';
+        html += '        <td><span class="status-badge status-' + String(tx.Status || "").toLowerCase() + '">' + esc(tx.Status || "\u2014") + '</span></td>';
         html += '        <td><span style="font-size:11px;color:var(--text-muted);">' + fdt(tx.CreatedDate || tx.CreatedAt) + '</span></td>';
         html += '      </tr>';
       });
@@ -510,7 +510,7 @@ AdminModules.register("wallet", async function(container) {
         html += '        <td><span style="color:' + (amount > 0 ? 'var(--accent-green)' : 'var(--accent-red)') + ';font-weight:600;">' + (amount > 0 ? '+' : '') + amount + '</span></td>';
         html += '        <td>' + fmt(tx.Before || 0) + '</td>';
         html += '        <td>' + fmt(tx.After || 0) + '</td>';
-        html += '        <td><span class="status-badge status-' + (tx.Status || "").toLowerCase() + '">' + esc(tx.Status || "\u2014") + '</span></td>';
+        html += '        <td><span class="status-badge status-' + String(tx.Status || "").toLowerCase() + '">' + esc(tx.Status || "\u2014") + '</span></td>';
         html += '        <td><span style="font-size:11px;color:var(--text-muted);">' + fdt(tx.CreatedDate || tx.CreatedAt) + '</span></td>';
         html += '      </tr>';
       });
@@ -669,7 +669,7 @@ AdminModules.register("wallet", async function(container) {
         html += '        <td><span style="color:var(--accent-green);font-weight:600;">' + fmt(c.RemainingRewardCoins || 0) + '</span></td>';
         html += '        <td>' + fmt(c.RewardPoolUsed || 0) + ' (' + usagePercent + '%)</td>';
         html += '        <td>' + (c.RewardCoins || 0) + '</td>';
-        html += '        <td><span class="status-badge status-' + (c.Status || "").toLowerCase() + '">' + esc(c.Status || "") + '</span></td>';
+        html += '        <td><span class="status-badge status-' + String(c.Status || "").toLowerCase() + '">' + esc(c.Status || "") + '</span></td>';
         html += '      </tr>';
       });
     }

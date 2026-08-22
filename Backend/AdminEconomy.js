@@ -593,7 +593,7 @@ function getAdminCampaignEconomy(e) {
         RewardPoolUsed: Math.max(0, fuelUsed),
         Views: Number(c.Views || 0),
         Clicks: Number(c.Clicks || 0),
-        Status: c.Status || "",
+        Status: String(c.Status || ""),
         StartDate: c.StartDate || "",
         EndDate: c.EndDate || "",
         CreatedDate: c.CreatedDate || "",
