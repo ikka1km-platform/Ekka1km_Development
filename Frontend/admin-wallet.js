@@ -24,6 +24,8 @@ AdminModules.register("wallet", async function(container) {
   var economySummary = {};
   var walletDetailData = null;
   var detailUserId = null;
+  var treasuryOverview = {};
+  var coinRate = {};
 
   // Phase 5.7B Integrity Monitor state
   var integrityView = "summary";
@@ -81,13 +83,21 @@ AdminModules.register("wallet", async function(container) {
   }
 
   async function loadEconomySummary(session) {
-    var response = await fetch(getApiUrl() + "?action=admineconomysummary&session=" + encodeURIComponent(session));
-    var json = await response.json();
-    if (!json || !json.success) {
-      container.innerHTML = '<div class="module-error"><span class="module-error-icon">\u26A0\uFE0F</span><h3>Failed to Load Economy Data</h3><p>' + (json.message || "Unknown error") + '</p></div>';
+    var results = await Promise.all([
+      fetch(getApiUrl() + "?action=admineconomysummary&session=" + encodeURIComponent(session)),
+      fetch(getApiUrl() + "?action=admintreasuryoverview&session=" + encodeURIComponent(session)),
+      fetch(getApiUrl() + "?action=admincoinrate&session=" + encodeURIComponent(session))
+    ]);
+    var summaryJson = await results[0].json();
+    var treasuryJson = await results[1].json();
+    var coinRateJson = await results[2].json();
+    if (!summaryJson || !summaryJson.success) {
+      container.innerHTML = '<div class="module-error"><span class="module-error-icon">\u26A0\uFE0F</span><h3>Failed to Load Economy Data</h3><p>' + (summaryJson.message || "Unknown error") + '</p></div>';
       return;
     }
-    economySummary = json.data || {};
+    economySummary = summaryJson.data || {};
+    treasuryOverview = (treasuryJson && treasuryJson.success) ? (treasuryJson.data || {}) : {};
+    coinRate = (coinRateJson && coinRateJson.success) ? (coinRateJson.data || {}) : {};
     renderEconomyOverview(session);
   }
 
@@ -136,6 +146,39 @@ AdminModules.register("wallet", async function(container) {
     html += '    <button class="module-btn module-btn-secondary" onclick="window._econView(\'rewards\')">\uD83C\uDF81 View Rewards</button>';
     html += '    <button class="module-btn module-btn-secondary" onclick="window._econView(\'campaigns\')">\uD83D\uDCE2 Campaign Economy</button>';
     html += '    <button class="module-btn module-btn-danger" onclick="window._econView(\'integrity\')">\uD83D\uDD0D Integrity Monitor</button>';
+    html += '  </div>';
+    html += '</div>';
+    // ============================================================
+    // PROMOTION TREASURY & COIN ECONOMY (bottom, after Quick Actions)
+    // ============================================================
+    html += '<div style="margin-top:24px;border-top:1px solid var(--border-color);padding-top:18px;">';
+    html += '  <h3 style="color:var(--text-secondary);margin-bottom:12px;font-size:15px;">\uD83D\uDCB0 PROMOTION TREASURY & COIN ECONOMY</h3>';
+    html += '  <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px;">';
+    html += '    <h4 style="color:var(--text-secondary);margin:0 0 10px;font-size:13px;">\uD83C\uDFE6 PROMOTION TREASURY</h4>';
+    html += '    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;">';
+    html += kpiCard("Current Treasury Balance", fmt(treasuryOverview.balance || 0), "#4caf88");
+    html += kpiCard("Total Credits", fmt(treasuryOverview.totalCredits || 0), "#4caf88");
+    html += kpiCard("Total Debits", fmt(treasuryOverview.totalDebits || 0), "#ff4757");
+    html += kpiCard("Transactions", treasuryOverview.totalTransactions || 0, "#5b8def");
+    html += '    </div>';
+    html += '    <div style="margin-top:10px;font-size:12px;color:var(--text-muted);">\uD83D\uDD12 Read-Only \u2014 The treasury ledger is append-only and is never altered by a rate-setting change.</div>';
+    html += '  </div>';
+    html += '  <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:14px;">';
+    html += '    <h4 style="color:var(--text-secondary);margin:0 0 10px;font-size:13px;">\uD83D\uDD04 COIN CONVERSION RATE</h4>';
+    html += '    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+    html += '      <span style="font-size:17px;font-weight:600;">\u20B9</span>';
+    html += '      <input type="number" id="coinRateInr" min="0" step="any" value="' + esc(coinRate.inrAmount != null ? coinRate.inrAmount : "1") + '" oninput="window._coinRateChanged()" style="width:90px;padding:8px 10px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);font-size:15px;"/>';
+    html += '      <span style="font-size:17px;font-weight:600;">=</span>';
+    html += '      <input type="number" id="coinRateCoin" min="0" step="any" value="' + esc(coinRate.coinAmount != null ? coinRate.coinAmount : "2") + '" oninput="window._coinRateChanged()" style="width:110px;padding:8px 10px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);font-size:15px;"/>';
+    html += '      <span style="font-size:17px;font-weight:600;">Coins</span>';
+    html += '      <button class="module-btn module-btn-primary" onclick="window._saveCoinRate()">\uD83D\uDCBE Save Rate</button>';
+    html += '    </div>';
+    html += '    <div id="coinRatePreview" style="margin-top:12px;font-size:13px;color:var(--text-secondary);">\u2139\uFE0F Preview:</div>';
+    html += '    <div style="margin-top:8px;font-size:13px;">';
+    html += '      <span style="color:var(--text-secondary);">Current Rate:</span> <strong>\u20B9' + esc(coinRate.inrAmount || 1) + ' = ' + esc(coinRate.coinAmount || 2) + ' Coins</strong>';
+    html += '      <span style="margin-left:16px;color:var(--text-secondary);">Last updated:</span> ' + fdt(coinRate.updatedAt);
+    html += '      <span style="margin-left:16px;color:var(--text-secondary);">Updated by:</span> ' + esc(coinRate.updatedBy || "\u2014");
+    html += '    </div>';
     html += '  </div>';
     html += '</div>';
     html += '<div style="background:var(--bg-secondary);padding:12px 16px;border-radius:var(--radius-sm);border:1px solid var(--border-color);margin-top:10px;">';
@@ -1244,6 +1287,48 @@ AdminModules.register("wallet", async function(container) {
     currentPage = 1;
     currentSearch = "";
     render();
+  };
+
+  // Live preview of the editable conversion rate (client-side).
+  window._coinRateChanged = function() {
+    var inrEl = document.getElementById("coinRateInr");
+    var coinEl = document.getElementById("coinRateCoin");
+    var preview = document.getElementById("coinRatePreview");
+    if (!preview) return;
+    var i = parseFloat(inrEl ? inrEl.value : "");
+    var c = parseFloat(coinEl ? coinEl.value : "");
+    if (isFinite(i) && isFinite(c) && i > 0 && c > 0) {
+      preview.innerHTML = '\u2139\uFE0F Preview: \u20B9' + i + ' = ' + c + ' Coins';
+    } else {
+      preview.innerHTML = '\u2139\uFE0F Enter positive values to preview the rate';
+    }
+  };
+
+  // Save the editable coin rate (client-side validation + backend write).
+  window._saveCoinRate = async function() {
+    var session = AdminAuth.getSession();
+    if (!session) { showToast("Session expired. Please login again.", "error"); return; }
+
+    var inrEl = document.getElementById("coinRateInr");
+    var coinEl = document.getElementById("coinRateCoin");
+    var inr = parseFloat(inrEl ? inrEl.value : "");
+    var coin = parseFloat(coinEl ? coinEl.value : "");
+
+    if (!isFinite(inr) || !(inr > 0)) { showToast("INR amount must be greater than zero.", "error"); inrEl && inrEl.focus(); return; }
+    if (!isFinite(coin) || !(coin > 0)) { showToast("Coin amount must be greater than zero.", "error"); coinEl && coinEl.focus(); return; }
+
+    var url = getApiUrl() + "?action=adminupdatecoinrate&session=" + encodeURIComponent(session) +
+      "&inrAmount=" + encodeURIComponent(inr) + "&coinAmount=" + encodeURIComponent(coin);
+    try {
+      var resp = await fetch(url);
+      var json = await resp.json();
+      if (!json || !json.success) { showToast(json.message || "Failed to update rate", "error"); return; }
+      showToast("Coin conversion rate updated", "success");
+      // Reload the authoritative rate from the backend before re-rendering.
+      await loadEconomySummary(session);
+    } catch (err) {
+      showToast("Error: " + err.message, "error");
+    }
   };
 
   window._walletSearch = function() {

@@ -72,6 +72,9 @@ const CONFIG = {
 
     PROMOTION_TREASURY: "PromotionTreasury",
 
+    // Coin conversion rate (INR <-> Coin authoritative rule)
+    COIN_ECONOMY_SETTINGS: "CoinEconomySettings",
+
     ORDERS: "Orders",
 
     LIVE: "Live",

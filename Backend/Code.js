@@ -183,6 +183,13 @@ function doGet(e) {
       case "admintreasuryledger":
         return adminTreasuryLedger(e);
 
+      // Coin conversion rate (authoritative INR <-> Coin rule)
+      case "admincoinrate":
+        return getAdminCoinRate(e);
+
+      case "adminupdatecoinrate":
+        return updateAdminCoinRate(e);
+
       // News
       case "news":
         return getNews(e);
