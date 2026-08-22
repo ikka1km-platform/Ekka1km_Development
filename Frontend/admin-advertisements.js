@@ -345,6 +345,7 @@ AdminModules.register("advertisements", async function(container) {
     mhtml += '      <div class="profile-field"><label>Owner</label><span>' + escapeHtml(campaign.OwnerName || campaign.OwnerUserID || "Unknown") + '</span></div>';
     mhtml += '      <div class="profile-field"><label>Title</label><span>' + escapeHtml(campaign.Title || "") + '</span></div>';
     mhtml += '      <div class="profile-field"><label>Creative Type</label><span>' + getCreativeBadge(campaign.CreativeType || "IMAGE") + '</span></div>';
+    mhtml += '      <div class="profile-field"><label>Ad View Time</label><span>' + escapeHtml(String(campaign.AdDurationSeconds || campaign.Duration || "—")) + ' sec (viewer ad)</span></div>';
     mhtml += '      <div class="profile-field"><label>CTA</label><span>' + escapeHtml(campaign.CTA || "") + '</span></div>';
     mhtml += '      <div class="profile-field"><label>Destination Type</label><span>' + escapeHtml(campaign.DestinationType || "None") + '</span></div>';
     mhtml += '      <div class="profile-field"><label>Target</label><span>' + escapeHtml(campaign.TargetType || "") + ' ' + escapeHtml(campaign.TargetID || "") + '</span></div>';

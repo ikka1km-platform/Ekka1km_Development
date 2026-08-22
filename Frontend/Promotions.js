@@ -17,15 +17,25 @@ var PROMO_SELECTED_CAMPAIGN = null;
 var PROMO_WALLET_BALANCE = 0;
 var PROMO_CREATING = false;
 // PCC state - single card configuration
-var PROMO_PROMOTION_TYPE = "Product";  // Product | Business | Property
+var PROMO_PROMOTION_TYPE = "Product";  // Product | Business | Property | News
 var PROMO_TARGET_LOCATION = "";        // display name
 var PROMO_TARGET_LAT = 0;              // latitude
 var PROMO_TARGET_LNG = 0;              // longitude
 var PROMO_TARGET_ID = "";          // selected listing id
 var PROMO_TARGET_TITLE = "";       // selected listing title
+var PROMO_TARGET_IMAGE = "";       // selected listing's existing image (for "Use existing image" creative)
+var PROMO_TARGET_ITEMS = [];       // loaded listing items for the current target type (keeps image map)
+
+// PCC audience creative + ad-view duration
+var PROMO_CREATIVE_TYPE = "IMAGE";     // IMAGE | VIDEO | URL | ENTITY_IMAGE
+var PROMO_IMAGE_URL = "";              // explicit audience creative image
+var PROMO_VIDEO_URL = "";              // explicit audience creative video
+var PROMO_EXTERNAL_URL = "";           // URL / external creative
+var PROMO_MEDIA_DURATION = 0;          // actual uploaded video duration in seconds (0 = unknown)
+var PROMO_AD_DURATION = "15";          // viewer ad-view seconds: 3|5|10|15|20|30
 
 var PROMO_RADIUS = "51";               // 1|5|10|25|51|100|All India
-var PROMO_DURATION = "7";              // 1|3|7|15|30
+var PROMO_DURATION = "7";              // 1|3|7|15|30  (campaign lifetime in days)
 var PROMO_BASE_PRICE = 0;
 var PROMO_TOTAL_PRICE = 0;
 var PROMO_LOADING = false;
@@ -782,9 +792,16 @@ function pccResetState() {
   PROMO_PROMOTION_TYPE = "Product";
   PROMO_TARGET_ID = "";
   PROMO_TARGET_TITLE = "";
+  PROMO_TARGET_IMAGE = "";
   PROMO_TARGET_LOCATION = "";
   PROMO_TARGET_LAT = 0;
   PROMO_TARGET_LNG = 0;
+  PROMO_CREATIVE_TYPE = "IMAGE";
+  PROMO_IMAGE_URL = "";
+  PROMO_VIDEO_URL = "";
+  PROMO_EXTERNAL_URL = "";
+  PROMO_MEDIA_DURATION = 0;
+  PROMO_AD_DURATION = "15";
   PROMO_RADIUS = "51";
   PROMO_DURATION = "7";
   calculatePCCTotalPrice();
@@ -815,15 +832,16 @@ function renderPCCCard(container) {
   html += '<p>Configure your promotion campaign on a single card.</p>';
   html += '</div>';
 
-  // --- 1. Choose What to Promote (original visual design preserved) ---
+  // --- 1. WHAT ARE YOU PROMOTING? (original visual design preserved) ---
   html += '<div class="pcc-section">';
-  html += '<div class="pcc-section-title" style="font-size:17px;">Choose What to Promote</div>';
+  html += '<div class="pcc-section-title" style="font-size:17px;">What are you Promoting?</div>';
   html += '<p class="promo-wizard-desc">Select the type of listing you want to promote.</p>';
   html += '<div class="promo-wizard-options">';
   var pccTypes = [
     { id: "Product",  icon: "shopping_bag",      desc: "Promote a product listing" },
     { id: "Business", icon: "store",             desc: "Promote your business" },
-    { id: "Property", icon: "real_estate_agent", desc: "Promote a property" }
+    { id: "Property", icon: "real_estate_agent", desc: "Promote a property" },
+    { id: "News",     icon: "newspaper",         desc: "Promote a news story" }
   ];
   pccTypes.forEach(function(t) {
     var cardSel = t.id === PROMO_PROMOTION_TYPE ? ' promo-option-card selected' : ' promo-option-card';
@@ -843,7 +861,13 @@ function renderPCCCard(container) {
   html += '<div id="pccListingNote" class="pcc-selected-note"></div>';
   html += '</div>';
 
-  // --- 2. Target Location ---
+  // --- 2. WHAT SHOULD THE AUDIENCE SEE? (explicit creative choice) ---
+  html += renderPCCCreativeSection();
+
+  // --- 3. AD VIEWING TIME (viewer ad-view duration, NOT campaign lifetime) ---
+  html += renderPCCAdDurationSection();
+
+  // --- 4. Target Location ---
   html += '<div class="pcc-section">';
   html += '<div class="pcc-section-title">Target Location</div>';
   if (PROMO_TARGET_LOCATION) {
@@ -874,9 +898,9 @@ function renderPCCCard(container) {
   }
   html += '</div>';
 
-  // --- 3. Radius & Duration (one compact horizontal row) ---
+  // --- 5. Radius & Campaign Lifetime (one compact horizontal row) ---
   html += '<div class="pcc-section">';
-  html += '<div class="pcc-section-title">Radius &amp; Duration</div>';
+  html += '<div class="pcc-section-title">Radius &amp; Campaign Duration</div>';
   html += '<div class="pcc-duo-row">';
   html += '<div class="promo-wizard-field" style="margin-bottom:0;flex:1;">';
   html += '<label>Radius</label>';
@@ -889,7 +913,7 @@ function renderPCCCard(container) {
   html += '</select>';
   html += '</div>';
   html += '<div class="promo-wizard-field" style="margin-bottom:0;flex:1;">';
-  html += '<label>Duration</label>';
+  html += '<label>Campaign Lifetime</label>';
   html += '<select id="pccDurationSelect" class="promo-wizard-select" onchange="pccSetDuration(this.value)">';
   ["1", "3", "7", "15", "30"].forEach(function(d) {
     var selected = String(d) === String(PROMO_DURATION) ? ' selected' : '';
@@ -901,7 +925,7 @@ function renderPCCCard(container) {
   html += '</div>';
   html += '</div>';
 
-  // --- 5. Campaign cost & wallet ---
+  // --- 6. Campaign cost & wallet ---
   html += '<div class="pcc-section">';
   html += '<div class="pcc-section-title">Campaign Cost</div>';
   html += '<div id="pccWalletBlock"></div>';
@@ -913,9 +937,266 @@ function renderPCCCard(container) {
 
   container.innerHTML = html;
   setupPCCStep();
+  pccInitCreativeUploads();
 }
 
 
+
+/* ==========================================================
+   PCC — AUDIENCE CREATIVE (UPLOAD YOUR AD)
+   Real device/gallery upload via the existing Ekka1km
+   MediaUpload widget (ImageKit pipeline). No manual
+   Image/Video URL entry. URL/External keeps a manual link.
+   ========================================================== */
+function renderPCCCreativeSection() {
+  var h = '';
+  h += '<div class="pcc-section">';
+  h += '<div class="pcc-section-title">Upload Your Ad</div>';
+  h += '<p class="promo-wizard-desc">Promote yourself with an image, video, or link.</p>';
+  h += '<div class="promo-creative-options">';
+
+  var opts = [
+    { id: "IMAGE",        icon: "image",         label: "Image" },
+    { id: "VIDEO",        icon: "videocam",      label: "Video" },
+    { id: "URL",          icon: "link",          label: "URL / external" },
+    { id: "ENTITY_IMAGE", icon: "photo_library", label: "Use existing " + PROMO_PROMOTION_TYPE.toLowerCase() + " image" }
+  ];
+  opts.forEach(function(o) {
+    var sel = o.id === PROMO_CREATIVE_TYPE ? ' promo-creative-option selected' : ' promo-creative-option';
+    h += '<div class="' + sel + '" onclick="pccSetCreative(\'' + o.id + '\')">';
+    h += '<i class="material-icons" style="font-size:18px;">' + o.icon + '</i>';
+    h += '<span>' + o.label + '</span>';
+    h += '</div>';
+  });
+  h += '</div>';
+
+  h += '<div class="promo-wizard-field" style="margin-bottom:0;margin-top:10px;">';
+  if (PROMO_CREATIVE_TYPE === "IMAGE") {
+    // Real upload through the existing Ekka1km media mechanism.
+    // No manual Image URL field.
+    h += '<div id="pccImageUploadWidget"></div>';
+    if (PROMO_IMAGE_URL) {
+      h += '<div id="pccImagePreview" style="margin-top:8px;">' + pccRenderMediaPreview(PROMO_IMAGE_URL, "image") + '</div>';
+      h += '<small class="pcc-muted" style="display:block;margin-top:4px;"><i class="material-icons" style="font-size:14px;vertical-align:middle;">check_circle</i> Image uploaded. The audience sees this image for the ad viewing time.</small>';
+    } else {
+      h += '<small class="pcc-muted" style="display:block;margin-top:6px;">Choose an image from your camera or gallery. It uploads to Ekka1km automatically.</small>';
+    }
+  } else if (PROMO_CREATIVE_TYPE === "VIDEO") {
+    // Real upload through the existing Ekka1km media mechanism.
+    // No manual Video URL field. Actual duration is detected from
+    // the uploaded video's metadata.
+    h += '<div id="pccVideoUploadWidget"></div>';
+    if (PROMO_VIDEO_URL) {
+      h += '<div id="pccVideoPreview" style="margin-top:8px;">' + pccRenderMediaPreview(PROMO_VIDEO_URL, "video") + '</div>';
+      if (PROMO_MEDIA_DURATION > 0) {
+        h += '<small class="pcc-muted" style="display:block;margin-top:4px;"><i class="material-icons" style="font-size:14px;vertical-align:middle;">check_circle</i> Video uploaded — detected duration: ' + Math.round(PROMO_MEDIA_DURATION) + ' sec.</small>';
+      }
+    } else {
+      h += '<small class="pcc-muted" style="display:block;margin-top:6px;">Choose a video from your device. Its actual duration is detected automatically (minimum 3 seconds).</small>';
+    }
+  } else if (PROMO_CREATIVE_TYPE === "URL") {
+    h += '<label>Destination URL (website / WhatsApp / Instagram / YouTube...)</label>';
+    h += '<input id="pccCreativeUrl" class="promo-wizard-input" type="url" placeholder="https://..." value="' + escapeHtml(PROMO_EXTERNAL_URL) + '" oninput="pccSyncCreativeUrl()">';
+    h += '<small class="pcc-muted" style="display:block;margin-top:4px;">Viewers open this link after the ad finishes.</small>';
+  } else { // ENTITY_IMAGE
+    if (PROMO_TARGET_IMAGE) {
+      h += '<div class="pcc-selected-note"><i class="material-icons" style="font-size:16px;vertical-align:middle;">check_circle</i> Audience sees this ' + PROMO_PROMOTION_TYPE.toLowerCase() + '\'s existing image.</div>';
+      h += '<div style="margin-top:8px;">' + pccRenderMediaPreview(PROMO_TARGET_IMAGE, "image") + '</div>';
+    } else {
+      h += '<div class="pcc-muted">Select a ' + PROMO_PROMOTION_TYPE.toLowerCase() + ' to use its existing image. If none is available, a neutral placeholder is shown.</div>';
+    }
+  }
+  h += '</div>';
+  h += '</div>';
+  return h;
+}
+
+/* Shared preview renderer for uploaded/entity media. */
+function pccRenderMediaPreview(url, kind) {
+  if (!url) return '';
+  if (kind === "video") {
+    return '<video src="' + escapeHtml(url) + '" controls preload="metadata" style="max-width:220px;max-height:150px;border-radius:10px;border:1px solid var(--border-color,#ddd);display:block;"></video>';
+  }
+  return '<img src="' + escapeHtml(url) + '" alt="preview" style="max-width:180px;max-height:120px;border-radius:10px;object-fit:cover;border:1px solid var(--border-color,#ddd);">';
+}
+
+/* Post-render init: mount the real upload widgets (existing MediaUpload.js). */
+function pccInitCreativeUploads() {
+  try {
+    if (PROMO_CREATIVE_TYPE === "IMAGE" && document.getElementById("pccImageUploadWidget") && typeof createUploadWidget === "function") {
+      createUploadWidget("pccImageUploadWidget", {
+        folder: "promotions",
+        accept: "image/*",
+        label: "Upload your ad image (Camera / Gallery)",
+        onUpload: function(url) { pccOnImageUploaded(url); }
+      });
+    }
+    if (PROMO_CREATIVE_TYPE === "VIDEO" && document.getElementById("pccVideoUploadWidget") && typeof createUploadWidget === "function") {
+      createUploadWidget("pccVideoUploadWidget", {
+        folder: "promotions",
+        accept: "video/*",
+        label: "Upload your ad video (device / gallery)",
+        onUpload: function(url) { pccOnVideoUploaded(url); }
+      });
+    }
+  } catch (e) {}
+}
+
+/* IMAGE upload callback — captures the resulting media URL and shows a preview. */
+function pccOnImageUploaded(url) {
+  if (!url) return;
+  PROMO_IMAGE_URL = url;
+  var prev = document.getElementById("pccImagePreview");
+  if (!prev) {
+    prev = document.createElement("div");
+    prev.id = "pccImagePreview";
+    prev.style.marginTop = "8px";
+    var widget = document.getElementById("pccImageUploadWidget");
+    if (widget && widget.parentNode) widget.parentNode.insertBefore(prev, widget.nextSibling);
+    else return;
+  }
+  prev.innerHTML = pccRenderMediaPreview(url, "image");
+  showToast("Ad image uploaded ✅");
+}
+
+/* Actual duration detection via HTMLVideoElement metadata. Never invents a value:
+   resolves 0 when duration cannot be determined. */
+function pccDetectVideoDuration(url) {
+  return new Promise(function(resolve) {
+    try {
+      var v = document.createElement("video");
+      v.preload = "metadata";
+      v.muted = true;
+      var done = false;
+      var finish = function(sec) {
+        if (done) return;
+        done = true;
+        resolve((sec && isFinite(sec) && sec > 0) ? Number(sec) : 0);
+      };
+      v.onloadedmetadata = function() { finish(v.duration); };
+      v.onerror = function() { finish(0); };
+      setTimeout(function() { finish(0); }, 10000);
+      v.src = url;
+    } catch (e) {
+      resolve(0);
+    }
+  });
+}
+
+/* VIDEO upload callback — detects actual duration, rejects < 3s videos,
+   then captures URL + mediaDuration and shows a preview. */
+function pccOnVideoUploaded(url) {
+  if (!url) return;
+  showToast("Checking video duration...");
+  pccDetectVideoDuration(url).then(function(dur) {
+    if (!dur || dur < 3) {
+      // Reject: never invent a duration; do not keep the asset selected.
+      PROMO_VIDEO_URL = "";
+      PROMO_MEDIA_DURATION = 0;
+      var prev = document.getElementById("pccVideoPreview");
+      if (prev) prev.innerHTML = "";
+      showToast("❌ Video rejected: duration could not be verified or is under 3 seconds.");
+      return;
+    }
+    PROMO_VIDEO_URL = url;
+    PROMO_MEDIA_DURATION = dur;
+    var prev2 = document.getElementById("pccVideoPreview");
+    if (!prev2) {
+      prev2 = document.createElement("div");
+      prev2.id = "pccVideoPreview";
+      prev2.style.marginTop = "8px";
+      var widget = document.getElementById("pccVideoUploadWidget");
+      if (widget && widget.parentNode) widget.parentNode.insertBefore(prev2, widget.nextSibling);
+      else return;
+    }
+    prev2.innerHTML = pccRenderMediaPreview(url, "video");
+    var note = document.createElement("small");
+    note.className = "pcc-muted";
+    note.style.cssText = "display:block;margin-top:4px;";
+    note.innerHTML = '<i class="material-icons" style="font-size:14px;vertical-align:middle;">check_circle</i> Video uploaded — detected duration: ' + Math.round(dur) + ' sec.';
+    prev2.appendChild(note);
+    showToast("Ad video uploaded ✅ (" + Math.round(dur) + " sec)");
+    // Cap the selected ad viewing time to the actual video duration.
+    pccEnforceVideoDurationCap();
+  });
+}
+
+/* PUBLIC USER: AdDurationSeconds <= min(30, mediaDuration).
+   A longer video can still be the source media — only the viewing
+   time is capped at the public 30-second maximum. */
+function pccEnforceVideoDurationCap() {
+  if (PROMO_CREATIVE_TYPE !== "VIDEO" || !(PROMO_MEDIA_DURATION > 0)) return;
+  var maxAllowed = Math.min(30, Math.round(PROMO_MEDIA_DURATION));
+  var cur = Math.round(Number(PROMO_AD_DURATION) || 15);
+  if (cur > maxAllowed) {
+    PROMO_AD_DURATION = String(Math.max(3, maxAllowed));
+    pccSyncPills("pccAdDurationGroup", PROMO_AD_DURATION);
+    var inputEl = document.getElementById("pccAdDurationInput");
+    if (inputEl) inputEl.value = PROMO_AD_DURATION;
+    showToast("Ad viewing time adjusted to " + PROMO_AD_DURATION + " sec to fit the video.");
+  }
+}
+
+/* ==========================================================
+   PCC — AD VIEWING TIME (viewer ad-view duration)
+   Dedicated audience-facing value. NOT campaign lifetime,
+   NOT PromotionFuel, NOT EstimatedViewSeconds.
+   ========================================================== */
+function renderPCCAdDurationSection() {
+  var h = '';
+  h += '<div class="pcc-section">';
+  h += '<div class="pcc-section-title">Ad Viewing Time</div>';
+  h += '<p class="promo-wizard-desc">How long should each viewer watch the ad? This is the audience-facing ad duration (per view), not how long the campaign runs. Allowed range: 3–30 seconds.</p>';
+  // PUBLIC USER rule: minimum 3 sec, maximum 30 sec, step 1 sec.
+  h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">';
+  h += '<input id="pccAdDurationInput" class="promo-wizard-input" type="number" min="3" max="30" step="1" style="width:90px;" value="' + escapeHtml(String(PROMO_AD_DURATION)) + '" oninput="pccSetAdDuration(this.value)">';
+  h += '<span class="pcc-muted">sec (3–30, step 1)</span>';
+  h += '</div>';
+  h += '<div class="pcc-pill-group" id="pccAdDurationGroup">';
+  ["3", "5", "10", "15", "20", "30"].forEach(function(s) {
+    var active = String(s) === String(PROMO_AD_DURATION) ? ' pcc-pill active' : ' pcc-pill';
+    h += '<button type="button" class="' + active + '" data-val="' + s + '" onclick="pccSetAdDuration(\'' + s + '\')">' + s + ' sec</button>';
+  });
+  h += '</div>';
+  h += '<div class="pcc-muted" style="margin-top:6px;">Stored as the campaign\'s audience ad duration (AdDurationSeconds).</div>';
+  h += '</div>';
+  return h;
+}
+
+/* ==========================================================
+   PCC — CREATIVE / AD-DURATION SETTERS
+   ========================================================== */
+function pccSetCreative(type) {
+  // Persist any typed URL before re-rendering.
+  pccSyncCreativeUrl();
+  PROMO_CREATIVE_TYPE = type;
+  renderPromotionsPage();
+}
+
+function pccSetAdDuration(sec) {
+  // PUBLIC USER rule: clamp to 3..30, integer (step = 1 sec).
+  var v = Math.round(Number(sec));
+  if (!v || isNaN(v) || v <= 0) v = 15;
+  v = Math.min(30, Math.max(3, v));
+  // VIDEO: never exceed the actual uploaded video duration.
+  if (PROMO_CREATIVE_TYPE === "VIDEO" && PROMO_MEDIA_DURATION > 0) {
+    v = Math.min(v, Math.max(3, Math.round(PROMO_MEDIA_DURATION)));
+  }
+  PROMO_AD_DURATION = String(v);
+  pccSyncPills("pccAdDurationGroup", PROMO_AD_DURATION);
+  var inputEl = document.getElementById("pccAdDurationInput");
+  if (inputEl && String(inputEl.value) !== PROMO_AD_DURATION) inputEl.value = PROMO_AD_DURATION;
+  pccRefreshCost();
+}
+
+function pccSyncCreativeUrl() {
+  var inp = document.getElementById("pccCreativeUrl");
+  if (!inp) return;
+  var val = inp.value.trim();
+  if (PROMO_CREATIVE_TYPE === "IMAGE") PROMO_IMAGE_URL = val;
+  else if (PROMO_CREATIVE_TYPE === "VIDEO") PROMO_VIDEO_URL = val;
+  else if (PROMO_CREATIVE_TYPE === "URL") PROMO_EXTERNAL_URL = val;
+}
 
 /* ==========================================================
    PCC — PRICE CALCULATION
@@ -1009,7 +1290,10 @@ function loadUserItemsForTarget() {
   if (!userId) return;
 
   var targetType = PROMO_PROMOTION_TYPE;
-  var action = targetType === "Product" ? "products" : targetType === "Business" ? "businesses" : "properties";
+  var action = targetType === "Product" ? "products"
+    : targetType === "Business" ? "businesses"
+    : targetType === "Property" ? "properties"
+    : "news"; // News
 
   var url = getApiUrl() + "?action=" + action + "&userId=" + encodeURIComponent(userId);
   fetch(url)
@@ -1019,25 +1303,29 @@ function loadUserItemsForTarget() {
       if (!select) return;
       var items = [];
       if (res && res.success && res.data) {
-        items = res.data.data || res.data || [];
+        items = (res.data.data && res.data.data.length !== undefined) ? res.data.data : (res.data || []);
       }
+      if (!Array.isArray(items)) items = [];
+      PROMO_TARGET_ITEMS = items;
       if (items.length === 0) {
-        select.innerHTML = '<option value="">No ' + targetType.toLowerCase() + 's found</option>';
+        select.innerHTML = '<option value="">No ' + targetType.toLowerCase() + ' found</option>';
         return;
       }
       var html = '<option value="">Select a ' + targetType.toLowerCase() + '...</option>';
       items.forEach(function(item) {
-        var id = item.ProductID || item.BusinessID || item.PropertyID || "";
-        var title = item.Title || item.Name || item.BusinessName || "Untitled";
+        var id = item.ProductID || item.BusinessID || item.PropertyID || item.NewsID || "";
+        var title = item.Title || item.Name || item.BusinessName || item.NewsTitle || "Untitled";
         html += '<option value="' + id + '">' + escapeHtml(title) + '</option>';
       });
       select.innerHTML = html;
       if (PROMO_TARGET_ID) {
         select.value = PROMO_TARGET_ID;
       } else if (items.length === 1) {
-        select.value = items[0].ProductID || items[0].BusinessID || items[0].PropertyID || "";
+        var first = items[0];
+        select.value = first.ProductID || first.BusinessID || first.PropertyID || first.NewsID || "";
         PROMO_TARGET_ID = select.value;
-        PROMO_TARGET_TITLE = items[0].Title || items[0].Name || items[0].BusinessName || "Untitled";
+        PROMO_TARGET_TITLE = first.Title || first.Name || first.BusinessName || first.NewsTitle || "Untitled";
+        PROMO_TARGET_IMAGE = first.ImageURL || first.imageURL || first.Logo || first.CoverImage || "";
       }
       pccRefreshLocationNote();
     })
@@ -1052,6 +1340,8 @@ function pccSelectListingType(type) {
   PROMO_PROMOTION_TYPE = type;
   PROMO_TARGET_ID = "";
   PROMO_TARGET_TITLE = "";
+  PROMO_TARGET_IMAGE = "";
+  PROMO_TARGET_ITEMS = [];
   renderPromotionsPage();
 }
 
@@ -1065,8 +1355,20 @@ function pccSelectTarget() {
   if (!PROMO_TARGET_ID || isPlaceholder || isNone) {
     PROMO_TARGET_ID = "";
     PROMO_TARGET_TITLE = "";
+    PROMO_TARGET_IMAGE = "";
   } else {
     PROMO_TARGET_TITLE = text;
+    // Look up the selected item's existing image in case the promoter wants
+    // the audience to see the entity's own creative ("Use existing image").
+    PROMO_TARGET_IMAGE = "";
+    for (var i = 0; i < PROMO_TARGET_ITEMS.length; i++) {
+      var it = PROMO_TARGET_ITEMS[i];
+      var id = it.ProductID || it.BusinessID || it.PropertyID || it.NewsID || "";
+      if (String(id) === String(PROMO_TARGET_ID)) {
+        PROMO_TARGET_IMAGE = it.ImageURL || it.imageURL || it.Logo || it.CoverImage || "";
+        break;
+      }
+    }
   }
   renderPromotionsPage();
 }
@@ -1192,6 +1494,79 @@ function launchPCCCampaign() {
     return;
   }
 
+  // ---- Audience creative resolution ----
+  // Q2 "What should the audience see?" drives the creative that is delivered.
+  // Falls back to the promoted entity's own image where appropriate. For a
+  // URL/external creative the visible creative is the entity image (or an
+  // explicit image) and the destination link opens after the ad finishes.
+  pccSyncCreativeUrl();
+  var effectiveCreativeType = "IMAGE";
+  var effectiveImageURL = "";
+  var effectiveVideoURL = "";
+  var effectiveExternalURL = "";
+
+  if (PROMO_CREATIVE_TYPE === "VIDEO") {
+    effectiveCreativeType = "VIDEO";
+    effectiveVideoURL = PROMO_VIDEO_URL;
+  } else if (PROMO_CREATIVE_TYPE === "URL") {
+    effectiveCreativeType = "IMAGE";
+    effectiveImageURL = PROMO_IMAGE_URL || PROMO_TARGET_IMAGE;
+    effectiveExternalURL = PROMO_EXTERNAL_URL;
+  } else if (PROMO_CREATIVE_TYPE === "ENTITY_IMAGE") {
+    effectiveCreativeType = "IMAGE";
+    effectiveImageURL = PROMO_IMAGE_URL || PROMO_TARGET_IMAGE;
+  } else { // IMAGE
+    effectiveCreativeType = "IMAGE";
+    effectiveImageURL = PROMO_IMAGE_URL || PROMO_TARGET_IMAGE;
+  }
+
+  if (effectiveCreativeType === "VIDEO" && !effectiveVideoURL) {
+    showToast("Please upload a video for the audience to see");
+    return;
+  }
+  if (PROMO_CREATIVE_TYPE === "VIDEO") {
+    // Actual uploaded-video duration must be known and >= 3 sec. Never invented.
+    if (!(PROMO_MEDIA_DURATION > 0)) {
+      showToast("Video duration could not be verified. Please re-upload the video.");
+      return;
+    }
+    if (PROMO_MEDIA_DURATION < 3) {
+      showToast("Uploaded video is under 3 seconds and cannot be used.");
+      return;
+    }
+  }
+  if (effectiveCreativeType === "IMAGE" && !effectiveImageURL) {
+    showToast("Please provide an image URL or select a " + PROMO_PROMOTION_TYPE.toLowerCase() + " with an existing image");
+    return;
+  }
+  if (PROMO_CREATIVE_TYPE === "URL" && !effectiveExternalURL) {
+    showToast("Please provide a destination URL");
+    return;
+  }
+
+  // ---- Q3 => audience-facing AD VIEWING TIME (viewer ad duration) ----
+  // This is distinct from campaign lifetime (PROMO_DURATION in days), from
+  // PromotionFuel, and from EstimatedViewSeconds. It is stored as the
+  // dedicated AdDurationSeconds value.
+  var adDuration = Number(PROMO_AD_DURATION);
+  if (!adDuration || isNaN(adDuration) || adDuration <= 0) adDuration = 15;
+  // PUBLIC USER rule: 3 <= AdDurationSeconds <= 30, step 1 sec.
+  adDuration = Math.min(30, Math.max(3, Math.round(adDuration)));
+  // VIDEO: cap at the actual uploaded video duration (mediaDuration).
+  if (PROMO_CREATIVE_TYPE === "VIDEO" && PROMO_MEDIA_DURATION > 0) {
+    adDuration = Math.min(adDuration, Math.max(3, Math.round(PROMO_MEDIA_DURATION)));
+  }
+
+  // Forward the full campaign definition. Field names match the existing
+  // backend model (createPromotionCampaign p.* parameters) — no new names.
+  var forwardCta = "Learn More";
+  var forwardDestinationType = effectiveExternalURL ? "External" : "Internal";
+  var forwardPipEnabled = "Yes";
+  var forwardFeatured = "No";
+  var forwardPriority = "0";
+  var forwardMediaDuration = (PROMO_CREATIVE_TYPE === "VIDEO" && PROMO_MEDIA_DURATION > 0)
+    ? String(Math.round(PROMO_MEDIA_DURATION)) : "";
+
   var url = getApiUrl() +
     "?action=createpromotion" +
     "&userId=" + encodeURIComponent(userId) +
@@ -1200,6 +1575,17 @@ function launchPCCCampaign() {
     "&targetId=" + encodeURIComponent(PROMO_TARGET_ID) +
     "&radius=" + encodeURIComponent(PROMO_RADIUS) +
     "&duration=" + encodeURIComponent(PROMO_DURATION) +
+    "&creativeType=" + encodeURIComponent(effectiveCreativeType) +
+    "&imageURL=" + encodeURIComponent(effectiveImageURL || "") +
+    "&videoURL=" + encodeURIComponent(effectiveVideoURL || "") +
+    "&externalURL=" + encodeURIComponent(effectiveExternalURL || "") +
+    "&adDurationSeconds=" + encodeURIComponent(String(adDuration)) +
+    "&mediaDuration=" + encodeURIComponent(forwardMediaDuration) +
+    "&cta=" + encodeURIComponent(forwardCta) +
+    "&destinationType=" + encodeURIComponent(forwardDestinationType) +
+    "&pipEnabled=" + encodeURIComponent(forwardPipEnabled) +
+    "&featured=" + encodeURIComponent(forwardFeatured) +
+    "&priority=" + encodeURIComponent(forwardPriority) +
     "&targetLocation=" + encodeURIComponent(PROMO_TARGET_LOCATION) +
     "&latitude=" + encodeURIComponent(PROMO_TARGET_LAT) +
     "&longitude=" + encodeURIComponent(PROMO_TARGET_LNG);

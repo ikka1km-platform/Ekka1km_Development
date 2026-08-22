@@ -41,7 +41,10 @@ function getAdDurationSeconds(campaign) {
   if (!campaign) return 5;
   var raw = Number(campaign.AdDurationSeconds || campaign.Duration || campaign.duration || 5);
   if (!raw || isNaN(raw) || raw <= 0) raw = 5;
-  if (raw > 120) raw = 10; // campaign-lifetime artifact, not an ad length
+  // Campaign-lifetime artifact guard (matches backend resolveAdDurationSeconds).
+  // Threshold raised from 120 to 86400 so legitimate long ADMIN ad durations
+  // play in full; only true lifetime artifacts are replaced with a default.
+  if (raw > 86400) raw = 10; // campaign-lifetime artifact, not an ad length
   return Math.max(3, Math.round(raw));
 }
 

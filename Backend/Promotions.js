@@ -94,15 +94,15 @@ function calculatePromotionPrice(e) {
  * Orchestrates: Wallet Validation → Deduction → Promotion Engine → Transactions
  * ============================================================
  */
-function createPromotionTransaction(userId, promotionType, targetType, targetId, radius, duration, totalCoins, latitude, longitude) {
+function createPromotionTransaction(userId, promotionType, targetType, targetId, radius, duration, totalCoins, latitude, longitude, adDurationSeconds, creativeType, imageURL, videoURL, externalURL, mediaDuration, cta, destinationType, pipEnabled, featured, priority) {
   // V2 Backend Migration: Delegate to Promotion Economy V2
   var campaignType = "PROMOTE_" + targetType.toUpperCase();
-  
+
   var targetRadius = radius;
   var targetCategory = "";
   var targetCity = "";
   var targetState = "";
-  
+
   if (targetType === "Product") {
     var product = getRowById("Products", "ProductID", targetId);
     if (product) {
@@ -124,22 +124,47 @@ function createPromotionTransaction(userId, promotionType, targetType, targetId,
       targetCity = property.City || "";
       targetState = property.State || "";
     }
+  } else if (targetType === "News") {
+    var newsItem = getRowById("News", "NewsID", targetId);
+    if (newsItem) {
+      targetCategory = newsItem.Category || "";
+      targetCity = newsItem.City || "";
+      targetState = newsItem.State || "";
+    }
   }
-  
-  // Convert duration from days to seconds for V2 engine
-  var durationInSeconds = parseInt(duration) * 86400;
+
+  // Campaign lifetime (days -> end date). The promoter picks how long the
+  // campaign itself runs; this is INDEPENDENT of the viewer ad-view length.
   var endDate = new Date(Date.now() + parseInt(duration) * 24 * 60 * 60 * 1000);
-  
-  // Audience creative: public promotion fallback. If the promoter did not
-  // explicitly supply a creative, fall back to the promoted entity's existing
-  // primary image where safe. Never fabricates artwork.
-  var creativeImageURL = "";
-  if (targetType === "Product") {
-    creativeImageURL = (product && (product.ImageURL || product.image2 || "")) || "";
-  } else if (targetType === "Business") {
-    creativeImageURL = (business && (business.Logo || business.CoverImage || "")) || "";
-  } else if (targetType === "Property") {
-    creativeImageURL = (property && (property.ImageURL || "")) || "";
+
+  // Dedicated audience-facing AD-VIEW length in seconds. This is the explicit
+  // promoter "AD VIEWING TIME" — stored in the dedicated AdDurationSeconds
+  // field. It is NOT the campaign lifetime and NOT EstimatedViewSeconds.
+  // We no longer write days*86400 into Duration.
+  // NOTE: no artificial upper clamp here. Public 3..30 and admin >=3 (with
+  // VIDEO capped by mediaDuration) are enforced server-side in
+  // Promotion.js normalizeAdDurationSeconds; legacy lifetime artifacts are
+  // filtered by resolveAdDurationSeconds (>86400 guard).
+  var viewingDuration = Number(adDurationSeconds);
+  if (!viewingDuration || isNaN(viewingDuration) || viewingDuration <= 0) {
+    viewingDuration = 10;
+  }
+  viewingDuration = Math.round(viewingDuration);
+
+  // Audience creative: if the promoter supplied an explicit creative use it;
+  // otherwise fall back to the promoted entity's existing primary image where
+  // safe. Never fabricates artwork.
+  var creativeImageURL = imageURL || "";
+  if (!creativeImageURL) {
+    if (targetType === "Product") {
+      creativeImageURL = (product && (product.ImageURL || product.image2 || "")) || "";
+    } else if (targetType === "Business") {
+      creativeImageURL = (business && (business.Logo || business.CoverImage || "")) || "";
+    } else if (targetType === "Property") {
+      creativeImageURL = (property && (property.ImageURL || "")) || "";
+    } else if (targetType === "News") {
+      creativeImageURL = (newsItem && (newsItem.ImageURL || "")) || "";
+    }
   }
 
   var v2Raw = createPromotionCampaign({
@@ -149,9 +174,16 @@ function createPromotionTransaction(userId, promotionType, targetType, targetId,
       promotedEntityType: targetType,
       promotedEntityID: targetId,
       imageURL: creativeImageURL,
+      videoURL: videoURL || "",
+      externalURL: externalURL || "",
       campaignBudget: String(totalCoins),
       rewardCoins: String(Math.floor(totalCoins * 0.7)),
-      duration: String(durationInSeconds),
+      duration: String(viewingDuration),
+      adDurationSeconds: String(viewingDuration),
+      creativeType: creativeType || "IMAGE",
+      mediaDuration: mediaDuration || "",
+      cta: cta || "Learn More",
+      destinationType: destinationType || "",
       endDate: endDate.toISOString(),
       targetRadius: targetRadius,
       targetCategory: targetCategory,
@@ -159,9 +191,9 @@ function createPromotionTransaction(userId, promotionType, targetType, targetId,
       targetState: targetState,
       latitude: latitude || "",
       longitude: longitude || "",
-      pipEnabled: "Yes",
-      featured: "No",
-      creativeType: "IMAGE",
+      pipEnabled: pipEnabled || "Yes",
+      featured: featured || "No",
+      priority: priority || "0",
       promotionTier: promotionType
     }
   });
@@ -181,7 +213,7 @@ function createPromotionTransaction(userId, promotionType, targetType, targetId,
 
   var campaignData = v2.data || v2;
   var promotionId = campaignData.campaignId || ("PR" + Utilities.getUuid().substring(0, 8));
-  
+
   return {
     promotionId: promotionId,
     coinsSpent: totalCoins,
@@ -210,6 +242,43 @@ function createPromotion(e) {
     // H2: PCC campaign-specific target location
     var latitude = p.latitude || "";
     var longitude = p.longitude || "";
+    // PCC campaign definition: creative + audience ad-view duration
+    var adDurationSeconds = String(p.adDurationSeconds || "");
+    var creativeType = p.creativeType || "IMAGE";
+    var creativeImageURL = p.imageURL || "";
+    var creativeVideoURL = p.videoURL || "";
+    var creativeExternalURL = p.externalURL || "";
+    // Full PCC campaign-definition forwarding (existing backend field names).
+    // mediaDuration = actual uploaded video duration in seconds (VIDEO only).
+    var mediaDuration = String(p.mediaDuration || "");
+    var cta = p.cta || "Learn More";
+    var destinationType = p.destinationType || "";
+    var pipEnabled = p.pipEnabled || "Yes";
+    var featured = p.featured || "No";
+    var priority = p.priority || "0";
+
+    // ============================================================
+    // SECURITY HARDENING — FUNDING SOURCE BYPASS (V2 treasury audit)
+    // The PUBLIC createpromotion route is strictly USER-funded.
+    // A malicious caller must NOT be able to set fundingSource to
+    // Admin / Treasury / System to skip the user-wallet debit.
+    // The server determines funding source here: always "User".
+    // A future, separate ADMIN route is the ONLY place allowed to
+    // request treasury funding, and it will enforce an admin
+    // session/role server-side.
+    // ============================================================
+    var suppliedFundingSource = String(
+      p.fundingSource || p.campaignSource || "User"
+    ).toLowerCase();
+    var isAdminFundingAttempt =
+      suppliedFundingSource === "admin" ||
+      suppliedFundingSource === "treasury" ||
+      suppliedFundingSource === "system";
+    if (isAdminFundingAttempt) {
+      return error(
+        "Authorization required: public promotion creation only supports USER funding."
+      );
+    }
 
     // ============================================================
     // SECURITY HARDENING — FUNDING SOURCE BYPASS (V2 treasury audit)
@@ -237,8 +306,8 @@ function createPromotion(e) {
       return error("userId, targetType, and targetId required");
     }
 
-    if (["Product", "Business", "Property"].indexOf(targetType) === -1) {
-      return error("targetType must be Product, Business, or Property");
+    if (["Product", "Business", "Property", "News"].indexOf(targetType) === -1) {
+      return error("targetType must be Product, Business, Property, or News");
     }
 
     if (!PROMOTION_PRICES[promotionType]) {
@@ -268,10 +337,14 @@ function createPromotion(e) {
       var property = getRowById("Properties", "PropertyID", targetId);
       if (!property) return error("Property not found");
       if (String(property.UserID) !== String(userId)) return error("You can only promote your own properties");
+    } else if (targetType === "News") {
+      var newsItem = getRowById("News", "NewsID", targetId);
+      if (!newsItem) return error("News not found");
+      if (String(newsItem.UserID) !== String(userId)) return error("You can only promote your own news");
     }
 
     // Atomic transaction via orchestration layer
-    var result = createPromotionTransaction(userId, promotionType, targetType, targetId, radius, duration, totalCoins, latitude, longitude);
+    var result = createPromotionTransaction(userId, promotionType, targetType, targetId, radius, duration, totalCoins, latitude, longitude, adDurationSeconds, creativeType, creativeImageURL, creativeVideoURL, creativeExternalURL, mediaDuration, cta, destinationType, pipEnabled, featured, priority);
 
     return success(result, "Promotion created successfully");
 
@@ -316,7 +389,7 @@ function getPromotion(e) {
         UpdatedDate: normalized.UpdatedAt || normalized.UpdatedDate
       }, "Promotion loaded (V2)");
     }
-    
+
     // Fallback to V1
     var promotion = getRowById("Promotions", "PromotionID", promotionId);
     if (!promotion) return error("Promotion not found");
@@ -341,7 +414,7 @@ function getUserPromotions(e) {
 
     // Read from V2 sheet first, then V1 for backward compatibility
     var result = [];
-    
+
     try {
       var v2Campaigns = getSheetData("PromotionCampaigns") || [];
       v2Campaigns.forEach(function(c) {
@@ -378,7 +451,7 @@ function getUserPromotions(e) {
     } catch (v2Err) {
       console.log("getUserPromotions: V2 sheet read error, falling back to V1");
     }
-    
+
     // Include V1 promotions for backward compatibility
     var v1Promotions = getSheetData("Promotions") || [];
     v1Promotions.forEach(function(p) {
@@ -386,9 +459,9 @@ function getUserPromotions(e) {
         result.push(p);
       }
     });
-    
-    result.sort(function(a, b) { 
-      return new Date(b.CreatedDate || 0) - new Date(a.CreatedDate || 0); 
+
+    result.sort(function(a, b) {
+      return new Date(b.CreatedDate || 0) - new Date(a.CreatedDate || 0);
     });
 
     return success({ count: result.length, data: result }, "User promotions loaded");
@@ -413,11 +486,11 @@ function stopPromotion(e) {
     var v2Updated = updateRow("PromotionCampaigns", "CampaignID", promotionId, {
       Status: "Cancelled"
     });
-    
+
     if (v2Updated) {
       return success({ promotionId: promotionId, status: "Cancelled" }, "Promotion cancelled successfully");
     }
-    
+
     // Fallback to V1
     var updated = updateRow("Promotions", "PromotionID", promotionId, {
       Status: "Cancelled",
@@ -456,7 +529,7 @@ function pausePromotion(e) {
       }
       return error("Campaign not found");
     }
-    
+
     // Fallback to V1
     var promotion = getRowById("Promotions", "PromotionID", promotionId);
     if (!promotion) return error("Promotion not found");
@@ -497,7 +570,7 @@ function resumePromotion(e) {
       }
       return error("Campaign not found");
     }
-    
+
     // Fallback to V1
     var promotion = getRowById("Promotions", "PromotionID", promotionId);
     if (!promotion) return error("Promotion not found");
@@ -530,11 +603,11 @@ function expirePromotion(e) {
     var v2Updated = updateRow("PromotionCampaigns", "CampaignID", promotionId, {
       Status: "Expired"
     });
-    
+
     if (v2Updated) {
       return success({ promotionId: promotionId, status: "Expired" }, "Campaign expired successfully");
     }
-    
+
     // Fallback to V1
     var updated = updateRow("Promotions", "PromotionID", promotionId, {
       Status: "Expired",
@@ -565,11 +638,11 @@ function cancelPromotion(e) {
     var v2Updated = updateRow("PromotionCampaigns", "CampaignID", promotionId, {
       Status: "Cancelled"
     });
-    
+
     if (v2Updated) {
       return success({ promotionId: promotionId, status: "Cancelled" }, "Campaign cancelled successfully");
     }
-    
+
     // Fallback to V1
     var updated = updateRow("Promotions", "PromotionID", promotionId, {
       Status: "Cancelled",
@@ -604,7 +677,7 @@ function getPromotionAnalytics(e) {
       var clicks = Number(normalized.Clicks || 0);
       var interested = Number(normalized.Interested || 0);
       var ctr = views > 0 ? Math.round((clicks / views) * 100) : 0;
-      
+
       return success({
         promotionId: normalized.CampaignID,
         targetType: normalized.TargetType,
@@ -622,7 +695,7 @@ function getPromotionAnalytics(e) {
         endDate: normalized.EndDate
       }, "Promotion analytics loaded (V2)");
     }
-    
+
     // Fallback to V1
     var promotion = getRowById("Promotions", "PromotionID", promotionId);
     if (!promotion) return error("Promotion not found");

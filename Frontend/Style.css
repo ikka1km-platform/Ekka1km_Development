@@ -9576,6 +9576,48 @@ STAGE 4HIJ — CONTENT BROWSING & INTERACTION SURFACES
   background: #fff;
 }
 
+.promo-wizard-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.promo-creative-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.promo-creative-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  color: #444;
+  transition: all .15s;
+}
+
+.promo-creative-option:hover {
+  border-color: #ccc;
+  background: #fafafa;
+}
+
+.promo-creative-option.selected {
+  border-color: var(--primary, #0f9d58);
+  background: #e6f4ea;
+  color: var(--primary, #0f9d58);
+  font-weight: 600;
+}
+
 .promo-wizard-nav {
   display: flex;
   gap: 10px;

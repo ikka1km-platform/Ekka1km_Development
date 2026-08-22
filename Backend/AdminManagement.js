@@ -847,6 +847,10 @@ function getAdminPromotionCampaigns(e) {
         RemainingRewardCoins: remainingFuel,
         RewardCoins: Number(c.RewardCoins || 0),
         Duration: duration,
+        // Dedicated audience-facing ad-view length (seconds) — distinct from
+        // campaign lifetime and from EstimatedViewSeconds.
+        AdDurationSeconds: Number(c.AdDurationSeconds || duration),
+        MediaDuration: Number(c.MediaDuration || 0),
         StartDate: c.StartDate || "",
         EndDate: c.EndDate || "",
         Status: String(c.Status || ""),

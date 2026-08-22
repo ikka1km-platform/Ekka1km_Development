@@ -77,7 +77,7 @@ function ensurePromotionSheets() {
         // it with the production layout. Do NOT let the V2 migration below append
         // or reorder columns on an existing 44-column sheet (it stays a no-op
         // there because every required header already exists in the live layout).
-        s.appendRow(["CampaignID", "CampaignTitle", "CampaignSource", "OwnerUserID", "TargetType", "TargetID", "PromotionFuel", "RemainingFuel", "RewardRatePerSecond", "EstimatedViewSeconds", "EstimatedViews", "CoinsConsumed", "Radius", "PromotionLocation", "City", "District", "State", "Country", "Latitude", "Longitude", "Views", "Clicks", "Interested", "Shares", "StartDate", "EndDate", "Status", "CreatedDate", "UpdatedDate", "ImageURL", "VideoURL", "ExternalURL", "MediaDuration", "CreativeType", "CTA", "DestinationType", "PageContent", "PushNotification", "Featured", "PIPEnabled", "Remarks", "Duration", "RewardCoins", "Priority"]);
+        s.appendRow(["CampaignID", "CampaignTitle", "CampaignSource", "OwnerUserID", "TargetType", "TargetID", "PromotionFuel", "RemainingFuel", "RewardRatePerSecond", "EstimatedViewSeconds", "EstimatedViews", "CoinsConsumed", "Radius", "PromotionLocation", "City", "District", "State", "Country", "Latitude", "Longitude", "Views", "Clicks", "Interested", "Shares", "StartDate", "EndDate", "Status", "CreatedDate", "UpdatedDate", "ImageURL", "VideoURL", "ExternalURL", "MediaDuration", "AdDurationSeconds", "CreativeType", "CTA", "DestinationType", "PageContent", "PushNotification", "Featured", "PIPEnabled", "Remarks", "Duration", "RewardCoins", "Priority"]);
       }
     }
   });
@@ -92,7 +92,7 @@ function ensurePromotionSheets() {
     var requiredHeaders = [
       "RewardRatePerSecond", "EstimatedViewSeconds", "EstimatedViews",
       "CreativeType", "CTA", "DestinationType", "PageContent",
-      "ImageURL", "VideoURL", "ExternalURL", "Duration", "Featured", "PIPEnabled"
+      "ImageURL", "VideoURL", "ExternalURL", "AdDurationSeconds", "Duration", "Featured", "PIPEnabled"
     ];
     
     // Legacy headers to migrate
@@ -647,11 +647,54 @@ function resolveAdDurationSeconds(c) {
     var raw = Number((c && (c.AdDurationSeconds || c.Duration)) || 5);
     if (!raw || isNaN(raw) || raw <= 0) raw = 5;
     // Campaign-lifetime-seconds artifact (e.g. days*86400). Not a viewer length.
-    if (raw > 120) return 10;
+    // Threshold raised from 120 to 86400 so legitimate long ADMIN ad durations
+    // (no artificial upper bound) survive; only true lifetime artifacts are
+    // replaced with the default.
+    if (raw > 86400) return 10;
     return Math.max(3, Math.round(raw));
   } catch (e) {
     return 10;
   }
+}
+
+/**
+ * ============================================================
+ * VIEWER AD DURATION INPUT NORMALIZER (creation-time)
+ * ============================================================
+ * Sanitizes the dedicated audience-facing ad-view length for a NEW
+ * campaign. This is the creator's explicit "AD VIEWING TIME" choice
+ * (3/5/10/15/20/30 sec) — it is a per-viewer watch window, distinct from
+ * campaign lifetime, PromotionFuel, and EstimatedViewSeconds.
+ *
+ * Accepts the dedicated `adDurationSeconds` param first, then falls back to
+ * a stored viewer length. Campaign-lifetime values (e.g. days*86400) are
+ * rejected and replaced with the default so a lifetime artifact is never
+ * written into AdDurationSeconds.
+ * ============================================================
+ */
+function normalizeAdDurationSeconds(adParam, durationParam, opts) {
+  opts = opts || {};
+  var isAdminFunded = !!opts.isAdminFunded;
+  var candidate = Number(adParam != null && adParam !== "" ? adParam : durationParam || 10);
+  if (!candidate || isNaN(candidate) || candidate <= 0) candidate = 10;
+  candidate = Math.round(candidate);
+
+  if (isAdminFunded) {
+    // ADMIN: minimum 3 sec, NO artificial upper bound imposed by this feature.
+    // For VIDEO, the ad duration must not exceed the actual uploaded video
+    // duration (MediaDuration, seconds). IMAGE/URL: any positive duration.
+    if (String(opts.creativeType || "").toUpperCase() === "VIDEO") {
+      var mediaDur = Number(opts.mediaDuration);
+      if (mediaDur && !isNaN(mediaDur) && mediaDur > 0 && candidate > mediaDur) {
+        candidate = Math.max(3, Math.round(mediaDur));
+      }
+    }
+    return Math.max(3, candidate);
+  }
+
+  // PUBLIC USER: 3 <= AdDurationSeconds <= 30 (1-second granularity).
+  if (candidate > 30) candidate = 30;
+  return Math.max(3, candidate);
 }
 
 
@@ -1778,6 +1821,18 @@ function createPromotionCampaign(e) {
       return error("campaignType required");
     }
 
+    // ============================================================
+    // SHARED CAMPAIGN-DEFINITION MODEL — FUNDING SOURCE
+    // The same campaign definition (target, creative, ad-view duration) is
+    // reused for BOTH user-funded and admin/treasury-funded campaigns. Only
+    // the funding source differs:
+    //   - "User"      (default): the promoter's wallet is debited.
+    //   - "Admin"     / "Treasury" / "System": funded out of treasury; NO
+    //     user-wallet debit and no personal-wallet requirement.
+    // ============================================================
+    var fundingSource = String(p.fundingSource || p.campaignSource || "User").toLowerCase();
+    var isAdminFunded = fundingSource === "admin" || fundingSource === "treasury" || fundingSource === "system";
+
     // V2: Use PromotionFuel instead of CampaignBudget/RewardPool
     var promotionFuel = Number(p.promotionFuel || p.campaignBudget || p.rewardCoins || 0);
     if (promotionFuel <= 0) {
@@ -1792,15 +1847,17 @@ function createPromotionCampaign(e) {
       // PHASE 1.7C: Wallet deduction NOT implemented yet
       // Will be added in future phase
       // ============================================================
-      
-      var wallet = getWalletRow(userId);
-      if (!wallet) {
-        return error("Wallet not found. Please create a wallet first.");
-      }
-
-      var balance = Number(wallet.Balance || 0);
-      if (balance < promotionFuel) {
-        return error("Insufficient EkkaCoins. Required: " + promotionFuel + ", Available: " + balance);
+      var wallet = null;
+      var balance = 0;
+      if (!isAdminFunded) {
+        wallet = getWalletRow(userId);
+        if (!wallet) {
+          return error("Wallet not found. Please create a wallet first.");
+        }
+        balance = Number(wallet.Balance || 0);
+        if (balance < promotionFuel) {
+          return error("Insufficient EkkaCoins. Required: " + promotionFuel + ", Available: " + balance);
+        }
       }
 
       // ============================================================
@@ -1822,9 +1879,22 @@ function createPromotionCampaign(e) {
       
       // Get RewardCoins (per user reward)
       var rewardCoins = Number(p.rewardCoins || 5);
-      
-      // Get Duration in seconds
-      var duration = Number(p.duration || 10);
+
+      // Dedicated audience-facing AD-VIEW length (seconds). The per-viewer
+      // watch window. It is NOT campaign lifetime, NOT PromotionFuel, and
+      // NOT EstimatedViewSeconds. It is stored in its own AdDurationSeconds
+      // column.
+      // PUBLIC USER: 3..30 sec. ADMIN (fundingSource admin/treasury/system):
+      // >= 3 sec with no artificial upper bound; for VIDEO the value is
+      // capped by the actual uploaded video duration (MediaDuration).
+      var adDurationSeconds = normalizeAdDurationSeconds(p.adDurationSeconds, p.duration, {
+        isAdminFunded: isAdminFunded,
+        creativeType: p.creativeType,
+        mediaDuration: p.mediaDuration
+      });
+
+      // The viewer ad-watch window drives reward pacing and estimates.
+      var duration = adDurationSeconds;
       
       // V2: Calculate RewardRatePerSecond (coins per second)
       var rewardRatePerSecond = duration > 0 ? Math.round((rewardCoins / duration) * 100) / 100 : 1;
@@ -1869,8 +1939,8 @@ function createPromotionCampaign(e) {
       var campaignData = {
         CampaignID: campaignId,
         CampaignTitle: p.campaignTitle || "",
-        CampaignSource: p.campaignSource || "",
-        OwnerUserID: userId,
+        CampaignSource: String(p.campaignSource || (isAdminFunded ? "Admin" : "")),
+        OwnerUserID: String(p.ownerUserID || userId),
         TargetType: p.promotedEntityType || "",
         TargetID: p.promotedEntityID || "",
         PromotionFuel: promotionFuel,
@@ -1900,6 +1970,7 @@ function createPromotionCampaign(e) {
         VideoURL: p.videoURL || "",
         ExternalURL: p.externalURL || "",
         MediaDuration: p.mediaDuration || "",
+        AdDurationSeconds: String(adDurationSeconds),
         CreativeType: p.creativeType || "IMAGE",
         CTA: p.cta || "Learn More",
         DestinationType: p.destinationType || "",
@@ -1925,29 +1996,33 @@ function createPromotionCampaign(e) {
       sheet.appendRow(liveRow);
 
       // H3: Deduct promotionFuel from the user's wallet and record a DEBIT
-      // transaction. If deduction OR transaction creation fails, roll back the
+      // transaction — but ONLY for user-funded campaigns. Admin/treasury-funded
+      // campaigns are financed out of treasury and never debit the promoter's
+      // wallet. If deduction OR transaction creation fails, roll back the
       // wallet and remove the just-created campaign row so no partially-created
       // campaign is left behind.
       var originalBalance = balance;
-      var originalTotalSpent = Number(wallet.TotalSpent || 0);
+      var originalTotalSpent = Number(wallet ? wallet.TotalSpent || 0 : 0);
       var afterDeduction = balance;
-      try {
-        var debitResult = debitWallet(
-          userId,
-          deductAmount,
-          referenceId,
-          "Promotion Campaign - " + campaignType,
-          "PROMOTION"
-        );
-        afterDeduction = debitResult.after;
-      } catch (debitErr) {
-        updateRow("Wallet", "WalletID", wallet.WalletID, {
-          Balance: originalBalance,
-          TotalSpent: originalTotalSpent,
-          LastUpdated: new Date()
-        });
-        removeCampaignRowByCampaignId(campaignId);
-        return exception(debitErr);
+      if (!isAdminFunded) {
+        try {
+          var debitResult = debitWallet(
+            userId,
+            deductAmount,
+            referenceId,
+            "Promotion Campaign - " + campaignType,
+            "PROMOTION"
+          );
+          afterDeduction = debitResult.after;
+        } catch (debitErr) {
+          updateRow("Wallet", "WalletID", wallet.WalletID, {
+            Balance: originalBalance,
+            TotalSpent: originalTotalSpent,
+            LastUpdated: new Date()
+          });
+          removeCampaignRowByCampaignId(campaignId);
+          return exception(debitErr);
+        }
       }
 
       return success({
