@@ -67,6 +67,7 @@ AdminModules.register("advertisements", async function(container) {
     html += '    <span class="module-count">' + (summaryStats.totalCampaigns || 0) + ' total campaigns</span>';
     html += '  </div>';
     html += '  <div class="module-header-right">';
+    html += '    <button class="module-btn module-btn-primary" id="acwOpenBtn" onclick="window._openCreateCampaignWizard()">＋ Create Campaign</button>';
     html += '    <button class="module-btn module-btn-secondary" onclick="AdminModules.open(\'dashboard\')">← Back to Dashboard</button>';
     html += '  </div>';
     html += '</div>';
@@ -701,3 +702,1141 @@ function getCampaignTimeline(campaign) {
 }
 
 console.log("Admin Advertisements module loaded (Phase 5.6A + Phase 5.6C)");
+
+/*
+============================================================
+V2 - ADMIN CAMPAIGN CREATION WIZARD
+============================================================
+Treasury-funded admin campaign creation UI inside the
+Advertisement & Promotion Control Center.
+
+Flow:
+  1. Promotion Pass        (?action=passcatalog - server authoritative)
+  2. Campaign Owner        (?action=adminusers)
+  3. What are you promoting? (adminproducts/businesses/properties/news)
+  4. Upload Your Ad        (existing MediaUpload.js createUploadWidget)
+  5. Ad Viewing Time       (min 3s, no artificial max; video capped at
+                            detected MediaDuration)
+  6. Campaign Location     (explicit selection only - never silent GPS)
+  7. Campaign Radius       (1|5|10|25|51|100|All India - measured from
+                            the SELECTED campaign location)
+  8. Campaign Lifetime     (1|3|7|15|30 days - PCC options)
+  9. Campaign Fuel         (default = Pass IncludedCoins; capped by
+                            PromotionTreasury balance)
+ 10. Review & Create       (?action=admincreatecampaign with
+                            idempotencyKey)
+
+Funding source is ALWAYS the server-side Promotion Treasury.
+The browser never sends fundingSource/campaignSource.
+No duration-based fees (deferred feature).
+============================================================
+*/
+
+var ACW = {
+  open: false,
+  step: 1,
+  passes: [],
+  pass: null,
+  treasuryBalance: 0,
+  owners: [],
+  owner: null,
+  ownerSearch: "",
+  targetType: "Product",
+  targets: [],
+  target: null,
+  targetSearch: "",
+  creativeMode: "",
+  imageURL: "",
+  videoURL: "",
+  mediaDuration: null,
+  externalURL: "",
+  externalType: "website",
+  adDuration: 3,
+  locName: "",
+  locCity: "",
+  locDistrict: "",
+  locState: "",
+  lat: null,
+  lng: null,
+  radius: "25",
+  lifetimeDays: "7",
+  fuel: null,
+  submitting: false,
+  result: null
+};
+
+var ACW_RADIUS_OPTIONS = ["1", "5", "10", "25", "51", "100", "All India"];
+var ACW_LIFETIME_OPTIONS = ["1", "3", "7", "15", "30"];
+var ACW_STEP_TITLES = {
+  1: "PROMOTION PASS",
+  2: "CAMPAIGN OWNER",
+  3: "WHAT ARE YOU PROMOTING?",
+  4: "UPLOAD YOUR AD",
+  5: "AD VIEWING TIME",
+  6: "CAMPAIGN LOCATION & RADIUS",
+  7: "CAMPAIGN LIFETIME",
+  8: "CAMPAIGN FUEL",
+  9: "REVIEW & CREATE"
+};
+
+window._openCreateCampaignWizard = function() {
+  var session = AdminAuth.getSession();
+  if (!session) {
+    showToast("Session expired. Please login again.", "error");
+    return;
+  }
+  ACW.open = true;
+  ACW.step = 1;
+  ACW.passes = [];
+  ACW.pass = null;
+  ACW.treasuryBalance = 0;
+  ACW.owners = [];
+  ACW.owner = null;
+  ACW.ownerSearch = "";
+  ACW.targetType = "Product";
+  ACW.targets = [];
+  ACW.target = null;
+  ACW.targetSearch = "";
+  ACW.creativeMode = "";
+  ACW.imageURL = "";
+  ACW.videoURL = "";
+  ACW.mediaDuration = null;
+  ACW.externalURL = "";
+  ACW.externalType = "website";
+  ACW.adDuration = 3;
+  ACW.locName = "";
+  ACW.locCity = "";
+  ACW.locDistrict = "";
+  ACW.locState = "";
+  ACW.lat = null;
+  ACW.lng = null;
+  ACW.radius = "25";
+  ACW.lifetimeDays = "7";
+  ACW.fuel = null;
+  ACW.submitting = false;
+  ACW.result = null;
+  _acwMountModal();
+  _acwLoadPassesAndTreasury();
+};
+
+function _acwSession() {
+  return AdminAuth.getSession();
+}
+/* ACW_PART_1_END */
+
+/*
+------------------------------------------------------------
+MODAL SHELL + HELPERS
+------------------------------------------------------------
+*/
+
+function _acwMountModalShell() {
+  _acwUnmountModal();
+  var html = '';
+  html += '<div class="modal-overlay" id="acwOverlay" onclick="closeModal(event)">';
+  html += '  <div class="modal-content" style="max-width:760px;max-height:88vh;display:flex;flex-direction:column;">';
+  html += '    <div class="modal-header">';
+  html += '      <h3>🚀 Create Campaign <span style="font-size:12px;color:var(--text-muted);font-weight:400;">(Treasury Funded)</span></h3>';
+  html += '      <button class="module-btn module-btn-secondary" onclick="window._acwClose()">✕</button>';
+  html += '    </div>';
+  html += '    <div id="acwStepBar" style="padding:8px 20px 0 20px;font-size:11px;color:var(--text-muted);"></div>';
+  html += '    <div class="modal-body" id="acwBody" style="overflow-y:auto;flex:1;">';
+  html += '      <div class="module-loading"><div class="loader"></div><p>Loading wizard...</p></div>';
+  html += '    </div>';
+  html += '    <div class="modal-footer" id="acwFooter"></div>';
+  html += '  </div>';
+  html += '</div>';
+  document.body.insertAdjacentHTML("beforeend", html);
+}
+
+function _acwUnmountModal() {
+  var existing = document.getElementById("acwOverlay");
+  if (existing) existing.remove();
+}
+
+window._acwClose = function() {
+  ACW.open = false;
+  _acwUnmountModal();
+};
+
+function _acwSetBody(html) {
+  var body = document.getElementById("acwBody");
+  if (body) body.innerHTML = html;
+  _acwRenderFooter();
+}
+
+function _acwSection(title, inner) {
+  return '<div style="margin-bottom:18px;">' +
+    '<h4 style="margin:0 0 10px 0;font-size:13px;letter-spacing:0.5px;color:#5b8def;text-transform:uppercase;">' + title + '</h4>' +
+    inner + '</div>';
+}
+
+function _acwEsc(s) {
+  return escapeHtml(s);
+}
+/* ACW_PART_2_END */
+
+/*
+------------------------------------------------------------
+DATA LOADERS
+------------------------------------------------------------
+*/
+
+function _acwMountModal() {
+  _acwMountModalShell();
+  _acwRender();
+}
+
+async function _acwLoadPassesAndTreasury() {
+  var session = _acwSession();
+  var passUrl = getApiUrl() + "?action=passcatalog";
+  var treasUrl = getApiUrl() + "?action=admintreasuryoverview&session=" + encodeURIComponent(session);
+  try {
+    var results = await Promise.all([
+      fetch(passUrl).then(function(r) { return r.json(); }),
+      fetch(treasUrl).then(function(r) { return r.json(); }).catch(function() { return null; })
+    ]);
+    var passJson = results[0];
+    var treasJson = results[1];
+    if (!passJson || !passJson.success) {
+      _acwSetBody('<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Failed to Load Pass Catalog</h3><p>' + _acwEsc((passJson && passJson.message) || "Unknown error") + '</p></div>');
+      return;
+    }
+    var rows = (passJson.data && passJson.data.data) || [];
+    ACW.passes = rows.filter(function(p) {
+      return String(p.Status || "").toLowerCase() === "active" || !p.Status;
+    });
+    if (treasJson && treasJson.success && treasJson.data) {
+      ACW.treasuryBalance = Number(treasJson.data.balance || 0);
+    }
+    _acwRender();
+  } catch (err) {
+    _acwSetBody('<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Connection Error</h3><p>' + _acwEsc(err.message) + '</p></div>');
+  }
+}
+
+async function _acwLoadOwners() {
+  var session = _acwSession();
+  var url = getApiUrl() + "?action=adminusers&session=" + encodeURIComponent(session) + "&page=1&limit=50";
+  if (ACW.ownerSearch) url += "&search=" + encodeURIComponent(ACW.ownerSearch);
+  var box = document.getElementById("acwOwnerList");
+  if (box) box.innerHTML = '<div class="module-loading"><div class="loader"></div><p>Loading users...</p></div>';
+  try {
+    var json = await (await fetch(url)).json();
+    if (!json || !json.success) {
+      if (box) box.innerHTML = '<div class="module-error"><p>' + _acwEsc((json && json.message) || "Failed to load users") + '</p></div>';
+      return;
+    }
+    ACW.owners = json.data.data || [];
+    _acwRenderOwnerList();
+  } catch (err) {
+    if (box) box.innerHTML = '<div class="module-error"><p>' + _acwEsc(err.message) + '</p></div>';
+  }
+}
+
+async function _acwLoadTargets() {
+  var session = _acwSession();
+  var actionMap = { Product: "adminproducts", Business: "adminbusinesses", Property: "adminproperties", News: "adminnews" };
+  var url = getApiUrl() + "?action=" + actionMap[ACW.targetType] + "&session=" + encodeURIComponent(session) + "&page=1&limit=50";
+  if (ACW.targetSearch) url += "&search=" + encodeURIComponent(ACW.targetSearch);
+  var box = document.getElementById("acwTargetList");
+  if (box) box.innerHTML = '<div class="module-loading"><div class="loader"></div><p>Loading ' + _acwEsc(ACW.targetType) + 's...</p></div>';
+  try {
+    var json = await (await fetch(url)).json();
+    if (!json || !json.success) {
+      if (box) box.innerHTML = '<div class="module-error"><p>' + _acwEsc((json && json.message) || "Failed to load targets") + '</p></div>';
+      return;
+    }
+    ACW.targets = json.data.data || [];
+    _acwRenderTargetList();
+  } catch (err) {
+    if (box) box.innerHTML = '<div class="module-error"><p>' + _acwEsc(err.message) + '</p></div>';
+  }
+}
+/* ACW_PART_3_END */
+
+/*
+------------------------------------------------------------
+STEP DISPATCH + FOOTER + VALIDATION
+------------------------------------------------------------
+*/
+
+function _acwRender() {
+  var bar = document.getElementById("acwStepBar");
+  if (bar) bar.innerHTML = "Step " + ACW.step + " of 9 — " + (ACW_STEP_TITLES[ACW.step] || "");
+  if (ACW.result) { _acwRenderSuccess(); return; }
+  if (ACW.step === 1) _acwRenderPassStep();
+  else if (ACW.step === 2) { _acwSetBody(_acwOwnerStepShell()); _acwLoadOwners(); }
+  else if (ACW.step === 3) { _acwSetBody(_acwTargetStepShell()); _acwLoadTargets(); }
+  else if (ACW.step === 4) _acwRenderCreativeStep();
+  else if (ACW.step === 5) _acwRenderAdTimeStep();
+  else if (ACW.step === 6) _acwRenderLocationStep();
+  else if (ACW.step === 7) _acwRenderLifetimeStep();
+  else if (ACW.step === 8) _acwRenderFuelStep();
+  else if (ACW.step === 9) _acwRenderReviewStep();
+}
+
+function _acwRenderFooter() {
+  var footer = document.getElementById("acwFooter");
+  if (!footer) return;
+  if (ACW.result) {
+    footer.innerHTML = '<button class="module-btn module-btn-primary" onclick="window._acwDone()">✔ Done</button>';
+    return;
+  }
+  var html = "";
+  if (ACW.step > 1) html += '<button class="module-btn module-btn-secondary" onclick="window._acwBack()">← Back</button>';
+  if (ACW.step < 9) html += '<button class="module-btn module-btn-primary" onclick="window._acwNext()">Next →</button>';
+  else html += '<button class="module-btn module-btn-primary" id="acwCreateBtn" onclick="window._acwSubmit()">🚀 Create Campaign</button>';
+  footer.innerHTML = html;
+}
+
+window._acwBack = function() {
+  if (ACW.step > 1) { ACW.step--; _acwRender(); }
+};
+
+window._acwNext = function() {
+  var err = _acwValidateStep(ACW.step);
+  if (err) { showToast(err, "error"); return; }
+  if (ACW.step < 9) { ACW.step++; _acwRender(); }
+};
+
+window._acwDone = function() {
+  window._acwClose();
+  render();
+};
+/* ACW_PART_4_END */
+
+function _acwValidateStep(step) {
+  if (step === 1 && !ACW.pass) return "No Pass selected. Please choose a Promotion Pass.";
+  if (step === 2 && !ACW.owner) return "No Owner selected. Please choose the promoter/owner.";
+  if (step === 3 && !ACW.target) return "No Target selected. Please choose what you are promoting.";
+  if (step === 4) {
+    if (!ACW.creativeMode) return "Missing creative. Choose Image, Video, URL or Entity image.";
+    if (ACW.creativeMode === "IMAGE" && !ACW.imageURL) return "Missing creative: upload an image first.";
+    if (ACW.creativeMode === "VIDEO") {
+      if (!ACW.videoURL) return "Missing creative: upload a video first.";
+      if (ACW.mediaDuration !== null && ACW.mediaDuration < 3) return "Video duration is under 3 seconds and cannot be used.";
+    }
+    if (ACW.creativeMode === "URL" && !ACW.externalURL) return "Enter a valid external URL.";
+    if (ACW.creativeMode === "ENTITY_IMAGE") {
+      if (!ACW.target || !ACW.target.image) return "The selected target has no existing image to use.";
+      ACW.imageURL = ACW.target.image;
+    }
+    if (ACW.creativeMode === "URL" && !ACW.imageURL) {
+      if (ACW.target && ACW.target.image) ACW.imageURL = ACW.target.image;
+      else return "Backend requires a visible image alongside URL ads. Use the target's image or upload one via Image mode first.";
+    }
+  }
+  if (step === 5) {
+    var d = Number(ACW.adDuration);
+    if (!(d >= 3)) return "Ad viewing time must be at least 3 seconds.";
+    if (ACW.creativeMode === "VIDEO" && ACW.mediaDuration !== null && d > ACW.mediaDuration) {
+      return "Ad viewing time (" + d + " sec) cannot exceed the video duration (" + ACW.mediaDuration + " sec).";
+    }
+  }
+  if (step === 6) {
+    if ((!ACW.locName || ACW.lat === null || ACW.lng === null) && ACW.radius !== "All India") {
+      return "Invalid location: select a campaign location (latitude/longitude required for radius targeting).";
+    }
+  }
+  if (step === 8) {
+    var f = parseInt(ACW.fuel, 10);
+    if (isNaN(f) || f < 0) return "Invalid campaign fuel. Enter 0 or more (integer).";
+    if (f > ACW.treasuryBalance) return "Campaign Fuel exceeds the available Promotion Treasury balance (" + ACW.treasuryBalance + " coins).";
+  }
+  return null;
+}
+
+/*
+------------------------------------------------------------
+STEP 1 — PROMOTION PASS
+------------------------------------------------------------
+*/
+
+function _acwRenderPassStep() {
+  var inner = "";
+  inner += '<p style="font-size:12px;color:var(--text-muted);margin-top:0;">Prices and coin values are server-authoritative. Selecting a pass defaults Campaign Fuel to its Included Coins.</p>';
+  if (!ACW.passes.length) {
+    inner += '<div class="module-error"><p>No active promotion passes found in the catalog.</p></div>';
+  } else {
+    inner += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;" id="acwPassGrid">';
+    ACW.passes.forEach(function(p) {
+      var selected = ACW.pass && String(ACW.pass.PassID) === String(p.PassID);
+      var bg = selected ? "background:rgba(91,141,239,0.12);" : "";
+      inner += '<div data-testid="acw-pass-card" data-passid="' + _acwEsc(p.PassID) + '" onclick="window._acwPickPass(\'' + _acwEsc(p.PassID) + '\')" ' +
+        'style="cursor:pointer;border:2px solid ' + (selected ? '#5b8def' : 'var(--border-color,#333)') + ';border-radius:10px;padding:14px;' + bg + '">' +
+        '<div style="font-weight:700;margin-bottom:6px;">' + _acwEsc(p.PassName || p.PassID) + '</div>' +
+        '<div style="font-size:20px;font-weight:700;color:#4caf88;">₹' + _acwEsc(p.PriceINR || 0) + '</div>' +
+        '<div style="font-size:13px;color:#ff9f43;">' + _acwEsc(p.IncludedCoins || 0) + ' Coins</div>' +
+        (p.DurationLabel ? '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + _acwEsc(p.DurationLabel) + '</div>' : '') +
+        '</div>';
+    });
+    inner += '</div>';
+  }
+  if (ACW.pass) {
+    inner += '<div style="margin-top:12px;font-size:13px;">Selected: <strong>' + _acwEsc(ACW.pass.PassName || ACW.pass.PassID) + '</strong> — default fuel <strong>' + Number(ACW.pass.IncludedCoins || 0) + '</strong> coins</div>';
+  }
+  _acwSetBody(_acwSection("PROMOTION PASS", inner));
+}
+
+window._acwPickPass = function(passId) {
+  var found = null;
+  ACW.passes.forEach(function(p) { if (String(p.PassID) === String(passId)) found = p; });
+  if (!found) { showToast("Invalid Pass", "error"); return; }
+  ACW.pass = found;
+  ACW.fuel = parseInt(found.IncludedCoins || 0, 10);
+  _acwRender();
+};
+/* ACW_PART_5_END */
+
+/*
+------------------------------------------------------------
+STEP 2 — CAMPAIGN OWNER
+------------------------------------------------------------
+*/
+
+function _acwOwnerStepShell() {
+  var inner = "";
+  inner += '<p style="font-size:12px;color:var(--text-muted);margin-top:0;">Choose the promoter/owner this campaign belongs to. The logged-in admin is NOT used automatically.</p>';
+  inner += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
+  inner += '<input type="text" id="acwOwnerSearch" class="module-input" placeholder="Search users by name / ID..." value="' + _acwEsc(ACW.ownerSearch) + '" onkeyup="if(event.key===\'Enter\'){ window._acwOwnerSearchGo(); }" style="flex:1;" />';
+  inner += '<button class="module-btn module-btn-primary" onclick="window._acwOwnerSearchGo()">🔍 Search</button>';
+  inner += '</div>';
+  inner += '<div id="acwOwnerList"><div class="module-loading"><div class="loader"></div><p>Loading users...</p></div></div>';
+  if (ACW.owner) {
+    inner += '<div style="margin-top:12px;font-size:13px;">Selected owner: <strong>' + _acwEsc(ACW.owner.FullName || "Unnamed User") + '</strong> <span class="module-id">' + _acwEsc(ACW.owner.UserID || "") + '</span></div>';
+  }
+  return _acwSection("CAMPAIGN OWNER", inner);
+}
+
+function _acwRenderOwnerList() {
+  var box = document.getElementById("acwOwnerList");
+  if (!box) return;
+  if (!ACW.owners.length) {
+    box.innerHTML = '<div class="module-error"><p>No users found.</p></div>';
+    return;
+  }
+  var html = '<div style="max-height:260px;overflow-y:auto;border:1px solid var(--border-color,#333);border-radius:8px;">';
+  ACW.owners.forEach(function(u) {
+    var selected = ACW.owner && String(ACW.owner.UserID) === String(u.UserID);
+    html += '<div data-testid="acw-owner-row" data-userid="' + _acwEsc(u.UserID) + '" onclick="window._acwPickOwner(\'' + _acwEsc(u.UserID) + '\')" ' +
+      'style="cursor:pointer;padding:10px 14px;border-bottom:1px solid var(--border-color,#222);' + (selected ? 'background:rgba(91,141,239,0.15);' : '') + '">' +
+      '<strong>' + _acwEsc(u.FullName || u.Name || "Unnamed User") + '</strong> ' +
+      '<span class="module-id">' + _acwEsc(u.UserID || "") + '</span>' +
+      '</div>';
+  });
+  html += '</div>';
+  box.innerHTML = html;
+}
+
+window._acwOwnerSearchGo = function() {
+  var input = document.getElementById("acwOwnerSearch");
+  ACW.ownerSearch = input ? input.value.trim() : "";
+  _acwLoadOwners();
+};
+
+window._acwPickOwner = function(userId) {
+  var found = null;
+  ACW.owners.forEach(function(u) { if (String(u.UserID) === String(userId)) found = u; });
+  if (!found) { showToast("Invalid Owner", "error"); return; }
+  ACW.owner = found;
+  _acwSetBody(_acwOwnerStepShell());
+  _acwLoadOwners();
+};
+/* ACW_PART_6_END */
+
+/*
+------------------------------------------------------------
+STEP 3 — WHAT ARE YOU PROMOTING?
+------------------------------------------------------------
+*/
+
+function _acwTargetTitle(t) {
+  return t.Title || t.Name || t.ProductName || t.BusinessName || t.NewsTitle || t.Headline || "Untitled";
+}
+
+function _acwTargetImage(t) {
+  return t.ImageURL || t.imageURL || t.Logo || t.CoverImage || t.ProductImage || t.Image || "";
+}
+
+function _acwTargetIdFor(type, t) {
+  return type === "Product" ? (t.ProductID || "") : type === "Business" ? (t.BusinessID || "") : type === "Property" ? (t.PropertyID || "") : (t.NewsID || "");
+}
+
+function _acwTargetStepShell() {
+  var inner = "";
+  inner += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
+  ["Product", "Business", "Property", "News"].forEach(function(tp) {
+    var sel = ACW.targetType === tp;
+    inner += '<button class="module-btn ' + (sel ? 'module-btn-primary' : 'module-btn-secondary') + '" data-testid="acw-target-type" data-type="' + tp + '" onclick="window._acwPickTargetType(\'' + tp + '\')">' + tp + '</button>';
+  });
+  inner += '</div>';
+  inner += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
+  inner += '<input type="text" id="acwTargetSearch" class="module-input" placeholder="Search..." value="' + _acwEsc(ACW.targetSearch) + '" onkeyup="if(event.key===\'Enter\'){ window._acwTargetSearchGo(); }" style="flex:1;" />';
+  inner += '<button class="module-btn module-btn-primary" onclick="window._acwTargetSearchGo()">🔍 Search</button>';
+  inner += '</div>';
+  inner += '<div id="acwTargetList"><div class="module-loading"><div class="loader"></div><p>Loading...</p></div></div>';
+  if (ACW.target) {
+    inner += '<div style="margin-top:12px;font-size:13px;">Selected: <strong>' + _acwEsc(ACW.target.title) + '</strong> <span class="module-id">' + _acwEsc(ACW.target.id) + '</span> (' + _acwEsc(ACW.target.type) + ')</div>';
+  }
+  return _acwSection("WHAT ARE YOU PROMOTING?", inner);
+}
+
+function _acwRenderTargetList() {
+  var box = document.getElementById("acwTargetList");
+  if (!box) return;
+  if (!ACW.targets.length) {
+    box.innerHTML = '<div class="module-error"><p>No records found for this type.</p></div>';
+    return;
+  }
+  var html = '<div style="max-height:280px;overflow-y:auto;border:1px solid var(--border-color,#333);border-radius:8px;">';
+  ACW.targets.forEach(function(t) {
+    var id = _acwTargetIdFor(ACW.targetType, t);
+    var img = _acwTargetImage(t);
+    var selected = ACW.target && String(ACW.target.id) === String(id);
+    html += '<div data-testid="acw-target-row" data-id="' + _acwEsc(id) + '" onclick="window._acwPickTarget(\'' + _acwEsc(id) + '\')" ' +
+      'style="cursor:pointer;padding:10px 14px;border-bottom:1px solid var(--border-color,#222);display:flex;align-items:center;gap:10px;' + (selected ? 'background:rgba(91,141,239,0.15);' : '') + '">' +
+      (img ? '<img src="' + _acwEsc(img) + '" style="width:38px;height:38px;object-fit:cover;border-radius:6px;" onerror="this.style.display=\'none\'" />' : '') +
+      '<div><strong>' + _acwEsc(_acwTargetTitle(t)) + '</strong><br/><span class="module-id">' + _acwEsc(id) + '</span></div>' +
+      '</div>';
+  });
+  html += '</div>';
+  box.innerHTML = html;
+}
+
+window._acwPickTargetType = function(tp) {
+  ACW.targetType = tp;
+  ACW.target = null;
+  ACW.targetSearch = "";
+  _acwSetBody(_acwTargetStepShell());
+  _acwLoadTargets();
+};
+
+window._acwTargetSearchGo = function() {
+  var input = document.getElementById("acwTargetSearch");
+  ACW.targetSearch = input ? input.value.trim() : "";
+  _acwLoadTargets();
+};
+
+window._acwPickTarget = function(id) {
+  var found = null;
+  ACW.targets.forEach(function(t) { if (String(_acwTargetIdFor(ACW.targetType, t)) === String(id)) found = t; });
+  if (!found) { showToast("Invalid Target", "error"); return; }
+  ACW.target = { type: ACW.targetType, id: id, title: _acwTargetTitle(found), image: _acwTargetImage(found) };
+  _acwSetBody(_acwTargetStepShell());
+  _acwLoadTargets();
+};
+/* ACW_PART_7_END */
+
+/*
+------------------------------------------------------------
+STEP 4 — UPLOAD YOUR AD
+------------------------------------------------------------
+*/
+
+var ACW_UPLOAD_COUNTER = 0;
+
+function _acwRenderCreativeStep() {
+  var inner = "";
+  inner += '<p style="font-size:12px;color:var(--text-muted);margin-top:0;">Promote yourself with an image, video, or link.</p>';
+  var modes = [
+    { key: "IMAGE", label: "🖼 Image" },
+    { key: "VIDEO", label: "🎬 Video" },
+    { key: "URL", label: "🔗 URL / External" },
+    { key: "ENTITY_IMAGE", label: "🏷 Use target image" }
+  ];
+  inner += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">';
+  modes.forEach(function(m) {
+    var sel = ACW.creativeMode === m.key;
+    inner += '<button class="module-btn ' + (sel ? 'module-btn-primary' : 'module-btn-secondary') + '" data-testid="acw-creative-mode" data-mode="' + m.key + '" onclick="window._acwPickCreativeMode(\'' + m.key + '\')">' + m.label + '</button>';
+  });
+  inner += '</div>';
+  inner += '<div id="acwCreativeArea"></div>';
+  _acwSetBody(_acwSection("UPLOAD YOUR AD", inner));
+  _acwRenderCreativeArea();
+}
+
+function _acwRenderCreativeArea() {
+  var area = document.getElementById("acwCreativeArea");
+  if (!area) return;
+  var html = "";
+  var uploadContainerId = "";
+  if (ACW.creativeMode === "IMAGE" || ACW.creativeMode === "VIDEO") {
+    if (typeof createUploadWidget === "function") {
+      ACW_UPLOAD_COUNTER++;
+      uploadContainerId = "acwUpload" + ACW_UPLOAD_COUNTER;
+      html += '<div id="' + uploadContainerId + '"></div>';
+    } else {
+      html += '<div class="module-error"><p>Media upload component not loaded.</p></div>';
+    }
+    if (ACW.creativeMode === "IMAGE" && ACW.imageURL) {
+      html += '<div style="margin-top:10px;"><img data-testid="acw-image-preview" src="' + _acwEsc(ACW.imageURL) + '" style="max-width:100%;max-height:200px;border-radius:8px;" onerror="this.style.display=\'none\'" /><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Image captured ✔</div></div>';
+    }
+    if (ACW.creativeMode === "VIDEO" && ACW.videoURL) {
+      html += '<div style="margin-top:10px;"><video data-testid="acw-video-preview" src="' + _acwEsc(ACW.videoURL) + '" controls style="max-width:100%;max-height:220px;border-radius:8px;"></video>';
+      html += '<div data-testid="acw-media-duration" style="font-size:12px;margin-top:4px;">' +
+        (ACW.mediaDuration !== null ? 'Detected video duration: <strong>' + ACW.mediaDuration + ' sec</strong>' : 'Detecting video duration...') + '</div></div>';
+    }
+  } else if (ACW.creativeMode === "ENTITY_IMAGE") {
+    if (ACW.target && ACW.target.image) {
+      html += '<img data-testid="acw-entity-image" src="' + _acwEsc(ACW.target.image) + '" style="max-width:100%;max-height:200px;border-radius:8px;" onerror="this.style.display=\'none\'" />';
+      html += '<div style="font-size:12px;color:#4caf88;margin-top:6px;">Using the selected target\'s existing image — no upload needed.</div>';
+    } else {
+      html += '<div class="module-error"><p>The selected target has no existing image. Upload an image instead.</p></div>';
+    }
+  } else if (ACW.creativeMode === "URL") {
+    _acwRenderUrlMode();
+    return;
+  } else {
+    html += '<div class="module-error"><p>Choose a creative option above.</p></div>';
+  }
+  area.innerHTML = html;
+
+  if (uploadContainerId) {
+    var isVideo = ACW.creativeMode === "VIDEO";
+    createUploadWidget(uploadContainerId, {
+      folder: "promotions",
+      accept: isVideo ? "video/*" : "image/*",
+      label: isVideo ? "Upload Ad Video (camera / gallery / file)" : "Upload Ad Image (camera / gallery / file)",
+      onUpload: isVideo ? function(url) { _acwVideoUploaded(url); } : function(url) { ACW.imageURL = url; _acwRenderCreativeArea(); }
+    });
+  }
+}
+/* ACW_PART_8A_END */
+
+function _acwRenderUrlMode() {
+  var area = document.getElementById("acwCreativeArea");
+  if (!area) return;
+  var html = "";
+  html += '<div style="margin-bottom:10px;">';
+  html += '<label style="font-size:12px;color:var(--text-muted);">Link Type</label><br/>';
+  html += '<select id="acwExternalType" class="module-select" style="max-width:220px;" onchange="window._acwExternalTypeChange(this.value)">';
+  var types = [["website", "Website"], ["whatsapp", "WhatsApp"], ["instagram", "Instagram"], ["facebook", "Facebook"], ["youtube", "YouTube"], ["other", "Other"]];
+  types.forEach(function(t) {
+    html += '<option value="' + t[0] + '"' + (ACW.externalType === t[0] ? ' selected' : '') + '>' + t[1] + '</option>';
+  });
+  html += '</select></div>';
+  html += '<label style="font-size:12px;color:var(--text-muted);">External URL</label><br/>';
+  html += '<input type="url" data-testid="acw-external-url" id="acwExternalUrl" class="module-input" placeholder="https://..." value="' + _acwEsc(ACW.externalURL) + '" style="width:100%;" oninput="window._acwExternalUrlInput(this.value)" />';
+  html += '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">A visible creative image is required alongside URL ads. The selected target\'s image is used automatically when available.</div>';
+  if (ACW.imageURL) {
+    html += '<div style="margin-top:8px;font-size:12px;">Visible image: <img src="' + _acwEsc(ACW.imageURL) + '" style="height:34px;border-radius:4px;vertical-align:middle;" onerror="this.style.display=\'none\'" /> ✔</div>';
+  }
+  area.innerHTML = html;
+}
+
+window._acwPickCreativeMode = function(mode) {
+  ACW.creativeMode = mode;
+  _acwRender();
+};
+
+window._acwExternalUrlInput = function(value) {
+  ACW.externalURL = String(value || "").trim();
+};
+
+window._acwExternalTypeChange = function(value) {
+  ACW.externalType = String(value || "website");
+};
+
+function _acwVideoUploaded(url) {
+  ACW.videoURL = url;
+  ACW.mediaDuration = null;
+  _acwRenderCreativeArea();
+  // Detect the ACTUAL duration from the uploaded video (never invented).
+  var probe = document.createElement("video");
+  probe.preload = "metadata";
+  probe.onloadedmetadata = function() {
+    var d = probe.duration;
+    if (isFinite(d) && d > 0) {
+      ACW.mediaDuration = Math.round(d * 10) / 10;
+      if (Number(ACW.adDuration) > ACW.mediaDuration) ACW.adDuration = Math.max(3, Math.floor(ACW.mediaDuration));
+    } else {
+      ACW.mediaDuration = null;
+    }
+    _acwRenderCreativeArea();
+  };
+  probe.onerror = function() {
+    ACW.mediaDuration = null;
+    _acwRenderCreativeArea();
+  };
+  probe.src = url;
+}
+/* ACW_PART_8B_END */
+
+/*
+------------------------------------------------------------
+STEP 5 — AD VIEWING TIME
+------------------------------------------------------------
+*/
+
+function _acwAdTimeMax() {
+  if (ACW.creativeMode === "VIDEO" && ACW.mediaDuration !== null && ACW.mediaDuration > 0) {
+    return Math.max(3, Math.floor(ACW.mediaDuration));
+  }
+  // No artificial maximum for admin. Generous slider bound; the number
+  // input accepts any value >= 3.
+  return 600;
+}
+
+function _acwRenderAdTimeStep() {
+  var max = _acwAdTimeMax();
+  var cur = Math.min(Number(ACW.adDuration) || 3, 999999);
+  var inner = "";
+  inner += '<p style="font-size:12px;color:var(--text-muted);margin-top:0;">Minimum 3 seconds. No artificial maximum for admin campaigns.' +
+    (ACW.creativeMode === "VIDEO" && ACW.mediaDuration !== null ? ' For VIDEO, the maximum is the actual video duration (' + ACW.mediaDuration + ' sec).' : '') + '</p>';
+  inner += '<div style="font-size:28px;font-weight:700;margin-bottom:10px;" data-testid="acw-ad-duration-label" id="acwAdDurationLabel">' + cur + ' sec</div>';
+  inner += '<input type="range" data-testid="acw-ad-duration-slider" id="acwAdDurationSlider" min="3" max="' + max + '" step="1" value="' + Math.min(cur, max) + '" style="width:100%;" oninput="window._acwAdTimeInput(this.value, \'slider\')" />';
+  inner += '<div style="display:flex;align-items:center;gap:10px;margin-top:10px;">';
+  inner += '<label style="font-size:12px;color:var(--text-muted);">Seconds:</label>';
+  inner += '<input type="number" data-testid="acw-ad-duration-number" id="acwAdDurationNumber" min="3" step="1" value="' + cur + '" class="module-input" style="max-width:120px;" oninput="window._acwAdTimeInput(this.value, \'number\')" />';
+  inner += '</div>';
+  if (ACW.creativeMode === "VIDEO") {
+    inner += ACW.mediaDuration !== null
+      ? '<div style="font-size:12px;color:#4caf88;margin-top:8px;">Video MediaDuration detected: ' + ACW.mediaDuration + ' sec — ad time cannot exceed it.</div>'
+      : '<div style="font-size:12px;color:#ff9f43;margin-top:8px;">Media duration not available — no cap applied (it will not be invented).</div>';
+  }
+  inner += '<div style="font-size:11px;color:var(--text-muted);margin-top:10px;">Campaign Lifetime is configured separately and does not affect this value.</div>';
+  _acwSetBody(_acwSection("AD VIEWING TIME", inner));
+}
+
+window._acwAdTimeInput = function(value, source) {
+  var v = parseInt(value, 10);
+  if (isNaN(v)) return;
+  var max = _acwAdTimeMax();
+  var clamped = Math.max(3, Math.floor(v));
+  var overCap = false;
+  if (ACW.creativeMode === "VIDEO" && ACW.mediaDuration !== null && clamped > max) {
+    clamped = max;
+    overCap = true;
+  }
+  ACW.adDuration = clamped;
+  var slider = document.getElementById("acwAdDurationSlider");
+  var number = document.getElementById("acwAdDurationNumber");
+  var label = document.getElementById("acwAdDurationLabel");
+  if (slider && source !== "slider") slider.value = Math.min(clamped, max);
+  if (number && source !== "number") number.value = clamped;
+  if (label) label.textContent = clamped + " sec";
+  if (overCap) showToast("Ad viewing time capped at video duration (" + max + " sec)", "error");
+};
+/* ACW_PART_9_END */
+
+/*
+------------------------------------------------------------
+STEP 6 — CAMPAIGN LOCATION & RADIUS
+------------------------------------------------------------
+*/
+
+function _acwRenderLocationStep() {
+  var inner = "";
+  inner += '<p style="font-size:12px;color:var(--text-muted);margin-top:0;">The campaign location must be selected explicitly. The radius is measured FROM THIS location — not from the admin\'s GPS.</p>';
+  inner += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
+  inner += '<button class="module-btn module-btn-secondary" data-testid="acw-use-current-location" onclick="window._acwUseCurrentLocation()">📍 Use Current Location</button>';
+  inner += '<button class="module-btn module-btn-secondary" data-testid="acw-search-area-toggle" onclick="window._acwToggleSearchArea()">🔍 Search Another Area</button>';
+  inner += '</div>';
+  inner += '<div id="acwSearchAreaBox" style="display:none;margin-bottom:12px;border:1px solid var(--border-color,#333);border-radius:8px;padding:12px;">';
+  inner += '<div style="display:flex;gap:8px;">';
+  inner += '<input type="text" id="acwAreaSearchInput" class="module-input" placeholder="City, area or landmark..." style="flex:1;" onkeyup="if(event.key===\'Enter\'){ window._acwSearchArea(); }" />';
+  inner += '<button class="module-btn module-btn-primary" data-testid="acw-search-area-btn" onclick="window._acwSearchArea()">Search</button>';
+  inner += '</div>';
+  inner += '<div id="acwAreaSearchResults" style="margin-top:8px;"></div>';
+  inner += '</div>';
+  inner += '<div id="acwLocationSummary" data-testid="acw-location-summary">' + _acwLocationSummaryHtml() + '</div>';
+  inner += '<div style="margin-top:12px;">';
+  inner += '<label style="font-size:12px;color:var(--text-muted);">CAMPAIGN RADIUS (from the selected location)</label><br/>';
+  inner += '<select id="acwRadiusSelect" class="module-select" data-testid="acw-radius-select" style="max-width:220px;" onchange="window._acwRadiusChange(this.value)">';
+  ACW_RADIUS_OPTIONS.forEach(function(r) {
+    var sel = String(ACW.radius) === String(r);
+    var label = r === "All India" ? "All India" : r + " KM";
+    inner += '<option value="' + r + '"' + (sel ? ' selected' : '') + '>' + label + '</option>';
+  });
+  inner += '</select>';
+  inner += '<div style="font-size:12px;margin-top:8px;" data-testid="acw-radius-summary">Campaign Radius: <strong>' + (ACW.radius === "All India" ? "All India" : ACW.radius + " KM") + '</strong></div>';
+  inner += '</div>';
+  _acwSetBody(_acwSection("CAMPAIGN LOCATION & RADIUS", inner));
+}
+
+function _acwLocationSummaryHtml() {
+  if (ACW.locName && ACW.lat !== null && ACW.lng !== null) {
+    return '<div style="border:1px solid var(--border-color,#333);border-radius:8px;padding:12px;">' +
+      '<div style="font-size:12px;color:var(--text-muted);">Campaign Location</div>' +
+      '<div style="font-weight:700;" data-testid="acw-location-name">' + _acwEsc(ACW.locName) + '</div>' +
+      '<div style="font-size:12px;">' + _acwEsc([ACW.locCity, ACW.locDistrict, ACW.locState].filter(Boolean).join(", ")) + '</div>' +
+      '<div style="font-size:12px;margin-top:6px;" data-testid="acw-location-latlng">Latitude: ' + ACW.lat + '<br/>Longitude: ' + ACW.lng + '</div>' +
+      '<button class="module-btn module-btn-secondary" style="margin-top:8px;" onclick="window._acwChangeLocation()">Change Location</button>' +
+      '</div>';
+  }
+  return '<div class="module-error"><p>No campaign location selected yet. Use Current Location or Search Another Area.</p></div>';
+}
+/* ACW_PART_10A_END */
+
+window._acwUseCurrentLocation = function() {
+  // Explicit admin action only — GPS is NEVER used silently.
+  if (!navigator.geolocation) {
+    showToast("Geolocation is not available in this browser.", "error");
+    return;
+  }
+  showToast("Getting current location...", "success");
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    _acwSetLocation(pos.coords.latitude, pos.coords.longitude, "Current Location");
+    ACW.locCity = "";
+    ACW.locDistrict = "";
+    ACW.locState = "";
+  }, function(err) {
+    showToast("Could not get current location: " + err.message, "error");
+  }, { enableHighAccuracy: true, timeout: 15000 });
+};
+
+window._acwToggleSearchArea = function() {
+  var box = document.getElementById("acwSearchAreaBox");
+  if (box) {
+    box.style.display = box.style.display === "none" ? "block" : "none";
+    if (box.style.display === "block") {
+      var input = document.getElementById("acwAreaSearchInput");
+      if (input) input.focus();
+    }
+  }
+};
+
+window._acwSearchArea = function() {
+  var input = document.getElementById("acwAreaSearchInput");
+  var results = document.getElementById("acwAreaSearchResults");
+  if (!input || !results) return;
+  var q = input.value.trim();
+  if (!q) {
+    results.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Please enter a city, area or landmark.</div>';
+    return;
+  }
+  results.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Searching...</div>';
+  // Same OpenStreetMap Nominatim pattern as the existing PCC location search.
+  var url = "https://nominatim.openstreetmap.org/search?q=" + encodeURIComponent(q) + "&format=json&limit=5&countrycodes=IN";
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data || data.length === 0) {
+        results.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">No results found. Try a different search term.</div>';
+        return;
+      }
+      var html = "";
+      data.forEach(function(place, idx) {
+        var name = (place.display_name || "").split(",").slice(0, 3).join(",").trim() || place.display_name;
+        html += '<div data-testid="acw-area-result" data-idx="' + idx + '" onclick="window._acwPickArea(' + idx + ')" style="cursor:pointer;padding:8px;border-bottom:1px solid var(--border-color,#222);font-size:13px;">📍 ' + _acwEsc(name) + '</div>';
+      });
+      results.innerHTML = html;
+      results._places = data;
+    })
+    .catch(function(err) {
+      console.log("Admin campaign location search error:", err);
+      results.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Search failed. Please try again.</div>';
+    });
+};
+
+window._acwPickArea = function(idx) {
+  var results = document.getElementById("acwAreaSearchResults");
+  var places = (results && results._places) || [];
+  var place = places[idx];
+  if (!place) return;
+  _acwSetLocation(parseFloat(place.lat), parseFloat(place.lon), place.display_name || "Selected Location");
+  var box = document.getElementById("acwSearchAreaBox");
+  if (box) box.style.display = "none";
+};
+
+window._acwChangeLocation = function() {
+  ACW.locName = "";
+  ACW.locCity = "";
+  ACW.locDistrict = "";
+  ACW.locState = "";
+  ACW.lat = null;
+  ACW.lng = null;
+  _acwRender();
+};
+
+function _acwSetLocation(lat, lng, displayName) {
+  if (isNaN(lat) || isNaN(lng)) {
+    showToast("Invalid location coordinates.", "error");
+    return;
+  }
+  ACW.lat = Math.round(lat * 1000000) / 1000000;
+  ACW.lng = Math.round(lng * 1000000) / 1000000;
+  var parts = String(displayName || "").split(",").map(function(s) { return s.trim(); }).filter(Boolean);
+  ACW.locName = parts.slice(0, 3).join(", ") || "Selected Location";
+  ACW.locCity = parts[0] || "";
+  ACW.locDistrict = parts.length > 2 ? parts[parts.length - 3] : "";
+  ACW.locState = parts.length > 1 ? parts[parts.length - 2] : "";
+  _acwRefreshLocationSummary();
+}
+
+function _acwRefreshLocationSummary() {
+  var box = document.getElementById("acwLocationSummary");
+  if (box) box.innerHTML = _acwLocationSummaryHtml();
+}
+
+window._acwRadiusChange = function(value) {
+  ACW.radius = String(value);
+  var summary = document.querySelector("[data-testid='acw-radius-summary']");
+  if (summary) summary.innerHTML = 'Campaign Radius: <strong>' + (ACW.radius === "All India" ? "All India" : ACW.radius + " KM") + '</strong>';
+};
+/* ACW_PART_10B_END */
+
+/*
+------------------------------------------------------------
+STEP 7 — CAMPAIGN LIFETIME
+------------------------------------------------------------
+*/
+
+function _acwRenderLifetimeStep() {
+  var inner = "";
+  inner += '<p style="font-size:12px;color:var(--text-muted);margin-top:0;">How long the campaign stays ACTIVE. This is completely separate from Ad Viewing Time (how long one viewer sees the ad).</p>';
+  inner += '<label style="font-size:12px;color:var(--text-muted);">CAMPAIGN LIFETIME</label><br/>';
+  inner += '<select id="acwLifetimeSelect" class="module-select" data-testid="acw-lifetime-select" style="max-width:220px;" onchange="window._acwLifetimeChange(this.value)">';
+  ACW_LIFETIME_OPTIONS.forEach(function(d) {
+    var sel = String(ACW.lifetimeDays) === String(d);
+    inner += '<option value="' + d + '"' + (sel ? ' selected' : '') + '>' + d + ' day' + (d > 1 ? "s" : "") + '</option>';
+  });
+  inner += '</select>';
+  inner += '<div style="font-size:12px;margin-top:8px;" data-testid="acw-lifetime-summary">Campaign Lifetime: <strong>' + ACW.lifetimeDays + ' day' + (ACW.lifetimeDays > 1 ? "s" : "") + '</strong></div>';
+  _acwSetBody(_acwSection("CAMPAIGN LIFETIME", inner));
+}
+
+window._acwLifetimeChange = function(value) {
+  ACW.lifetimeDays = String(value);
+  var summary = document.querySelector("[data-testid='acw-lifetime-summary']");
+  if (summary) summary.innerHTML = 'Campaign Lifetime: <strong>' + ACW.lifetimeDays + ' day' + (ACW.lifetimeDays > 1 ? "s" : "") + '</strong>';
+};
+
+/*
+------------------------------------------------------------
+STEP 8 — CAMPAIGN FUEL
+------------------------------------------------------------
+*/
+
+function _acwRenderFuelStep() {
+  var included = ACW.pass ? Number(ACW.pass.IncludedCoins || 0) : 0;
+  var fuel = parseInt(ACW.fuel, 10);
+  if (isNaN(fuel)) fuel = included;
+  var over = fuel > ACW.treasuryBalance;
+  var inner = "";
+  inner += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px;">';
+  inner += '<div style="border:1px solid var(--border-color,#333);border-radius:8px;padding:10px;"><div style="font-size:11px;color:var(--text-muted);">PASS INCLUDED COINS</div><div style="font-size:18px;font-weight:700;color:#ff9f43;">' + included + '</div></div>';
+  inner += '<div style="border:1px solid var(--border-color,#333);border-radius:8px;padding:10px;"><div style="font-size:11px;color:var(--text-muted);">CAMPAIGN FUEL</div><div style="font-size:18px;font-weight:700;color:#5b8def;" data-testid="acw-fuel-value">' + fuel + '</div></div>';
+  inner += '<div style="border:1px solid var(--border-color,#333);border-radius:8px;padding:10px;"><div style="font-size:11px;color:var(--text-muted);">PROMOTION TREASURY AVAILABLE</div><div style="font-size:18px;font-weight:700;color:#4caf88;" data-testid="acw-treasury-value">' + ACW.treasuryBalance + '</div></div>';
+  inner += '</div>';
+  inner += '<label style="font-size:12px;color:var(--text-muted);">Requested Campaign Fuel (integer coins)</label><br/>';
+  inner += '<input type="number" data-testid="acw-fuel-input" id="acwFuelInput" min="0" step="1" value="' + fuel + '" class="module-input" style="max-width:180px;" oninput="window._acwFuelInput(this.value)" />';
+  inner += '<div data-testid="acw-fuel-feedback" style="margin-top:10px;font-size:13px;' + (over ? 'color:#ff4757;font-weight:700;' : 'color:var(--text-muted);') + '">' +
+    'Available Treasury: ' + ACW.treasuryBalance + ' coins<br/>Requested Campaign Fuel: ' + fuel + ' coins' +
+    (over ? '<br/>❌ Campaign Fuel exceeds the available Treasury balance.' : '<br/>✔ Within Treasury balance.') +
+    '</div>';
+  inner += '<div style="font-size:11px;color:var(--text-muted);margin-top:10px;">Campaign Fuel is the exact amount debited from the Promotion Treasury. Funding source is always the Promotion Treasury — never any wallet.</div>';
+  _acwSetBody(_acwSection("CAMPAIGN FUEL", inner));
+}
+
+window._acwFuelInput = function(value) {
+  var v = parseInt(value, 10);
+  if (isNaN(v) || v < 0) return;
+  ACW.fuel = v;
+  var over = v > ACW.treasuryBalance;
+  var valEl = document.querySelector("[data-testid='acw-fuel-value']");
+  if (valEl) valEl.textContent = v;
+  var fb = document.querySelector("[data-testid='acw-fuel-feedback']");
+  if (fb) {
+    fb.style.color = over ? "#ff4757" : "";
+    fb.style.fontWeight = over ? "700" : "";
+    fb.innerHTML = 'Available Treasury: ' + ACW.treasuryBalance + ' coins<br/>Requested Campaign Fuel: ' + v + ' coins' +
+      (over ? '<br/>❌ Campaign Fuel exceeds the available Treasury balance.' : '<br/>✔ Within Treasury balance.');
+  }
+};
+/* ACW_PART_11_END */
+
+/*
+------------------------------------------------------------
+STEP 9 — REVIEW & CREATE
+------------------------------------------------------------
+*/
+
+function _acwReviewRow(label, value, testId) {
+  return '<div style="display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px solid var(--border-color,#222);font-size:13px;">' +
+    '<span style="color:var(--text-muted);white-space:nowrap;">' + label + '</span>' +
+    '<span style="text-align:right;font-weight:600;"' + (testId ? ' data-testid="' + testId + '"' : '') + '>' + value + '</span></div>';
+}
+
+function _acwCreativeTypeLabel() {
+  if (ACW.creativeMode === "IMAGE") return "IMAGE";
+  if (ACW.creativeMode === "VIDEO") return "VIDEO";
+  if (ACW.creativeMode === "URL") return "URL (external link)";
+  if (ACW.creativeMode === "ENTITY_IMAGE") return "ENTITY_IMAGE (target's existing image)";
+  return "-";
+}
+
+function _acwDestinationType() {
+  if (ACW.creativeMode === "URL") return ACW.externalType;
+  if (ACW.target) return String(ACW.target.type).toLowerCase();
+  return "";
+}
+
+function _acwRenderReviewStep() {
+  var inner = "";
+  inner += '<div style="margin-bottom:6px;font-size:12px;color:#4caf88;font-weight:700;">FUNDING SOURCE: PROMOTION TREASURY</div>';
+  inner += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">This campaign is funded exclusively by the platform Promotion Treasury. No admin wallet, owner wallet or personal wallet is involved.</div>';
+  inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">OWNER</h4>';
+  inner += _acwReviewRow("Owner", _acwEsc(ACW.owner ? (ACW.owner.FullName || "Unnamed User") : "-"));
+  inner += _acwReviewRow("UserID", _acwEsc(ACW.owner ? ACW.owner.UserID : "-"));
+  inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">TARGET</h4>';
+  inner += _acwReviewRow("Target", _acwEsc(ACW.target ? ACW.target.title : "-"), "acw-review-target");
+  inner += _acwReviewRow("Target Type", _acwEsc(ACW.target ? ACW.target.type : "-"), "acw-review-target-type");
+  inner += _acwReviewRow("Target ID", _acwEsc(ACW.target ? ACW.target.id : "-"));
+  inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">UPLOAD / CREATIVE</h4>';
+  inner += _acwReviewRow("Creative Type", _acwEsc(_acwCreativeTypeLabel()), "acw-review-creative-type");
+  var previewHtml = "-";
+  if ((ACW.creativeMode === "IMAGE" || ACW.creativeMode === "ENTITY_IMAGE") && ACW.imageURL) {
+    previewHtml = '<img src="' + _acwEsc(ACW.imageURL) + '" data-testid="acw-review-image" style="max-height:70px;border-radius:6px;vertical-align:middle;" onerror="this.style.display=\'none\'" />';
+  } else if (ACW.creativeMode === "VIDEO" && ACW.videoURL) {
+    previewHtml = '<video src="' + _acwEsc(ACW.videoURL) + '" data-testid="acw-review-video" controls style="max-height:90px;border-radius:6px;"></video>';
+  } else if (ACW.creativeMode === "URL") {
+    previewHtml = _acwEsc(ACW.externalURL);
+  }
+  inner += _acwReviewRow("Preview", previewHtml);
+  inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">AD VIEWING TIME</h4>';
+  inner += _acwReviewRow("Ad Viewing Time", Number(ACW.adDuration) + ' sec', "acw-review-ad-duration");
+  inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">CAMPAIGN LOCATION</h4>';
+  inner += _acwReviewRow("Location", _acwEsc(ACW.locName || "-"), "acw-review-location");
+  inner += _acwReviewRow("City / District / State", _acwEsc([ACW.locCity, ACW.locDistrict, ACW.locState].filter(Boolean).join(", ") || "-"));
+  inner += _acwReviewRow("LATITUDE", String(ACW.lat !== null ? ACW.lat : "-"), "acw-review-lat");
+  inner += _acwReviewRow("LONGITUDE", String(ACW.lng !== null ? ACW.lng : "-"), "acw-review-lng");
+  inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">RADIUS</h4>';
+  inner += _acwReviewRow("Campaign Radius", (ACW.radius === "All India" ? "All India" : ACW.radius + " KM") + ' (from selected location)', "acw-review-radius");
+  inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">CAMPAIGN LIFETIME</h4>';
+  inner += _acwReviewRow("Lifetime", ACW.lifetimeDays + ' days', "acw-review-lifetime");
+  inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">PROMOTION PASS</h4>';
+  inner += _acwReviewRow("Pass Name", _acwEsc(ACW.pass ? (ACW.pass.PassName || ACW.pass.PassID) : "-"), "acw-review-pass-name");
+  inner += _acwReviewRow("Price", ACW.pass ? ('₹' + _acwEsc(ACW.pass.PriceINR || 0)) : "-", "acw-review-pass-price");
+  inner += _acwReviewRow("Included Coins", ACW.pass ? String(_acwEsc(ACW.pass.IncludedCoins || 0)) : "-", "acw-review-pass-coins");
+  inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">CAMPAIGN FUEL</h4>';
+  inner += _acwReviewRow("Campaign Fuel", parseInt(ACW.fuel, 10) + ' coins', "acw-review-fuel");
+  inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">TREASURY</h4>';
+  inner += _acwReviewRow("Treasury Available", ACW.treasuryBalance + ' coins');
+  inner += _acwReviewRow("Funding Source", 'PROMOTION TREASURY', "acw-review-funding");
+  inner += '<div id="acwSubmitError" style="color:#ff4757;font-size:13px;margin-top:10px;display:none;"></div>';
+  _acwSetBody(_acwSection("REVIEW & CREATE", inner));
+}
+/* ACW_PART_12_END */
+
+/*
+------------------------------------------------------------
+SUBMIT — ?action=admincreatecampaign
+------------------------------------------------------------
+*/
+
+window._acwSubmit = async function() {
+  if (ACW.submitting) return;
+  for (var s = 1; s <= 8; s++) {
+    var err = _acwValidateStep(s);
+    if (err) { showToast(err, "error"); ACW.step = s; _acwRender(); return; }
+  }
+  var session = _acwSession();
+  if (!session) { showToast("Session expired. Please login again.", "error"); return; }
+
+  ACW.submitting = true;
+  var btn = document.getElementById("acwCreateBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Creating..."; }
+
+  // A unique idempotency key per DELIBERATE submission.
+  var idempotencyKey = "ACW-" + Date.now() + "-" + Math.random().toString(36).substring(2, 10);
+
+  var params = {
+    session: session,
+    idempotencyKey: idempotencyKey,
+    passId: ACW.pass.PassID,
+    ownerUserId: ACW.owner.UserID,
+    targetType: ACW.target.type,
+    targetId: ACW.target.id,
+    creativeType: ACW.creativeMode,
+    imageURL: ACW.imageURL || "",
+    videoURL: ACW.videoURL || "",
+    externalURL: ACW.externalURL || "",
+    mediaDuration: ACW.mediaDuration !== null ? String(ACW.mediaDuration) : "",
+    adDurationSeconds: String(Number(ACW.adDuration)),
+    cta: "Learn More",
+    destinationType: _acwDestinationType(),
+    lifetimeDays: String(parseInt(ACW.lifetimeDays, 10)),
+    radius: ACW.radius,
+    latitude: ACW.lat !== null ? String(ACW.lat) : "",
+    longitude: ACW.lng !== null ? String(ACW.lng) : "",
+    pipEnabled: "Yes",
+    featured: "No",
+    priority: "0",
+    promotionTier: "Standard",
+    campaignFuel: String(parseInt(ACW.fuel, 10))
+  };
+  window._acwLastRequest = params;
+
+  var url = getApiUrl() + "?action=admincreatecampaign";
+  Object.keys(params).forEach(function(k) {
+    url += "&" + encodeURIComponent(k) + "=" + encodeURIComponent(params[k]);
+  });
+
+  try {
+    var json = await (await fetch(url)).json();
+    ACW.submitting = false;
+    if (btn) { btn.disabled = false; btn.textContent = "🚀 Create Campaign"; }
+    if (json && json.success && json.data) {
+      // Idempotent duplicate responses are surfaced clearly — no resubmit.
+      ACW.result = {
+        idempotent: !!json.data.idempotent,
+        campaignId: json.data.campaignId || "",
+        passId: json.data.passId || (ACW.pass ? ACW.pass.PassID : ""),
+        ownerUserId: json.data.ownerUserID || (ACW.owner ? ACW.owner.UserID : ""),
+        target: ACW.target ? ACW.target.title : "",
+        fuel: json.data.promotionFuel !== undefined ? Number(json.data.promotionFuel) : parseInt(ACW.fuel, 10),
+        remainingFuel: json.data.remainingFuel !== undefined ? Number(json.data.remainingFuel) : null,
+        location: ACW.locName || "",
+        radius: ACW.radius === "All India" ? "All India" : ACW.radius + " KM"
+      };
+      showToast(json.message || "Admin campaign created", "success");
+      _acwRender();
+    } else {
+      _acwShowSubmitError((json && json.message) || "Campaign creation failed.");
+    }
+  } catch (err) {
+    ACW.submitting = false;
+    if (btn) { btn.disabled = false; btn.textContent = "🚀 Create Campaign"; }
+    _acwShowSubmitError("Network failure: " + err.message);
+  }
+};
+
+function _acwShowSubmitError(msg) {
+  var box = document.getElementById("acwSubmitError");
+  if (box) {
+    box.style.display = "block";
+    box.textContent = "❌ " + msg;
+  } else {
+    showToast(msg, "error");
+  }
+}
+
+/*
+------------------------------------------------------------
+SUCCESS SCREEN
+------------------------------------------------------------
+*/
+
+function _acwRenderSuccess() {
+  var r = ACW.result;
+  var inner = "";
+  inner += '<div style="text-align:center;padding:10px 0 18px 0;">';
+  inner += '<div style="font-size:40px;">✅</div>';
+  inner += '<h3 style="margin:6px 0;" data-testid="acw-success-title">Campaign Created Successfully</h3>';
+  if (r.idempotent) {
+    inner += '<div style="font-size:12px;color:#ff9f43;">Duplicate request detected — showing the already-created campaign (no double debit).</div>';
+  }
+  inner += '</div>';
+  inner += _acwReviewRow("CampaignID", _acwEsc(r.campaignId || "-"), "acw-success-campaignid");
+  inner += _acwReviewRow("PassID", _acwEsc(r.passId || "-"), "acw-success-passid");
+  inner += _acwReviewRow("Owner", _acwEsc(r.ownerUserId || "-"), "acw-success-owner");
+  inner += _acwReviewRow("Target", _acwEsc(r.target || "-"), "acw-success-target");
+  inner += _acwReviewRow("Campaign Fuel", r.fuel + ' coins', "acw-success-fuel");
+  inner += _acwReviewRow("Remaining Fuel", (r.remainingFuel !== null ? r.remainingFuel + ' coins' : "-"), "acw-success-remaining");
+  inner += _acwReviewRow("Campaign Location", _acwEsc(r.location || "-"), "acw-success-location");
+  inner += _acwReviewRow("Radius", _acwEsc(r.radius), "acw-success-radius");
+  inner += _acwReviewRow("Funding Source", 'PROMOTION TREASURY');
+  _acwSetBody(inner);
+}

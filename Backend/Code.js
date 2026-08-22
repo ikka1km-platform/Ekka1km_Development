@@ -146,6 +146,10 @@ function doGet(e) {
       case "adminpassupsert":
         return adminUpsertPromotionPass(e);
 
+      // Admin treasury-funded campaign creation (server-side only)
+      case "admincreatecampaign":
+        return adminCreateCampaign(e);
+
       case "createpasspurchase":
         return createPassPurchaseEndpoint(e);
 
