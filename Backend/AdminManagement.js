@@ -1162,8 +1162,51 @@ function adminTerminateCampaign(e) {
 
 
 /**
+ * ADMIN: PAUSE CAMPAIGN
+ * ?action=pausecampaign&session=TOKEN&campaignId=C001
+ */
+function adminPauseCampaign(e) {
+  try {
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+
+    const campaignId = (e.parameter.campaignId || "").trim();
+    if (!campaignId) return error("campaignId required");
+
+    const campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
+    if (!campaign) return error("Campaign not found");
+
+    const currentStatus = String(campaign.Status || "").toLowerCase();
+    if (currentStatus !== "active" && currentStatus !== "running") {
+      return error("Only active or running campaigns can be paused. Current status: " + campaign.Status);
+    }
+
+    const updated = updateRow("PromotionCampaigns", "CampaignID", campaignId, {
+      Status: "Paused"
+    });
+
+    if (!updated) return error("Failed to update campaign");
+
+    console.log("Admin Campaign Pause:", {
+      adminId: sessionResult.adminId,
+      campaignId: campaignId,
+      action: "pause",
+      previousStatus: campaign.Status,
+      newStatus: "Paused",
+      timestamp: new Date()
+    });
+
+    return success({ campaignId: campaignId, status: "Paused" }, "Campaign paused");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
  * ADMIN: RESUME CAMPAIGN
- * ?action=adminresumecampaign&session=TOKEN&campaignId=C001
+ * ?action=resumecampaign&session=TOKEN&campaignId=C001
  * Promotion Engine V2: Resumes suspended/paused campaigns
  */
 function adminResumeCampaign(e) {

@@ -150,6 +150,24 @@ function doGet(e) {
       case "admincreatecampaign":
         return adminCreateCampaign(e);
 
+      // Admin campaign lifecycle actions
+      case "adminapprovecampaign":
+        return adminApproveCampaign(e);
+      case "adminrejectcampaign":
+        return adminRejectCampaign(e);
+      case "pausecampaign":
+        return adminPauseCampaign(e);
+      case "resumecampaign":
+        return adminResumeCampaign(e);
+      case "adminsuspendcampaign":
+        return adminSuspendCampaign(e);
+      case "adminterminatecampaign":
+        return adminTerminateCampaign(e);
+      case "admintogglefeatured":
+        return adminToggleFeatured(e);
+      case "admintogglepip":
+        return adminTogglePipEnabled(e);
+
       case "createpasspurchase":
         return createPassPurchaseEndpoint(e);
 

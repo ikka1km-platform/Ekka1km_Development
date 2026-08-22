@@ -288,6 +288,7 @@ function adminCreateCampaign(e) {
         pipEnabled: p.pipEnabled || "Yes",
         featured: p.featured || "No",
         priority: p.priority || "0",
+        promotionTier: p.promotionTier || "Standard",
         remarks: remarks
       }
     });
