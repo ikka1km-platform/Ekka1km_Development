@@ -1053,6 +1053,13 @@ STEP 1 — PROMOTION PASS
 ------------------------------------------------------------
 */
 
+function _acwPassCoinLabel(p) {
+  if (p && p.coinAllocation && p.coinAllocation.type === "UNLIMITED") {
+    return "UNLIMITED / Dynamic";
+  }
+  return Number((p && p.IncludedCoins) || 0) + " Coins";
+}
+
 function _acwRenderPassStep() {
   var inner = "";
   inner += '<p style="font-size:12px;color:var(--text-muted);margin-top:0;">Prices and coin values are server-authoritative. Selecting a pass defaults Campaign Fuel to its Included Coins.</p>';
@@ -1067,14 +1074,14 @@ function _acwRenderPassStep() {
         'style="cursor:pointer;border:2px solid ' + (selected ? '#5b8def' : 'var(--border-color,#333)') + ';border-radius:10px;padding:14px;' + bg + '">' +
         '<div style="font-weight:700;margin-bottom:6px;">' + _acwEsc(p.PassName || p.PassID) + '</div>' +
         '<div style="font-size:20px;font-weight:700;color:#4caf88;">₹' + _acwEsc(p.PriceINR || 0) + '</div>' +
-        '<div style="font-size:13px;color:#ff9f43;">' + _acwEsc(p.IncludedCoins || 0) + ' Coins</div>' +
+        '<div style="font-size:13px;color:#ff9f43;">' + _acwEsc(_acwPassCoinLabel(p)) + '</div>' +
         (p.DurationLabel ? '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + _acwEsc(p.DurationLabel) + '</div>' : '') +
         '</div>';
     });
     inner += '</div>';
   }
   if (ACW.pass) {
-    inner += '<div style="margin-top:12px;font-size:13px;">Selected: <strong>' + _acwEsc(ACW.pass.PassName || ACW.pass.PassID) + '</strong> — default fuel <strong>' + Number(ACW.pass.IncludedCoins || 0) + '</strong> coins</div>';
+    inner += '<div style="margin-top:12px;font-size:13px;">Selected: <strong>' + _acwEsc(ACW.pass.PassName || ACW.pass.PassID) + '</strong> — ' + _acwEsc(_acwPassCoinLabel(ACW.pass)) + '</div>';
   }
   _acwSetBody(_acwSection("PROMOTION PASS", inner));
 }
@@ -1709,7 +1716,7 @@ function _acwRenderReviewStep() {
   inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">PROMOTION PASS</h4>';
   inner += _acwReviewRow("Pass Name", _acwEsc(ACW.pass ? (ACW.pass.PassName || ACW.pass.PassID) : "-"), "acw-review-pass-name");
   inner += _acwReviewRow("Price", ACW.pass ? ('₹' + _acwEsc(ACW.pass.PriceINR || 0)) : "-", "acw-review-pass-price");
-  inner += _acwReviewRow("Included Coins", ACW.pass ? String(_acwEsc(ACW.pass.IncludedCoins || 0)) : "-", "acw-review-pass-coins");
+  inner += _acwReviewRow("Coin Allocation", ACW.pass ? _acwEsc(_acwPassCoinLabel(ACW.pass)) : "-", "acw-review-pass-coins");
   inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">CAMPAIGN FUEL</h4>';
   inner += _acwReviewRow("Campaign Fuel", parseInt(ACW.fuel, 10) + ' coins', "acw-review-fuel");
   inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">TREASURY</h4>';

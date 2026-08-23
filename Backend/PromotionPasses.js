@@ -28,6 +28,7 @@ function PROMOTION_PASSES_HEADERS() {
     "PassName",
     "PriceINR",
     "IncludedCoins",
+    "AllocationType",
     "DurationLabel",
     "Status",
     "CreatedDate",
@@ -45,6 +46,7 @@ function PASS_PURCHASES_HEADERS() {
     "PassName",
     "PriceINR",
     "IncludedCoins",
+    "AllocationType",
     "OrderReference",
     "PaymentReference",
     "Status",
@@ -60,6 +62,58 @@ function PASS_PURCHASES_HEADERS() {
 /** Valid pass purchase status values. */
 function PASS_PURCHASE_STATUS() {
   return { PENDING: "PENDING", SUCCESS: "SUCCESS", FAILED: "FAILED", REFUNDED: "REFUNDED" };
+}
+
+/**
+ * PASS ALLOCATION TYPE (configuration foundation)
+ *
+ * Describes HOW a pass grants coins:
+ *   - "FIXED"     -> IncludedCoins is a FIXED, admin-configurable amount.
+ *   - "UNLIMITED" -> No fixed coin limit. Allocation is DYNAMIC / determined
+ *                    by advertising need. The unlimited ALLOCATION ENGINE is
+ *                    intentionally NOT implemented yet; this is only the
+ *                    configuration representation. NEVER render unlimited as
+ *                    "0 coins" — use coinAllocation.coins === null.
+ *
+ * Older catalog rows without an AllocationType column fall back to FIXED.
+ */
+function PASS_ALLOCATION_TYPE() {
+  return { FIXED: "FIXED", UNLIMITED: "UNLIMITED" };
+}
+
+/** INTERNAL: normalize a raw allocation type to PASS_ALLOCATION_TYPE. */
+function _normalizePassAllocationType(raw) {
+  const v = String(raw || "").toUpperCase().trim();
+  return v === "UNLIMITED" ? PASS_ALLOCATION_TYPE().UNLIMITED : PASS_ALLOCATION_TYPE().FIXED;
+}
+
+/**
+ * CANONICAL PASS ALLOCATION MODEL
+ * @param {object} pass - PromotionPasses catalog row (or null).
+ * @returns {{type:string, coins:(number|null), includedCoins:number, label:string}}
+ *   - FIXED      -> coins = the fixed, configurable IncludedCoins (>0).
+ *   - UNLIMITED  -> coins = null (no fixed cap). includedCoins is the raw stored
+ *                   value ONLY for introspection; it is not a cap. The public
+ *                   representation is coins === null + label, NEVER "0 coins".
+ */
+function getPassAllocation(pass) {
+  const type = _normalizePassAllocationType((pass && pass.AllocationType));
+  const rawCoins = Math.round(Number((pass && pass.IncludedCoins) || 0));
+  if (type === "UNLIMITED") {
+    return {
+      type: "UNLIMITED",
+      coins: null,
+      includedCoins: rawCoins,
+      label: "UNLIMITED / Dynamic \u00b7 no fixed coin limit"
+    };
+  }
+  const fixed = rawCoins > 0 ? rawCoins : 0;
+  return {
+    type: "FIXED",
+    coins: fixed,
+    includedCoins: fixed,
+    label: fixed + " Coins (Fixed allocation)"
+  };
 }
 
 /**
@@ -96,13 +150,18 @@ function _appendPassRow(row) {
 
 /**
  * GET PROMOTION PASS CATALOG
- * Canonical helper — returns the full pass catalog (array).
- * Tip: read into any handler/list endpoint. Admin and public
- * callers can both use it; Status is returned per row.
+ * Canonical helper — returns the full pass catalog (array), each row enriched
+ * with a normalized `AllocationType` and a `coinAllocation` model (so callers
+ * can render UNLIMITED correctly instead of misreading IncludedCoins as "0").
  */
 function getPromotionPassCatalog() {
   ensurePromotionPassesSheet();
-  return getSheetData("PromotionPasses");
+  return getSheetData("PromotionPasses").map(function (pass) {
+    var allocation = getPassAllocation(pass);
+    pass.AllocationType = allocation.type;
+    pass.coinAllocation = allocation;
+    return pass;
+  });
 }
 
 /**
@@ -131,11 +190,14 @@ function upsertPromotionPass(data, actorAdminId) {
   const passName = String((data && (data.passName || data.PassName || "")) || "").trim();
   const priceInr = Math.max(0, Math.round(Number((data && (data.priceINR || data.PriceINR)) || 0)));
   const includedCoins = Math.round(Number((data && (data.includedCoins || data.IncludedCoins)) || 0));
+  const allocationType = _normalizePassAllocationType(data && (data.allocationType || data.AllocationType || data.coinAllocationType));
   const durationLabel = String((data && (data.durationLabel || data.DurationLabel || "")) || "").trim();
   const status = String((data && (data.status || data.Status || "Active")) || "Active").trim();
 
   if (!passName) throw new Error("Pass name is required.");
-  if (!(includedCoins > 0)) throw new Error("IncludedCoins must be a positive whole number.");
+  if (allocationType === PASS_ALLOCATION_TYPE().FIXED && !(includedCoins > 0)) {
+    throw new Error("IncludedCoins must be a positive whole number for a FIXED allocation pass.");
+  }
   if (isNaN(priceInr) || priceInr < 0) throw new Error("Invalid PriceINR.");
 
   const now = new Date();
@@ -146,6 +208,7 @@ function upsertPromotionPass(data, actorAdminId) {
       PassName: passName,
       PriceINR: priceInr,
       IncludedCoins: includedCoins,
+      AllocationType: allocationType,
       DurationLabel: durationLabel,
       Status: status,
       UpdatedDate: now,
@@ -155,7 +218,9 @@ function upsertPromotionPass(data, actorAdminId) {
       passId: passId,
       created: false,
       status: status,
+      allocationType: allocationType,
       includedCoins: includedCoins,
+      coinAllocation: getPassAllocation({ AllocationType: allocationType, IncludedCoins: includedCoins }),
       priceINR: priceInr
     };
   }
@@ -166,6 +231,7 @@ function upsertPromotionPass(data, actorAdminId) {
     PassName: passName,
     PriceINR: priceInr,
     IncludedCoins: includedCoins,
+    AllocationType: allocationType,
     DurationLabel: durationLabel,
     Status: status,
     CreatedDate: now,
@@ -177,7 +243,9 @@ function upsertPromotionPass(data, actorAdminId) {
     passId: newPassId,
     created: true,
     status: status,
+    allocationType: allocationType,
     includedCoins: includedCoins,
+    coinAllocation: getPassAllocation({ AllocationType: allocationType, IncludedCoins: includedCoins }),
     priceINR: priceInr
   };
 }
@@ -297,6 +365,8 @@ function createPassPurchase(payload) {
   if (String(pass.Status || "").toLowerCase() !== "active") {
     throw new Error("Pass is not active.");
   }
+  const allocation = getPassAllocation(pass);
+  const allocationType = allocation.type;
 
   // Idempotent repeat-create for the same order reference.
   if (orderRef) {
@@ -306,7 +376,9 @@ function createPassPurchase(payload) {
         purchaseId: existing.PurchaseID,
         existing: true,
         status: existing.Status,
+        allocationType: String(existing.AllocationType || "FIXED"),
         includedCoins: Number(existing.IncludedCoins || 0),
+        coinAllocation: getPassAllocation(existing),
         priceINR: Number(existing.PriceINR || 0)
       };
     }
@@ -322,6 +394,7 @@ function createPassPurchase(payload) {
     PassName: String(pass.PassName || ""),
     PriceINR: Number(pass.PriceINR || 0),
     IncludedCoins: Number(pass.IncludedCoins || 0), // server-side source of truth
+    AllocationType: allocationType,
     OrderReference: orderRef,
     PaymentReference: paymentRef,
     Status: "PENDING",
@@ -337,7 +410,9 @@ function createPassPurchase(payload) {
     purchaseId: purchaseId,
     existing: false,
     status: "PENDING",
+    allocationType: allocationType,
     includedCoins: Number(pass.IncludedCoins || 0),
+    coinAllocation: allocation,
     priceINR: Number(pass.PriceINR || 0)
   };
 }
@@ -386,7 +461,17 @@ function confirmPassPurchase(purchaseId) {
   // Server-side, authoritative pass definition — NEVER the client's coins.
   const pass = findPromotionPassById(purchase.PassID);
   if (!pass) throw new Error("Pass not found for purchase.");
-  const includedCoins = Math.round(Number(pass.IncludedCoins || 0));
+
+  const allocation = getPassAllocation(pass);
+
+  // UNLIMITED allocation engine is intentionally NOT implemented yet.
+  // Guard so we never credit a misleading "0 coins" / no-cap amount. This is
+  // only the configuration foundation for UNLIMITED representation.
+  if (allocation.type === "UNLIMITED") {
+    throw new Error("UNLIMITED pass allocation is not implemented yet.");
+  }
+
+  const includedCoins = allocation.coins;
   if (!(includedCoins > 0)) throw new Error("Pass has an invalid IncludedCoins value.");
 
   // Credit treasury exactly once. ReferenceID = PurchaseID.
@@ -460,6 +545,127 @@ function myPurchasedPassesEndpoint(e) {
     if (!userId) return error("userId required");
     const purchases = getUserPassPurchases(userId);
     return success({ count: purchases.length, data: purchases }, "Purchased passes loaded");
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * RETIRE LEGACY ACTIVE PASSES
+ * Marks the OLD tier set (Starter / Standard / Business / Enterprise) as
+ * Inactive so they are no longer active/selectable once the canonical
+ * UNLIMITED / BASIC / PLATINUM / GOLD structure is activated.
+ *
+ * Uses the EXISTING PromotionPass Status architecture (Active -> Inactive).
+ * Historical rows are NEVER deleted and historical PassPurchases are left
+ * untouched — only the catalog Status flag is flipped. Idempotent: already
+ * Inactive or non-matching rows are skipped.
+ *
+ * @param {string} actorAdminId - admin performing the retirement (audit only).
+ * @returns {string[]} PassIDs retired (flipped to Inactive) this run.
+ */
+function _retireLegacyPasses(actorAdminId) {
+  var LEGACY_NAMES = { starter: true, standard: true, business: true, enterprise: true };
+  var retired = [];
+  var rows = getSheetData("PromotionPasses");
+  rows.forEach(function (row) {
+    var name = String(row.PassName || "").trim().toLowerCase();
+    if (LEGACY_NAMES[name] && String(row.Status || "Active").toUpperCase() === "ACTIVE") {
+      updateRow("PromotionPasses", "PassID", row.PassID, {
+        Status: "Inactive",
+        UpdatedDate: new Date(),
+        CreatedBy: actorAdminId || ""
+      });
+      retired.push(String(row.PassID || ""));
+    }
+  });
+  return retired;
+}
+
+/**
+ * THE 4-TIER PASS STRUCTURE (configuration foundation)
+ * UNLIMITED ₹0 / BASIC ₹500 / PLATINUM ₹1000 / GOLD ₹1500.
+ *
+ * The OLD Starter/Basic/Standard/Business/Enterprise tier set must NOT be used.
+ * This is the singular canonical source for the DEFAULT pass catalog:
+ *
+ *   - UNLIMITED: price ₹0, allocation = UNLIMITED (no fixed coin limit). The
+ *     allocation engine is NOT implemented — only the configuration is.
+ *   - BASIC     ₹500  -> FIXED, admin-configurable coin allocation.
+ *   - PLATINUM  ₹1000 -> FIXED, admin-configurable coin allocation.
+ *   - GOLD      ₹1500 -> FIXED, admin-configurable coin allocation.
+ *
+ * Note on the UNLIMITED row's raw IncludedCoins cell: to satisfy the existing
+ * numeric column schema it is stored as 0 (a placeholder). This IS technically
+ * required only to fit the schema; the allocation model getPassAllocation()
+ * treats UNLIMITED as coins = null (non-fixed) and callers must render the
+ * model — never the raw 0. We keep the placeholder rather than inventing a new
+ * storage mechanism.
+ *
+ * Coin defaults for the three FIXED passes are derived ONCE at first seed from
+ * the authoritative coin conversion rate (priceINR x coinsPerINR). This rate is
+ * a DEFAULT/REFERENCE ONLY. Once a FIXED pass row exists, its IncludedCoins is
+ * an INDEPENDENT, admin-configurable value and changing the global rate NEVER
+ * overwrites it (seed skips existing rows). All values remain editable through
+ * adminpassupsert.
+ *
+ * Seeding is IDEMPOTENT: existing canonical PassIDs are never overwritten, and
+ * legacy Active tiers are retired.
+ *
+ * @param {string} actorAdminId - admin performing the seed (for CreatedBy).
+ * @returns {{seedKey:string, created:string[], existing:string[], retired:string[]}}
+ */
+function seedDefaultPromotionPasses(actorAdminId) {
+  ensurePromotionPassesSheet();
+  ensureCoinEconomySettingsSheet();
+
+  // Authoritative coin conversion -> reasonable FIXED defaults (reference only).
+  var coinsPerINR = 1;
+  try {
+    coinsPerINR = Number(getCoinConversionRate().coinsPerINR) || 1;
+  } catch (rateErr) {
+    coinsPerINR = 1;
+  }
+  function fixedDefault(price) {
+    return Math.max(1, Math.round(price * coinsPerINR));
+  }
+
+  var defaults = [
+    { passId: "PASS_UNLIMITED", passName: "UNLIMITED", priceINR: 0,    allocationType: "UNLIMITED", includedCoins: 0,                    durationLabel: "Dynamic \u00b7 no fixed coin limit" },
+    { passId: "PASS_BASIC",     passName: "BASIC",     priceINR: 500,  allocationType: "FIXED",     includedCoins: fixedDefault(500),  durationLabel: "Monthly \u00b7 fixed allocation" },
+    { passId: "PASS_PLATINUM",  passName: "PLATINUM",  priceINR: 1000, allocationType: "FIXED",     includedCoins: fixedDefault(1000), durationLabel: "Monthly \u00b7 fixed allocation" },
+    { passId: "PASS_GOLD",      passName: "GOLD",      priceINR: 1500, allocationType: "FIXED",     includedCoins: fixedDefault(1500), durationLabel: "Monthly \u00b7 fixed allocation" }
+  ];
+
+  var created = [];
+  var existing = [];
+  defaults.forEach(function (def) {
+    var row = findPromotionPassById(def.passId);
+    if (row) {
+      existing.push(def.passId); // never clobber admin-tuned values
+      return;
+    }
+    upsertPromotionPass(def, actorAdminId);
+    created.push(def.passId);
+  });
+
+  // Activate canonical structure -> retire legacy Active tiers (never delete).
+  var retired = _retireLegacyPasses(actorAdminId);
+
+  return { seedKey: "PASS_STRUCTURE_V1", created: created, existing: existing, retired: retired };
+}
+
+/**
+ * ROUTE: ADMIN SEED DEFAULT PASS STRUCTURE
+ * ?action=adminseeddefaultpasses&session=TOKEN
+ * Authorization: requireAdminSession (server-side). Idempotent.
+ */
+function adminSeedDefaultPasses(e) {
+  try {
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+    const result = seedDefaultPromotionPasses(sessionResult.adminId);
+    return success(result, result.created.length ? "Default pass structure seeded" : "Default pass structure already present");
   } catch (err) {
     return exception(err);
   }

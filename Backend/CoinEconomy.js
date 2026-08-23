@@ -388,7 +388,16 @@ function getEconomyRules() {
     promotionPassPricing: getPromotionPassCatalog().filter(function (pass) {
       return String(pass.Status || "").toUpperCase() === "ACTIVE";
     }).map(function (pass) {
-      return { passId: pass.PassID, passName: pass.PassName, priceINR: Number(pass.PriceINR || 0), includedCoins: Number(pass.IncludedCoins || 0), updatedAt: pass.UpdatedDate || "", updatedBy: pass.CreatedBy || "" };
+      return {
+        passId: pass.PassID,
+        passName: pass.PassName,
+        priceINR: Number(pass.PriceINR || 0),
+        includedCoins: Number(pass.IncludedCoins || 0),
+        allocationType: pass.AllocationType || "FIXED",
+        coinAllocation: pass.coinAllocation || getPassAllocation(pass),
+        updatedAt: pass.UpdatedDate || "",
+        updatedBy: pass.CreatedBy || ""
+      };
     }),
     rules: rules
   };
