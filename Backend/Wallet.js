@@ -254,8 +254,18 @@ function creditWallet(
   userId,
   coins,
   referenceId,
-  reason
+  reason,
+  type,
+  source
 ) {
+  const amount =
+    Number(coins || 0);
+
+  // Gap 3: reject non-positive or non-numeric amounts.
+  if (!(amount > 0)) {
+    return false;
+  }
+
   const wallet =
     getWalletRow(userId);
 
@@ -267,9 +277,10 @@ function creditWallet(
     Number(wallet.Balance || 0);
 
   const after =
-    before + Number(coins);
+    before + amount;
 
-  updateRow(
+  // Gap 3: verify the wallet update succeeds before reporting success.
+  const walletUpdated = updateRow(
     "Wallet",
     "WalletID",
     wallet.WalletID,
@@ -277,22 +288,31 @@ function creditWallet(
       Balance: after,
       TotalEarned:
         Number(wallet.TotalEarned || 0)
-        + Number(coins),
+        + amount,
       LastUpdated: new Date()
     }
   );
 
-  createWalletTransaction(
+  if (!walletUpdated) {
+    return false;
+  }
+
+  // Gap 2: forward optional type/source so credits are labelled truthfully.
+  // When omitted, createWalletTransaction retains the legacy REWARD/ADVERTISEMENT
+  // defaults (backward compatible).
+  const txCreated = createWalletTransaction(
     wallet.WalletID,
     userId,
-    coins,
+    amount,
     before,
     after,
     referenceId,
-    reason
+    reason,
+    type,
+    source
   );
 
-  return true;
+  return txCreated;
 }
 
 
@@ -310,26 +330,35 @@ function createWalletTransaction(
   const sheet =
     getSheet("WalletTransactions");
 
+  if (!sheet) {
+    return false;
+  }
+
   const transactionId =
     "WT" +
     Utilities.getUuid()
       .substring(0, 8);
 
-  sheet.appendRow([
-    transactionId,
-    walletId,
-    userId,
-    type || "REWARD",
-    reason || "Reward",
-    source || "ADVERTISEMENT",
-    referenceId,
-    coins,
-    before,
-    after,
-    "SUCCESS",
-    new Date(),
-    "SYSTEM"
-  ]);
+  try {
+    sheet.appendRow([
+      transactionId,
+      walletId,
+      userId,
+      type || "REWARD",
+      reason || "Reward",
+      source || "ADVERTISEMENT",
+      referenceId,
+      coins,
+      before,
+      after,
+      "SUCCESS",
+      new Date(),
+      "SYSTEM"
+    ]);
+    return true;
+  } catch (err) {
+    return false;
+  }
 }
 /**
  * ============================================================
@@ -410,6 +439,124 @@ function debitWallet(
     before: before,
     after: after
   };
+}
+
+
+/**
+ * ============================================================
+ * CANONICAL WALLET COMPENSATION / ADJUSTMENT (Phase 5.7C)
+ * Adds coins back to a user's wallet (compensation, refund, or
+ * admin adjustment) and records a truthful WalletTransactions row.
+ *
+ * Enforces, in order:
+ *   1. LockService is ON throughout (concurrency safety).
+ *   2. referenceId is REQUIRED (idempotency key).
+ *   3. amount must be > 0.
+ *   4. Idempotency — a (userId, referenceId) pair is applied at most once.
+ *   5. Verifies the wallet update succeeds.
+ *   6. Verifies the WalletTransactions append succeeds.
+ *
+ * Do NOT redesign Wallet / WalletTransactions and do NOT create a second
+ * wallet ledger. This reuses the canonical getWalletRow / updateRow /
+ * createWalletTransaction primitives.
+ * ============================================================
+ * @param {string} userId - Owner of the wallet being compensated.
+ * @param {number} coins - POSITIVE amount to add back to the wallet.
+ * @param {string} referenceId - Required idempotency key (e.g. "ADJ_<txId>").
+ * @param {string} reason - Human-readable reason.
+ * @param {string} type - Transaction type (defaults "CREDIT").
+ * @param {string} source - Transaction source (defaults "ADJUSTMENT").
+ * @returns {object} { idempotent, applied, walletId, userId, coins, before,
+ *                     after, balance, type, source, referenceId }
+ * @throws Error on invalid input or a failed required write.
+ */
+function compensateWallet(
+  userId,
+  coins,
+  referenceId,
+  reason,
+  type,
+  source
+) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+
+  try {
+    // 2. referenceId required (idempotency + traceability).
+    if (!referenceId) {
+      throw new Error("ReferenceID is required for a wallet compensation.");
+    }
+
+    // 3. amount must be > 0.
+    const amount = Number(coins || 0);
+    if (!(amount > 0)) {
+      throw new Error("Compensation amount must be a positive value.");
+    }
+
+    const wallet = getWalletRow(userId);
+    if (!wallet) {
+      throw new Error("Wallet not found. Please create a wallet first.");
+    }
+
+    // 4. Idempotency — never apply the same compensation twice.
+    if (hasWalletTransactionForReference(userId, referenceId)) {
+      return {
+        idempotent: true,
+        applied: false,
+        before: Number(wallet.Balance || 0),
+        after: Number(wallet.Balance || 0),
+        balance: Number(wallet.Balance || 0),
+        type: type || "CREDIT",
+        source: source || "ADJUSTMENT",
+        referenceId: String(referenceId)
+      };
+    }
+
+    const before = Number(wallet.Balance || 0);
+    const after = before + amount;
+
+    // 5. Verify the wallet update succeeds.
+    const walletUpdated = updateRow("Wallet", "WalletID", wallet.WalletID, {
+      Balance: after,
+      LastUpdated: new Date()
+    });
+    if (!walletUpdated) {
+      throw new Error("Wallet update failed during compensation.");
+    }
+
+    // 6. Verify the transaction append succeeds. Truthful type/source are
+    // always supplied (never silent REWARD/ADVERTISEMENT defaults).
+    const txCreated = createWalletTransaction(
+      wallet.WalletID,
+      userId,
+      amount,
+      before,
+      after,
+      referenceId,
+      reason || "Wallet adjustment",
+      type || "CREDIT",
+      source || "ADJUSTMENT"
+    );
+    if (!txCreated) {
+      throw new Error("Wallet transaction append failed during compensation.");
+    }
+
+    return {
+      idempotent: false,
+      applied: true,
+      walletId: wallet.WalletID,
+      userId: userId,
+      coins: amount,
+      before: before,
+      after: after,
+      balance: after,
+      type: type || "CREDIT",
+      source: source || "ADJUSTMENT",
+      referenceId: String(referenceId)
+    };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 

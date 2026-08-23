@@ -209,7 +209,9 @@ function claimCampaignReward(userId, campaignId, rewardAmount, reason) {
       userId,
       rewardAmount,
       campaignId,
-      reason || "Campaign Reward"
+      reason || "Campaign Reward",
+      "REWARD",
+      "CAMPAIGN"
     );
 
     if (!walletOk) {

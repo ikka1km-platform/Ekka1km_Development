@@ -615,3 +615,139 @@ function getAdminCampaignEconomy(e) {
     return exception(err);
   }
 }
+
+
+/**
+ * ============================================================
+ * ADMIN: WALLET ADJUSTMENT / COMPENSATION (Phase 5.7C)
+ * ?action=adminadjustwallet&session=TOKEN&userId=&coins=&referenceId=&reason=&type=&source=
+ *
+ * Adds coins back to a user's wallet (compensation / refund / correction)
+ * through the canonical compensateWallet() helper in Wallet.js and records
+ * an immutable audit row in AdminEconomyAdjustments.
+ *
+ * Authorization: requireAdminSession + requirePermission("Treasury").
+ *   Founder role bypasses by design (matching the existing Treasury pattern).
+ *   This is an ADMIN-ONLY operation — never exposed as a user route.
+ *
+ * Idempotency: a unique referenceId must be supplied. Re-running the same
+ * adjustment with the same (userId, referenceId) is a no-op.
+ * ============================================================
+ */
+
+/** Live-schema headers for the AdminEconomyAdjustments audit sheet. */
+function ADMIN_ECONOMY_ADJUSTMENTS_HEADERS() {
+  return [
+    "AdjustmentID",
+    "UserID",
+    "AdminID",
+    "Type",
+    "Coins",
+    "Reason",
+    "ReferenceID",
+    "BalanceAfter",
+    "CreatedDate",
+    "CreatedBy"
+  ];
+}
+
+/**
+ * ENSURE ADMIN ECONOMY ADJUSTMENTS SHEET
+ * Creates the audit sheet + headers if missing. Header-order safe:
+ * existing columns are never reordered or dropped.
+ */
+function ensureAdminEconomyAdjustmentsSheet() {
+  const sheet = getOrCreateSheet("AdminEconomyAdjustments");
+  ensureSheetHeaders(sheet, ADMIN_ECONOMY_ADJUSTMENTS_HEADERS());
+  return sheet;
+}
+
+/**
+ * INTERNAL: Append an admin economy adjustment audit row.
+ * @param {object} record - { userId, adminId, type, coins, reason,
+ *                           referenceId, balanceAfter, createdBy }
+ * @returns {boolean} true on success.
+ */
+function _appendAdminEconomyAdjustment(record) {
+  try {
+    const sheet = ensureAdminEconomyAdjustmentsSheet();
+    sheet.appendRow([
+      "ADJ_" + Utilities.getUuid().substring(0, 8),
+      String(record.userId || ""),
+      String(record.adminId || ""),
+      String(record.type || "CREDIT"),
+      Number(record.coins || 0),
+      String(record.reason || ""),
+      String(record.referenceId || ""),
+      Number(record.balanceAfter || 0),
+      new Date(),
+      String(record.createdBy || "SYSTEM")
+    ]);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+/**
+ * ADMIN ROUTE: WALLET ADJUSTMENT / COMPENSATION
+ * ?action=adminadjustwallet&session=TOKEN&userId=&coins=&referenceId=&reason=&type=&source=
+ * Authorization: requirePermission(e, "Treasury") — admin-only, Founder bypass.
+ */
+function adminAdjustWallet(e) {
+  try {
+    const permResult = requirePermission(e, "Treasury");
+    if (!permResult.valid) return permResult.response;
+
+    const adminId = permResult.adminId;
+    const params = e.parameter || {};
+
+    const userId = String(params.userId || "").trim();
+    const coins = Number(params.coins || 0);
+    const referenceId = String(params.referenceId || "").trim();
+    const reason = String(params.reason || "");
+    const type = String(params.type || "CREDIT");
+    const source = String(params.source || "ADJUSTMENT");
+
+    if (!userId) return error("userId is required.");
+    if (!(coins > 0)) return error("coins must be a positive number.");
+    if (!referenceId) return error("referenceId is required for idempotency.");
+
+    // Canonical compensation (LockService + idempotency + write verification
+    // all live in compensateWallet in Wallet.js).
+    const result = compensateWallet(userId, coins, referenceId, reason, type, source);
+
+    // Immutable audit row — recorded only on a real (non-idempotent) apply.
+    let auditRecorded = false;
+    if (result && result.applied) {
+      auditRecorded = _appendAdminEconomyAdjustment({
+        userId: userId,
+        adminId: adminId,
+        type: result.type,
+        coins: coins,
+        reason: reason,
+        referenceId: referenceId,
+        balanceAfter: result.after,
+        createdBy: "ADMIN:" + adminId
+      });
+    }
+
+    return success({
+      idempotent: !!(result && result.idempotent),
+      applied: !!(result && result.applied),
+      userId: userId,
+      coins: coins,
+      before: result && result.before,
+      after: result && result.after,
+      balance: result && result.balance,
+      type: result && result.type,
+      source: result && result.source,
+      referenceId: result && result.referenceId,
+      auditRecorded: auditRecorded
+    }, result && result.idempotent
+      ? "Adjustment already applied for this reference (idempotent)."
+      : "Wallet adjustment applied.");
+  } catch (err) {
+    return exception(err);
+  }
+}

@@ -203,6 +203,10 @@ function doGet(e) {
       case "adminreseteconomy":
         return adminResetEconomy(e);
 
+      // Admin wallet adjustment / compensation (admin-only, Treasury-protected)
+      case "adminadjustwallet":
+        return adminAdjustWallet(e);
+
       // News
       case "news":
         return getNews(e);
