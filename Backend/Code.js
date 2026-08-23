@@ -199,6 +199,10 @@ function doGet(e) {
       case "adminupdateeconomyrules":
         return updateAdminEconomyRules(e);
 
+// One-time economy reset (admin-only, explicit confirmation required)
+      case "adminreseteconomy":
+        return adminResetEconomy(e);
+
       // News
       case "news":
         return getNews(e);
