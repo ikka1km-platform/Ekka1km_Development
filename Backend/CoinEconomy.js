@@ -33,7 +33,10 @@
 
 /** Live-schema headers for CoinEconomySettings. */
 function COIN_ECONOMY_HEADERS() {
-  return ["SettingID", "INRAmount", "CoinAmount", "Status", "UpdatedAt", "UpdatedBy"];
+  return [
+    "SettingID", "INRAmount", "CoinAmount", "RuleGroup", "RuleName",
+    "ValueA", "ValueB", "UnitA", "UnitB", "Status", "UpdatedAt", "UpdatedBy"
+  ];
 }
 
 /**
@@ -112,31 +115,48 @@ function getCoinConversionRate() {
   var rows = getSheetData("CoinEconomySettings");
   var active = null;
   for (var i = 0; i < rows.length; i++) {
-    if (String(rows[i].Status || "").toUpperCase() === "ACTIVE") {
+    if (_isCoinConversionRule(rows[i]) && String(rows[i].Status || "").toUpperCase() === "ACTIVE") {
       active = rows[i];
       break;
     }
   }
-  if (!active && rows.length) active = rows[rows.length - 1];
+  if (!active) {
+    for (var j = rows.length - 1; j >= 0; j--) {
+      if (_isCoinConversionRule(rows[j])) {
+        active = rows[j];
+        break;
+      }
+    }
+  }
   if (!active) {
     active = { SettingID: "COIN_RATE", INRAmount: 1, CoinAmount: 2, Status: "Active" };
   }
   return buildCoinConversionRateModel(active);
 }
+
+/** A legacy conversion row has no RuleName; new rows use CoinConversion. */
+function _isCoinConversionRule(row) {
+  return !row.RuleName || String(row.RuleName) === "CoinConversion";
+}
 /**
  * INTERNAL: flip ALL Active rows to "Inactive" (history preserved).
  */
-function _deactivateAllActiveCoinEconomyRows() {
+function _deactivateAllActiveCoinEconomyRows(ruleName) {
   var sheet = ensureCoinEconomySettingsSheet();
   var values = sheet.getDataRange().getValues();
   if (values.length < 2) return;
 
   var headers = values[0];
   var statusCol = headers.indexOf("Status");
+  var ruleCol = headers.indexOf("RuleName");
   if (statusCol === -1) return;
 
   for (var r = 1; r < values.length; r++) {
-    if (String(values[r][statusCol] || "").toUpperCase() === "ACTIVE") {
+    var isTargetRule = !ruleName ||
+      (ruleCol === -1 && ruleName === "CoinConversion") ||
+      String(values[r][ruleCol] || "") === ruleName ||
+      (ruleName === "CoinConversion" && !values[r][ruleCol]);
+    if (isTargetRule && String(values[r][statusCol] || "").toUpperCase() === "ACTIVE") {
       sheet.getRange(r + 1, statusCol + 1).setValue("Inactive");
     }
   }
@@ -201,15 +221,22 @@ function updateCoinConversionRate(inrAmount, coinAmount, adminId) {
     // Locate current active (for history/traceability + audit "old")
     var oldRec = null;
     for (var i = 0; i < rows.length; i++) {
-      if (String(rows[i].Status || "").toUpperCase() === "ACTIVE") {
+      if (_isCoinConversionRule(rows[i]) && String(rows[i].Status || "").toUpperCase() === "ACTIVE") {
         oldRec = rows[i];
         break;
       }
     }
-    if (!oldRec && rows.length) oldRec = rows[rows.length - 1];
+    if (!oldRec) {
+      for (var j = rows.length - 1; j >= 0; j--) {
+        if (_isCoinConversionRule(rows[j])) {
+          oldRec = rows[j];
+          break;
+        }
+      }
+    }
 
     // Keep ONE active: deactivate any prior Active (history preserved)
-    _deactivateAllActiveCoinEconomyRows();
+    _deactivateAllActiveCoinEconomyRows("CoinConversion");
 
     // Append the NEW Active configuration row (stores BOTH values)
     var now = new Date();
@@ -217,6 +244,12 @@ function updateCoinConversionRate(inrAmount, coinAmount, adminId) {
       SettingID: "COIN_RATE",
       INRAmount: v.inr,
       CoinAmount: v.coin,
+      RuleGroup: "Coin Conversion",
+      RuleName: "CoinConversion",
+      ValueA: v.inr,
+      ValueB: v.coin,
+      UnitA: "INR",
+      UnitB: "Coins",
       Status: "Active",
       UpdatedAt: now,
       UpdatedBy: String(adminId || "")
@@ -274,6 +307,150 @@ function updateAdminCoinRate(e) {
 
     const model = updateCoinConversionRate(inr, coin, adminId);
     return success(model, "Coin conversion rate updated");
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+// ============================================================================
+// CENTRAL ECONOMY RULES (configuration only; no wallet/treasury side effects)
+// ============================================================================
+
+function ECONOMY_RULE_DEFINITIONS() {
+  return {
+    TradeMaxExchangePercent: { group: "Trade Limits", unit: "%", min: 0, max: 100 },
+    TradeMaxINRValue: { group: "Trade Limits", unit: "INR", min: 0, positive: true },
+    PlatformChargePercent: { group: "Platform Charges", unit: "%", min: 0, max: 100 },
+    PlatformFixedCharge: { group: "Platform Charges", unit: "INR", min: 0 },
+    TaxPercent: { group: "Taxes", unit: "%", min: 0, max: 100 },
+    DiscountPercent: { group: "Discounts", unit: "%", min: 0, max: 100 },
+    BurnPercent: { group: "Burn Rules", unit: "%", min: 0, max: 100 }
+  };
+}
+
+function _getActiveEconomyRule(ruleName) {
+  var rows = getSheetData("CoinEconomySettings");
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i].RuleName || "") === ruleName && String(rows[i].Status || "").toUpperCase() === "ACTIVE") return rows[i];
+  }
+  return null;
+}
+
+function _economyRuleModel(ruleName, row) {
+  var def = ECONOMY_RULE_DEFINITIONS()[ruleName];
+  return {
+    ruleName: ruleName,
+    ruleGroup: def.group,
+    value: row && row.ValueA !== "" && row.ValueA != null ? Number(row.ValueA) : null,
+    unit: def.unit,
+    status: row ? String(row.Status || "Active") : "NotConfigured",
+    updatedAt: row ? row.UpdatedAt || "" : "",
+    updatedBy: row ? row.UpdatedBy || "" : ""
+  };
+}
+
+function _validateEconomyRuleValue(ruleName, value) {
+  var def = ECONOMY_RULE_DEFINITIONS()[ruleName];
+  var n = Number(value);
+  if (!def || !isFinite(n) || n < def.min || (def.positive && !(n > 0)) || (def.max != null && n > def.max)) {
+    throw new Error(ruleName + " must be " + (def && def.positive ? "greater than zero" : "between " + (def ? def.min : 0) + " and " + (def && def.max != null ? def.max : "a valid number")) + ".");
+  }
+  return Math.round(n * 100) / 100;
+}
+
+function _auditEconomyRuleChange(ruleName, oldRow, newRow, adminId, when) {
+  try {
+    var activitySheet = getSheet(CONFIG.SHEETS.ACTIVITY_LOGS);
+    if (!activitySheet) return;
+    var oldValue = oldRow && oldRow.ValueA !== "" ? oldRow.ValueA : "Not configured";
+    activitySheet.appendRow([
+      Utilities.getUuid().substring(0, 8),
+      "EconomyRuleUpdate",
+      String(adminId || ""),
+      ruleName + " changed: " + oldValue + " -> " + newRow.ValueA + " " + newRow.UnitA,
+      when
+    ]);
+  } catch (logErr) {
+    Logger.log("Economy rule audit log error: " + logErr);
+  }
+}
+
+/** Returns the central configuration plus the existing canonical pass catalog. */
+function getEconomyRules() {
+  ensureCoinEconomySettingsSheet();
+  var defs = ECONOMY_RULE_DEFINITIONS();
+  var rules = {};
+  Object.keys(defs).forEach(function (ruleName) {
+    rules[ruleName] = _economyRuleModel(ruleName, _getActiveEconomyRule(ruleName));
+  });
+  return {
+    coinConversion: getCoinConversionRate(),
+    promotionPassPricing: getPromotionPassCatalog().filter(function (pass) {
+      return String(pass.Status || "").toUpperCase() === "ACTIVE";
+    }).map(function (pass) {
+      return { passId: pass.PassID, passName: pass.PassName, priceINR: Number(pass.PriceINR || 0), includedCoins: Number(pass.IncludedCoins || 0), updatedAt: pass.UpdatedDate || "", updatedBy: pass.CreatedBy || "" };
+    }),
+    rules: rules
+  };
+}
+
+function updateEconomyRules(values, adminId) {
+  var defs = ECONOMY_RULE_DEFINITIONS();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var changed = [];
+    Object.keys(defs).forEach(function (ruleName) {
+      if (!Object.prototype.hasOwnProperty.call(values, ruleName) || values[ruleName] === "") return;
+      var value = _validateEconomyRuleValue(ruleName, values[ruleName]);
+      var oldRow = _getActiveEconomyRule(ruleName);
+      if (oldRow && Number(oldRow.ValueA) === value) return;
+      _deactivateAllActiveCoinEconomyRows(ruleName);
+      var now = new Date();
+      var row = {
+        SettingID: "ECON_" + ruleName + "_" + Utilities.getUuid().substring(0, 8),
+        RuleGroup: defs[ruleName].group,
+        RuleName: ruleName,
+        ValueA: value,
+        UnitA: defs[ruleName].unit,
+        Status: "Active",
+        UpdatedAt: now,
+        UpdatedBy: String(adminId || "")
+      };
+      _appendCoinEconomyRow(row);
+      _auditEconomyRuleChange(ruleName, oldRow, row, adminId, now);
+      changed.push(_economyRuleModel(ruleName, row));
+    });
+    return changed;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function getAdminEconomyRules(e) {
+  try {
+    var sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+    return success(getEconomyRules(), "Economy rules loaded");
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+function updateAdminEconomyRules(e) {
+  try {
+    var permResult = requirePermission(e, "Treasury");
+    if (!permResult.valid) return permResult.response;
+    var params = e.parameter || {};
+    var changed = [];
+    if (Object.prototype.hasOwnProperty.call(params, "inrAmount") || Object.prototype.hasOwnProperty.call(params, "coinAmount")) {
+      if (!Object.prototype.hasOwnProperty.call(params, "inrAmount") || !Object.prototype.hasOwnProperty.call(params, "coinAmount")) return error("Both INR and Coin amounts are required.");
+      updateCoinConversionRate(params.inrAmount, params.coinAmount, permResult.adminId);
+      changed.push("CoinConversion");
+    }
+    var ruleChanges = updateEconomyRules(params, permResult.adminId);
+    ruleChanges.forEach(function (rule) { changed.push(rule.ruleName); });
+    return success({ changed: changed, economyRules: getEconomyRules() }, "Economy rules updated");
   } catch (err) {
     return exception(err);
   }

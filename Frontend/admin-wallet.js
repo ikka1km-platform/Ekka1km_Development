@@ -26,6 +26,7 @@ AdminModules.register("wallet", async function(container) {
   var detailUserId = null;
   var treasuryOverview = {};
   var coinRate = {};
+  var economyRules = null;
 
   // Phase 5.7B Integrity Monitor state
   var integrityView = "summary";
@@ -76,6 +77,8 @@ AdminModules.register("wallet", async function(container) {
         await loadCampaignEconomy(session);
       } else if (currentView === "integrity") {
         await loadIntegrityView(session);
+      } else if (currentView === "rules") {
+        await loadEconomyRules(session);
       }
     } catch (err) {
       container.innerHTML = '<div class="module-error"><span class="module-error-icon">\u26A0\uFE0F</span><h3>Connection Error</h3><p>' + esc(err.message) + '</p></div>';
@@ -120,6 +123,7 @@ AdminModules.register("wallet", async function(container) {
     html += '  <button class="module-btn ' + (currentView === "rewards" ? 'module-btn-primary' : 'module-btn-secondary') + '" onclick="window._econView(\'rewards\')">\uD83C\uDF81 Reward Activity</button>';
     html += '  <button class="module-btn ' + (currentView === "campaigns" ? 'module-btn-primary' : 'module-btn-secondary') + '" onclick="window._econView(\'campaigns\')">\uD83D\uDCE2 Campaign Economy</button>';
     html += '  <button class="module-btn ' + (currentView === "integrity" ? 'module-btn-primary' : 'module-btn-danger') + '" onclick="window._econView(\'integrity\')">\uD83D\uDD0D Integrity Monitor</button>';
+    html += '  <button class="module-btn module-btn-secondary" onclick="window._econView(\'rules\')">\u2699\uFE0F Economy Rules</button>';
     html += '</div>';
     html += '<div style="margin-bottom:20px;">';
     html += '  <h3 style="color:var(--text-secondary);margin-bottom:12px;font-size:15px;">\uD83D\uDCCA Economy Overview</h3>';
@@ -146,6 +150,7 @@ AdminModules.register("wallet", async function(container) {
     html += '    <button class="module-btn module-btn-secondary" onclick="window._econView(\'rewards\')">\uD83C\uDF81 View Rewards</button>';
     html += '    <button class="module-btn module-btn-secondary" onclick="window._econView(\'campaigns\')">\uD83D\uDCE2 Campaign Economy</button>';
     html += '    <button class="module-btn module-btn-danger" onclick="window._econView(\'integrity\')">\uD83D\uDD0D Integrity Monitor</button>';
+    html += '    <button class="module-btn module-btn-secondary" onclick="window._econView(\'rules\')">\u2699\uFE0F Economy Rules</button>';
     html += '  </div>';
     html += '</div>';
     // ============================================================
@@ -184,6 +189,45 @@ AdminModules.register("wallet", async function(container) {
     html += '<div style="background:var(--bg-secondary);padding:12px 16px;border-radius:var(--radius-sm);border:1px solid var(--border-color);margin-top:10px;">';
     html += '  <p style="font-size:12px;color:var(--text-muted);">\uD83D\uDD12 <strong>Read-Only Mode:</strong> This dashboard provides visibility into the platform economy. No wallet balances, transactions, rewards, or campaign pools can be modified from this interface.</p>';
     html += '</div>';
+    container.innerHTML = html;
+  }
+
+  async function loadEconomyRules(session) {
+    var response = await fetch(getApiUrl() + "?action=admineconomyrules&session=" + encodeURIComponent(session));
+    var json = await response.json();
+    if (!json || !json.success) {
+      container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Failed to Load Economy Rules</h3><p>' + esc(json && json.message ? json.message : "Unknown error") + '</p></div>';
+      return;
+    }
+    economyRules = json.data || {};
+    renderEconomyRules();
+  }
+
+  function economyRuleInput(id, label, rule, suffix) {
+    var value = rule && rule.value != null ? rule.value : "";
+    var meta = rule && rule.updatedAt ? 'Current: ' + esc(value) + (suffix ? ' ' + suffix : '') + ' · Updated ' + esc(fdt(rule.updatedAt)) + ' by ' + esc(rule.updatedBy || "—") : 'Not configured';
+    return '<div style="margin:0 0 14px;"><label style="display:block;font-size:12px;color:var(--text-secondary);margin-bottom:5px;">' + label + '</label>' +
+      '<div style="display:flex;align-items:center;gap:8px;"><input type="number" id="' + id + '" min="0" step="any" value="' + esc(value) + '" style="width:140px;padding:8px 10px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);"/>' +
+      '<span style="font-size:12px;color:var(--text-muted);">' + suffix + '</span></div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + meta + '</div></div>';
+  }
+
+  function renderEconomyRules() {
+    var data = economyRules || {};
+    var rate = data.coinConversion || {};
+    var rules = data.rules || {};
+    var passes = data.promotionPassPricing || [];
+    var html = '<div class="module-header"><div class="module-header-left"><h2 class="module-title">⚙️ Economy Rules</h2><span class="module-count">Central configuration</span></div><div class="module-header-right"><button class="module-btn module-btn-secondary" onclick="window._econView(\'overview\')">← Back to Overview</button></div></div>';
+    html += '<div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:16px;max-width:820px;">';
+    html += '<h3 style="margin:0 0 15px;color:var(--text-secondary);font-size:15px;">ECONOMY RULES</h3>';
+    html += '<h4 style="margin:16px 0 8px;font-size:13px;color:var(--text-secondary);">COIN CONVERSION</h4><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span>₹</span><input type="number" id="economyInrAmount" min="0" step="any" value="' + esc(rate.inrAmount != null ? rate.inrAmount : "") + '" style="width:105px;padding:8px 10px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);"/><span>=</span><input type="number" id="economyCoinAmount" min="0" step="any" value="' + esc(rate.coinAmount != null ? rate.coinAmount : "") + '" style="width:105px;padding:8px 10px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-primary);color:var(--text-primary);"/><span>Coins</span></div><div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Current: ₹' + esc(rate.inrAmount || "—") + ' = ' + esc(rate.coinAmount || "—") + ' Coins · Updated ' + esc(fdt(rate.updatedAt)) + ' by ' + esc(rate.updatedBy || "—") + '</div>';
+    html += '<h4 style="margin:20px 0 8px;font-size:13px;color:var(--text-secondary);">PROMOTION PASS PRICING</h4><div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Managed by the existing Promotion Pass catalog.</div>';
+    html += passes.length ? '<div style="font-size:12px;line-height:1.8;">' + passes.map(function (p) { return '<div><strong>' + esc(p.passName) + '</strong>: ₹' + esc(p.priceINR) + ' · ' + esc(p.includedCoins) + ' Coins</div>'; }).join("") + '</div>' : '<div style="font-size:12px;color:var(--text-muted);">No active promotion passes configured.</div>';
+    html += '<h4 style="margin:20px 0 8px;font-size:13px;color:var(--text-secondary);">TRADE LIMITS</h4>' + economyRuleInput('tradeMaxExchangePercent', 'Maximum Exchange %', rules.TradeMaxExchangePercent, '%') + economyRuleInput('tradeMaxINRValue', 'Maximum ₹ Value', rules.TradeMaxINRValue, 'INR');
+    html += '<h4 style="margin:20px 0 8px;font-size:13px;color:var(--text-secondary);">PLATFORM CHARGES</h4>' + economyRuleInput('platformChargePercent', 'Platform Charge %', rules.PlatformChargePercent, '%') + economyRuleInput('platformFixedCharge', 'Platform Fixed Charge', rules.PlatformFixedCharge, 'INR');
+    html += '<h4 style="margin:20px 0 8px;font-size:13px;color:var(--text-secondary);">TAXES</h4>' + economyRuleInput('taxPercent', 'Tax %', rules.TaxPercent, '%');
+    html += '<h4 style="margin:20px 0 8px;font-size:13px;color:var(--text-secondary);">DISCOUNTS</h4>' + economyRuleInput('discountPercent', 'Discount %', rules.DiscountPercent, '%');
+    html += '<h4 style="margin:20px 0 8px;font-size:13px;color:var(--text-secondary);">BURN RULES</h4>' + economyRuleInput('burnPercent', 'Burn %', rules.BurnPercent, '%');
+    html += '<div style="border-top:1px solid var(--border-color);padding-top:16px;margin-top:18px;"><button class="module-btn module-btn-primary" onclick="window._saveEconomyRules()">💾 SAVE ECONOMY RULES</button><span style="font-size:11px;color:var(--text-muted);margin-left:10px;">Configuration only — does not move coins or execute charges.</span></div></div>';
     container.innerHTML = html;
   }
 
@@ -1326,6 +1370,40 @@ AdminModules.register("wallet", async function(container) {
       showToast("Coin conversion rate updated", "success");
       // Reload the authoritative rate from the backend before re-rendering.
       await loadEconomySummary(session);
+    } catch (err) {
+      showToast("Error: " + err.message, "error");
+    }
+  };
+
+  window._saveEconomyRules = async function() {
+    var session = AdminAuth.getSession();
+    if (!session) { showToast("Session expired. Please login again.", "error"); return; }
+    var fields = {
+      inrAmount: "economyInrAmount", coinAmount: "economyCoinAmount",
+      TradeMaxExchangePercent: "tradeMaxExchangePercent", TradeMaxINRValue: "tradeMaxINRValue",
+      PlatformChargePercent: "platformChargePercent", PlatformFixedCharge: "platformFixedCharge",
+      TaxPercent: "taxPercent", DiscountPercent: "discountPercent", BurnPercent: "burnPercent"
+    };
+    var params = [];
+    var inr = document.getElementById(fields.inrAmount).value;
+    var coin = document.getElementById(fields.coinAmount).value;
+    if (!(parseFloat(inr) > 0) || !(parseFloat(coin) > 0)) { showToast("INR and Coin amounts must be greater than zero.", "error"); return; }
+    params.push("inrAmount=" + encodeURIComponent(inr), "coinAmount=" + encodeURIComponent(coin));
+    for (var key in fields) {
+      if (key === "inrAmount" || key === "coinAmount") continue;
+      var input = document.getElementById(fields[key]);
+      var value = input ? input.value.trim() : "";
+      if (value === "") continue;
+      if (!isFinite(Number(value)) || Number(value) < 0) { showToast("Please enter a valid non-negative value.", "error"); input && input.focus(); return; }
+      params.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
+    }
+    try {
+      var response = await fetch(getApiUrl() + "?action=adminupdateeconomyrules&session=" + encodeURIComponent(session) + "&" + params.join("&"));
+      var json = await response.json();
+      if (!json || !json.success) { showToast(json && json.message ? json.message : "Failed to update economy rules", "error"); return; }
+      economyRules = json.data.economyRules || economyRules;
+      renderEconomyRules();
+      showToast("Economy rules updated", "success");
     } catch (err) {
       showToast("Error: " + err.message, "error");
     }

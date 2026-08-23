@@ -190,6 +190,12 @@ function doGet(e) {
       case "adminupdatecoinrate":
         return updateAdminCoinRate(e);
 
+      case "admineconomyrules":
+        return getAdminEconomyRules(e);
+
+      case "adminupdateeconomyrules":
+        return updateAdminEconomyRules(e);
+
       // News
       case "news":
         return getNews(e);
