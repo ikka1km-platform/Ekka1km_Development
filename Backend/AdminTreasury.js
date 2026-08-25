@@ -154,14 +154,23 @@ function adminCreateCampaign(e) {
     // 2-4. OWNER / PASS / TARGET INPUT VALIDATION
     // ==========================================================
     var ownerUserId = String(p.ownerUserId || "").trim();
-    if (!ownerUserId) return error("ownerUserId required");
-
     var passId = String(p.passId || "").trim();
     if (!passId) return error("passId required");
 
     var targetType = String(p.targetType || "").trim();
     var targetId = String(p.targetId || "").trim();
-    if (!targetType || !targetId) return error("targetType and targetId required");
+    // DIRECT ADVERTISEMENT: a targetless campaign is allowed when the admin
+    // supplies the creative (image/video/URL) directly and there is NO
+    // mandatory Ekka1km owner. The authenticated admin is the actor/creator.
+    // Real catalog promotion still requires BOTH targetType, targetId and an
+    // owner who owns that listing.
+    var isDirectAd = (!targetType && !targetId);
+    if (!isDirectAd && (!targetType || !targetId)) {
+      return error("targetType and targetId must both be supplied unless this is a Direct Advertisement");
+    }
+    if (!isDirectAd && !ownerUserId) {
+      return error("ownerUserId required");
+    }
 
     // ==========================================================
     // CRITICAL ALLOCATION SEQUENCE UNDER LOCK (validations,
@@ -184,12 +193,17 @@ function adminCreateCampaign(e) {
         return error("Promotion Pass is not active: " + passId);
       }
 
-      // ---- OWNER VALIDATION ----
-      var owner = getRowById(CONFIG.SHEETS.USERS, "UserID", ownerUserId);
-      if (!owner) return error("Owner user not found: " + ownerUserId);
+      // ---- OWNER VALIDATION (required only for catalog-owned campaigns;
+      // Direct Advertisements have no mandatory Ekka1km user) ----
+      if (!isDirectAd) {
+        var owner = getRowById(CONFIG.SHEETS.USERS, "UserID", ownerUserId);
+        if (!owner) return error("Owner user not found: " + ownerUserId);
+      }
 
-      // ---- TARGET VALIDATION ----
-      validateAdminCampaignTarget(targetType, targetId, ownerUserId);
+      // ---- TARGET VALIDATION (skipped for Direct Advertisements) ----
+      if (!isDirectAd) {
+        validateAdminCampaignTarget(targetType, targetId, ownerUserId);
+      }
 
       // ---- CREATIVE VALIDATION (existing PCC media references) ----
       creativeType = validateAdminCampaignCreative(
@@ -207,7 +221,13 @@ function adminCreateCampaign(e) {
       // ---- CAMPAIGN FUEL OVERRIDE ----
       var rawFuel = String(p.campaignFuel == null ? "" : p.campaignFuel).trim();
       if (rawFuel === "") {
-        resolvedFuel = Number(pass.IncludedCoins || 0); // default = pass IncludedCoins
+        // DEFAULT campaign fuel = EFFECTIVE pass allocation:
+        // PriceINR × current central coin rate (Model A, server-derived).
+        // UNLIMITED has no fixed allocation -> default 0 (admin override required).
+        var passAllocation = getPassAllocation(pass);
+        resolvedFuel = passAllocation.type === "UNLIMITED"
+          ? 0
+          : Number(passAllocation.coins || 0);
       } else {
         if (!/^\d+$/.test(rawFuel)) {
           return error("campaignFuel must be an integer greater than or equal to 0");
@@ -259,15 +279,29 @@ function adminCreateCampaign(e) {
       ADMIN_CAMPAIGN_REF_TAG_PREFIX() + referenceId +
       "; CREATED_BY_ADMIN:" + actorAdminId;
 
+    // Map into the existing canonical promotion path. A Direct Advertisement
+    // uses the same targetless shape as promoteExternalUrl()/promoteWebsite()
+    // (PROMOTE_EXTERNAL_URL + ExternalURL entity). Real catalog promotion keeps
+    // the existing PROMOTE_<TYPE> mapping. No second engine is introduced.
+    var campaignType = isDirectAd
+      ? "PROMOTE_EXTERNAL_URL"
+      : ("PROMOTE_" + targetType.toUpperCase());
+    var promotedEntityType = isDirectAd ? "ExternalURL" : targetType;
+    var promotedEntityID = isDirectAd ? "" : targetId;
+    // The campaign owner/creator. For a Direct Advertisement there is no
+    // mandatory Ekka1km user — the AUTHENTICATED admin (already authorized
+    // above) is the actor/owner. For a catalog listing, the selected owner is used.
+    var campaignOwnerId = isDirectAd ? actorAdminId : ownerUserId;
+
     var v2Raw = createPromotionCampaign({
       parameter: {
-        userId: ownerUserId,
-        ownerUserID: ownerUserId,
-        campaignType: "PROMOTE_" + targetType.toUpperCase(),
+        userId: campaignOwnerId,
+        ownerUserID: campaignOwnerId,
+        campaignType: campaignType,
         campaignSource: "Treasury",           // SERVER-FORCED (also drives isAdminFunded)
         fundingSource: "Treasury",            // SERVER-FORCED
-        promotedEntityType: targetType,
-        promotedEntityID: targetId,
+        promotedEntityType: promotedEntityType,
+        promotedEntityID: promotedEntityID,
         creativeType: creativeType,
         imageURL: p.imageURL || "",
         videoURL: p.videoURL || "",

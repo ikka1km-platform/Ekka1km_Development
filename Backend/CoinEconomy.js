@@ -392,7 +392,9 @@ function getEconomyRules() {
         passId: pass.PassID,
         passName: pass.PassName,
         priceINR: Number(pass.PriceINR || 0),
-        includedCoins: Number(pass.IncludedCoins || 0),
+        includedCoins: pass.coinAllocation && pass.coinAllocation.coins != null
+          ? Number(pass.coinAllocation.coins)
+          : Number(pass.IncludedCoins || 0),
         allocationType: pass.AllocationType || "FIXED",
         coinAllocation: pass.coinAllocation || getPassAllocation(pass),
         updatedAt: pass.UpdatedDate || "",

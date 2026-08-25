@@ -91,11 +91,40 @@ function _normalizePassAllocationType(raw) {
  * CANONICAL PASS ALLOCATION MODEL
  * @param {object} pass - PromotionPasses catalog row (or null).
  * @returns {{type:string, coins:(number|null), includedCoins:number, label:string}}
- *   - FIXED      -> coins = the fixed, configurable IncludedCoins (>0).
+ *   - FIXED      -> coins = the EFFECTIVE runtime allocation:
+ *                   Math.round(PriceINR × current central coin rate)
+ *                   (Model A — see getEffectivePassCoins). includedCoins is the
+ *                   raw STORED sheet value (seed-time/historical) for introspection.
  *   - UNLIMITED  -> coins = null (no fixed cap). includedCoins is the raw stored
  *                   value ONLY for introspection; it is not a cap. The public
  *                   representation is coins === null + label, NEVER "0 coins".
  */
+function getEffectivePassCoins(pass) {
+  if (!pass) return null;
+  // UNLIMITED is special: dynamic allocation, never a fixed number.
+  if (_normalizePassAllocationType(pass.AllocationType) === PASS_ALLOCATION_TYPE().UNLIMITED) {
+    return null;
+  }
+  const price = Number(pass.PriceINR);
+  if (isFinite(price) && price > 0) {
+    // Single authoritative central rate (Backend/CoinEconomy.js). Never a
+    // second conversion system; read-only — the sheet is never rewritten.
+    let coinsPerINR = 1;
+    try {
+      coinsPerINR = Number(getCoinConversionRate().coinsPerINR) || 1;
+    } catch (rateErr) {
+      coinsPerINR = 1;
+    }
+    if (!(coinsPerINR > 0)) coinsPerINR = 1;
+    return Math.max(0, Math.round(price * coinsPerINR));
+  }
+  // No authoritative positive PriceINR (e.g. synthetic admin-upsert return
+  // models without a price). Fall back to the stored allocation for stable
+  // display/introspection only.
+  const stored = Math.round(Number((pass && pass.IncludedCoins) || 0));
+  return stored > 0 ? stored : 0;
+}
+
 function getPassAllocation(pass) {
   const type = _normalizePassAllocationType((pass && pass.AllocationType));
   const rawCoins = Math.round(Number((pass && pass.IncludedCoins) || 0));
@@ -107,12 +136,13 @@ function getPassAllocation(pass) {
       label: "UNLIMITED / Dynamic \u00b7 no fixed coin limit"
     };
   }
-  const fixed = rawCoins > 0 ? rawCoins : 0;
+  const effectiveCoins = getEffectivePassCoins(pass);
+  const coins = effectiveCoins > 0 ? effectiveCoins : 0;
   return {
     type: "FIXED",
-    coins: fixed,
-    includedCoins: fixed,
-    label: fixed + " Coins (Fixed allocation)"
+    coins: coins,
+    includedCoins: rawCoins,
+    label: coins + " Coins (Fixed allocation \u00b7 central rate)"
   };
 }
 
@@ -393,7 +423,7 @@ function createPassPurchase(payload) {
     PassID: passId,
     PassName: String(pass.PassName || ""),
     PriceINR: Number(pass.PriceINR || 0),
-    IncludedCoins: Number(pass.IncludedCoins || 0), // server-side source of truth
+    IncludedCoins: allocation.type === "UNLIMITED" ? 0 : (Number(allocation.coins || 0)), // effective runtime allocation (Model A)
     AllocationType: allocationType,
     OrderReference: orderRef,
     PaymentReference: paymentRef,
@@ -411,7 +441,7 @@ function createPassPurchase(payload) {
     existing: false,
     status: "PENDING",
     allocationType: allocationType,
-    includedCoins: Number(pass.IncludedCoins || 0),
+    includedCoins: allocation.type === "UNLIMITED" ? 0 : (Number(allocation.coins || 0)),
     coinAllocation: allocation,
     priceINR: Number(pass.PriceINR || 0)
   };

@@ -712,8 +712,12 @@ Advertisement & Promotion Control Center.
 
 Flow:
   1. Promotion Pass        (?action=passcatalog - server authoritative)
-  2. Campaign Owner        (?action=adminusers)
-  3. What are you promoting? (adminproducts/businesses/properties/news)
+  2. What are you promoting? (Direct Advertisement OR existing listing)
+       - Direct Advertisement: no Ekka1km listing/user required; the admin is
+         the actor/creator. Jumps straight to Upload Your Ad (skips owner).
+       - Existing listing: -> Step 3 Campaign Owner, then target selection
+         (adminproducts/businesses/properties/news)
+  3. Campaign Owner        (?action=adminusers - catalog listing flow only)
   4. Upload Your Ad        (existing MediaUpload.js createUploadWidget)
   5. Ad Viewing Time       (min 3s, no artificial max; video capped at
                             detected MediaDuration)
@@ -721,7 +725,7 @@ Flow:
   7. Campaign Radius       (1|5|10|25|51|100|All India - measured from
                             the SELECTED campaign location)
   8. Campaign Lifetime     (1|3|7|15|30 days - PCC options)
-  9. Campaign Fuel         (default = Pass IncludedCoins; capped by
+  9. Campaign Fuel         (default = Effective Coins (PriceINR × central rate); capped by
                             PromotionTreasury balance)
  10. Review & Create       (?action=admincreatecampaign with
                             idempotencyKey)
@@ -745,6 +749,7 @@ var ACW = {
   targets: [],
   target: null,
   targetSearch: "",
+  direct: false,
   creativeMode: "",
   imageURL: "",
   videoURL: "",
@@ -769,8 +774,8 @@ var ACW_RADIUS_OPTIONS = ["1", "5", "10", "25", "51", "100", "All India"];
 var ACW_LIFETIME_OPTIONS = ["1", "3", "7", "15", "30"];
 var ACW_STEP_TITLES = {
   1: "PROMOTION PASS",
-  2: "CAMPAIGN OWNER",
-  3: "WHAT ARE YOU PROMOTING?",
+  2: "WHAT ARE YOU PROMOTING?",
+  3: "CAMPAIGN OWNER",
   4: "UPLOAD YOUR AD",
   5: "AD VIEWING TIME",
   6: "CAMPAIGN LOCATION & RADIUS",
@@ -797,6 +802,7 @@ window._openCreateCampaignWizard = function() {
   ACW.targets = [];
   ACW.target = null;
   ACW.targetSearch = "";
+  ACW.direct = false;
   ACW.creativeMode = "";
   ACW.imageURL = "";
   ACW.videoURL = "";
@@ -966,8 +972,8 @@ function _acwRender() {
   if (bar) bar.innerHTML = "Step " + ACW.step + " of 9 — " + (ACW_STEP_TITLES[ACW.step] || "");
   if (ACW.result) { _acwRenderSuccess(); return; }
   if (ACW.step === 1) _acwRenderPassStep();
-  else if (ACW.step === 2) { _acwSetBody(_acwOwnerStepShell()); _acwLoadOwners(); }
-  else if (ACW.step === 3) { _acwSetBody(_acwTargetStepShell()); _acwLoadTargets(); }
+  else if (ACW.step === 2) { _acwSetBody(_acwTargetStepShell()); if (ACW.targetType) _acwLoadTargets(); }
+  else if (ACW.step === 3) { _acwSetBody(_acwOwnerStepShell()); _acwLoadOwners(); }
   else if (ACW.step === 4) _acwRenderCreativeStep();
   else if (ACW.step === 5) _acwRenderAdTimeStep();
   else if (ACW.step === 6) _acwRenderLocationStep();
@@ -991,12 +997,19 @@ function _acwRenderFooter() {
 }
 
 window._acwBack = function() {
-  if (ACW.step > 1) { ACW.step--; _acwRender(); }
+  if (ACW.step <= 1) return;
+  // Direct advertisements skip the "Campaign Owner" step entirely.
+  if (ACW.step === 4 && ACW.direct) { ACW.step = 2; _acwRender(); return; }
+  // Normal catalog flow: creative -> owner -> target/type.
+  if (ACW.step === 4 && !ACW.direct) { ACW.step = 3; _acwRender(); return; }
+  ACW.step--; _acwRender();
 };
 
 window._acwNext = function() {
   var err = _acwValidateStep(ACW.step);
   if (err) { showToast(err, "error"); return; }
+  // Direct advertisements skip the mandatory "Campaign Owner" (step 3).
+  if (ACW.step === 2 && ACW.direct) { ACW.step = 4; _acwRender(); return; }
   if (ACW.step < 9) { ACW.step++; _acwRender(); }
 };
 
@@ -1008,8 +1021,8 @@ window._acwDone = function() {
 
 function _acwValidateStep(step) {
   if (step === 1 && !ACW.pass) return "No Pass selected. Please choose a Promotion Pass.";
-  if (step === 2 && !ACW.owner) return "No Owner selected. Please choose the promoter/owner.";
-  if (step === 3 && !ACW.target) return "No Target selected. Please choose what you are promoting.";
+  if (step === 2 && !ACW.direct && !ACW.target) return "No Target selected. Choose Direct Advertisement or an existing listing.";
+  if (step === 3 && !ACW.direct && !ACW.owner) return "No Owner selected. Please choose the promoter/owner.";
   if (step === 4) {
     if (!ACW.creativeMode) return "Missing creative. Choose Image, Video, URL or Entity image.";
     if (ACW.creativeMode === "IMAGE" && !ACW.imageURL) return "Missing creative: upload an image first.";
@@ -1053,11 +1066,27 @@ STEP 1 — PROMOTION PASS
 ------------------------------------------------------------
 */
 
+function _acwFmtNum(n) {
+  var v = Number(n);
+  if (isNaN(v)) return "0";
+  return v.toLocaleString("en-US");
+}
+
+// Effective pass coin allocation from the server response (Model A):
+// coinAllocation.coins = PriceINR × current central coin rate.
+// Fallbacks to IncludedCoins only if the backend omits coinAllocation.
+function _acwPassCoins(p) {
+  if (p && p.coinAllocation && p.coinAllocation.coins != null) {
+    return Number(p.coinAllocation.coins);
+  }
+  return Number((p && p.IncludedCoins) || 0);
+}
+
 function _acwPassCoinLabel(p) {
   if (p && p.coinAllocation && p.coinAllocation.type === "UNLIMITED") {
-    return "UNLIMITED / Dynamic";
+    return "Unlimited / dynamic allocation";
   }
-  return Number((p && p.IncludedCoins) || 0) + " Coins";
+  return _acwFmtNum(_acwPassCoins(p)) + " Coins";
 }
 
 function _acwRenderPassStep() {
@@ -1073,7 +1102,7 @@ function _acwRenderPassStep() {
       inner += '<div data-testid="acw-pass-card" data-passid="' + _acwEsc(p.PassID) + '" onclick="window._acwPickPass(\'' + _acwEsc(p.PassID) + '\')" ' +
         'style="cursor:pointer;border:2px solid ' + (selected ? '#5b8def' : 'var(--border-color,#333)') + ';border-radius:10px;padding:14px;' + bg + '">' +
         '<div style="font-weight:700;margin-bottom:6px;">' + _acwEsc(p.PassName || p.PassID) + '</div>' +
-        '<div style="font-size:20px;font-weight:700;color:#4caf88;">₹' + _acwEsc(p.PriceINR || 0) + '</div>' +
+        '<div style="font-size:20px;font-weight:700;color:#4caf88;">₹' + _acwEsc(_acwFmtNum(p.PriceINR || 0)) + '</div>' +
         '<div style="font-size:13px;color:#ff9f43;">' + _acwEsc(_acwPassCoinLabel(p)) + '</div>' +
         (p.DurationLabel ? '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + _acwEsc(p.DurationLabel) + '</div>' : '') +
         '</div>';
@@ -1091,7 +1120,7 @@ window._acwPickPass = function(passId) {
   ACW.passes.forEach(function(p) { if (String(p.PassID) === String(passId)) found = p; });
   if (!found) { showToast("Invalid Pass", "error"); return; }
   ACW.pass = found;
-  ACW.fuel = parseInt(found.IncludedCoins || 0, 10);
+  ACW.fuel = _acwPassCoins(found);
   _acwRender();
 };
 /* ACW_PART_5_END */
@@ -1172,6 +1201,13 @@ function _acwTargetIdFor(type, t) {
 
 function _acwTargetStepShell() {
   var inner = "";
+  var directSel = !!ACW.direct;
+  inner += '<div data-testid="acw-direct-option" onclick="window._acwPickDirectAd()" style="border:2px solid ' + (directSel ? '#5b8def' : 'var(--border-color,#333)') + ';border-radius:10px;padding:14px;margin-bottom:12px;cursor:pointer;' + (directSel ? 'background:rgba(91,141,239,0.15);' : '') + '">';
+  inner += '<div style="font-weight:700;">📤 Direct Advertisement</div>';
+  inner += '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">No Ekka1km listing required — supply the ad creative (image / video / URL) directly.</div>';
+  inner += '<div style="font-size:11px;color:#4caf88;margin-top:6px;">' + (directSel ? '✔ Selected — continue to Upload Your Ad' : 'Click to skip catalog selection') + '</div>';
+  inner += '</div>';
+  inner += '<div style="font-size:11px;color:var(--text-muted);margin:0 0 10px 0;">— OR promote an existing listing —</div>';
   inner += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
   ["Product", "Business", "Property", "News"].forEach(function(tp) {
     var sel = ACW.targetType === tp;
@@ -1212,11 +1248,25 @@ function _acwRenderTargetList() {
 }
 
 window._acwPickTargetType = function(tp) {
+  ACW.direct = false;
   ACW.targetType = tp;
   ACW.target = null;
   ACW.targetSearch = "";
   _acwSetBody(_acwTargetStepShell());
   _acwLoadTargets();
+};
+
+window._acwPickDirectAd = function() {
+  ACW.direct = true;
+  ACW.targetType = "";
+  // Direct advertisement has NO catalog entity. The backend maps this into the
+  // existing canonical external-URL / targetless promotion path.
+  ACW.target = { type: "ExternalURL", id: "", title: "Direct Advertisement", image: "" };
+  ACW.targets = [];
+  ACW.targetSearch = "";
+  // Reflect the selected state, then skip catalog selection to Upload Your Ad.
+  _acwSetBody(_acwTargetStepShell());
+  window._acwNext();
 };
 
 window._acwTargetSearchGo = function() {
@@ -1249,9 +1299,10 @@ function _acwRenderCreativeStep() {
   var modes = [
     { key: "IMAGE", label: "🖼 Image" },
     { key: "VIDEO", label: "🎬 Video" },
-    { key: "URL", label: "🔗 URL / External" },
-    { key: "ENTITY_IMAGE", label: "🏷 Use target image" }
+    { key: "URL", label: "🔗 URL / External" }
   ];
+  // "Use target image" only makes sense when a real catalog entity is selected.
+  if (!ACW.direct) modes.push({ key: "ENTITY_IMAGE", label: "🏷 Use target image" });
   inner += '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">';
   modes.forEach(function(m) {
     var sel = ACW.creativeMode === m.key;
@@ -1617,7 +1668,7 @@ STEP 8 — CAMPAIGN FUEL
 */
 
 function _acwRenderFuelStep() {
-  var included = ACW.pass ? Number(ACW.pass.IncludedCoins || 0) : 0;
+  var included = ACW.pass ? _acwPassCoins(ACW.pass) : 0;
   var fuel = parseInt(ACW.fuel, 10);
   if (isNaN(fuel)) fuel = included;
   var over = fuel > ACW.treasuryBalance;
@@ -1676,6 +1727,7 @@ function _acwCreativeTypeLabel() {
 
 function _acwDestinationType() {
   if (ACW.creativeMode === "URL") return ACW.externalType;
+  if (ACW.direct) return ""; // direct ad: no catalog entity; backend derives from the provided destination
   if (ACW.target) return String(ACW.target.type).toLowerCase();
   return "";
 }
@@ -1715,7 +1767,7 @@ function _acwRenderReviewStep() {
   inner += _acwReviewRow("Lifetime", ACW.lifetimeDays + ' days', "acw-review-lifetime");
   inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">PROMOTION PASS</h4>';
   inner += _acwReviewRow("Pass Name", _acwEsc(ACW.pass ? (ACW.pass.PassName || ACW.pass.PassID) : "-"), "acw-review-pass-name");
-  inner += _acwReviewRow("Price", ACW.pass ? ('₹' + _acwEsc(ACW.pass.PriceINR || 0)) : "-", "acw-review-pass-price");
+  inner += _acwReviewRow("Price", ACW.pass ? ('₹' + _acwEsc(_acwFmtNum(ACW.pass.PriceINR || 0))) : "-", "acw-review-pass-price");
   inner += _acwReviewRow("Coin Allocation", ACW.pass ? _acwEsc(_acwPassCoinLabel(ACW.pass)) : "-", "acw-review-pass-coins");
   inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">CAMPAIGN FUEL</h4>';
   inner += _acwReviewRow("Campaign Fuel", parseInt(ACW.fuel, 10) + ' coins', "acw-review-fuel");
@@ -1753,9 +1805,9 @@ window._acwSubmit = async function() {
     session: session,
     idempotencyKey: idempotencyKey,
     passId: ACW.pass.PassID,
-    ownerUserId: ACW.owner.UserID,
-    targetType: ACW.target.type,
-    targetId: ACW.target.id,
+    ownerUserId: ACW.direct ? "" : (ACW.owner ? ACW.owner.UserID : ""),
+    targetType: ACW.direct ? "" : (ACW.target ? ACW.target.type : ""),
+    targetId: ACW.direct ? "" : (ACW.target ? ACW.target.id : ""),
     creativeType: ACW.creativeMode,
     imageURL: ACW.imageURL || "",
     videoURL: ACW.videoURL || "",
