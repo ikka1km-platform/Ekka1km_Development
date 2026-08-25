@@ -99,13 +99,41 @@ function _normalizePassAllocationType(raw) {
  *                   value ONLY for introspection; it is not a cap. The public
  *                   representation is coins === null + label, NEVER "0 coins".
  */
+/** Authoritative pass price (₹) for a catalog row.
+ * The live PromotionPasses sheet stores the pass price in the "Price" column
+ * (older/synthetic layouts may expose it as PriceINR or price). Reads all,
+ * preferring the real "Price" column; never depends on blank PriceINR.
+ */
+function _passPrice(pass) {
+  if (!pass) return 0;
+  var p = Number(pass.Price);
+  if (isFinite(p) && p > 0) return p;
+  var pi = Number(pass.PriceINR);
+  if (isFinite(pi) && pi > 0) return pi;
+  var pc = Number(pass.price);
+  return isFinite(pc) && pc > 0 ? pc : 0;
+}
+
+/** Robust UNLIMITED detection. Prefers the AllocationType column, but also
+ * matches the canonical PASS_UNLIMITED / "UNLIMITED" name so an unlimited pass
+ * is NEVER misread as a fixed 0-coin allocation when AllocationType is absent. */
+function _isUnlimitedPass(pass) {
+  if (!pass) return false;
+  if (_normalizePassAllocationType(pass && pass.AllocationType) === PASS_ALLOCATION_TYPE().UNLIMITED) {
+    return true;
+  }
+  var token = "UNLIMITED";
+  var name = String((pass && (pass.PassName || pass.PassID)) || "").toUpperCase().trim();
+  return name.indexOf(token) !== -1;
+}
+
 function getEffectivePassCoins(pass) {
   if (!pass) return null;
   // UNLIMITED is special: dynamic allocation, never a fixed number.
-  if (_normalizePassAllocationType(pass.AllocationType) === PASS_ALLOCATION_TYPE().UNLIMITED) {
+  if (_isUnlimitedPass(pass)) {
     return null;
   }
-  const price = Number(pass.PriceINR);
+  const price = _passPrice(pass);
   if (isFinite(price) && price > 0) {
     // Single authoritative central rate (Backend/CoinEconomy.js). Never a
     // second conversion system; read-only — the sheet is never rewritten.
@@ -118,7 +146,7 @@ function getEffectivePassCoins(pass) {
     if (!(coinsPerINR > 0)) coinsPerINR = 1;
     return Math.max(0, Math.round(price * coinsPerINR));
   }
-  // No authoritative positive PriceINR (e.g. synthetic admin-upsert return
+  // No authoritative positive price (e.g. synthetic admin-upsert return
   // models without a price). Fall back to the stored allocation for stable
   // display/introspection only.
   const stored = Math.round(Number((pass && pass.IncludedCoins) || 0));
@@ -126,9 +154,9 @@ function getEffectivePassCoins(pass) {
 }
 
 function getPassAllocation(pass) {
-  const type = _normalizePassAllocationType((pass && pass.AllocationType));
+  const unlimited = _isUnlimitedPass(pass);
   const rawCoins = Math.round(Number((pass && pass.IncludedCoins) || 0));
-  if (type === "UNLIMITED") {
+  if (unlimited) {
     return {
       type: "UNLIMITED",
       coins: null,
@@ -190,6 +218,11 @@ function getPromotionPassCatalog() {
     var allocation = getPassAllocation(pass);
     pass.AllocationType = allocation.type;
     pass.coinAllocation = allocation;
+    // Normalize the authoritative price so callers can render it regardless
+    // of which physical column ("Price" vs "PriceINR") holds the value.
+    var price = _passPrice(pass);
+    pass.price = price;
+    pass.PriceINR = price;
     return pass;
   });
 }

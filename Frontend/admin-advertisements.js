@@ -1082,6 +1082,14 @@ function _acwPassCoins(p) {
   return Number((p && p.IncludedCoins) || 0);
 }
 
+// Authoritative pass price (₹) from the server response (Model A). The backend
+// normalizes the live "Price" column into both price and PriceINR. No frontend
+// hardcoding.
+function _acwPassPrice(p) {
+  if (p && p.price != null && Number(p.price) > 0) return Number(p.price);
+  return Number((p && p.PriceINR) || 0);
+}
+
 function _acwPassCoinLabel(p) {
   if (p && p.coinAllocation && p.coinAllocation.type === "UNLIMITED") {
     return "Unlimited / dynamic allocation";
@@ -1102,7 +1110,7 @@ function _acwRenderPassStep() {
       inner += '<div data-testid="acw-pass-card" data-passid="' + _acwEsc(p.PassID) + '" onclick="window._acwPickPass(\'' + _acwEsc(p.PassID) + '\')" ' +
         'style="cursor:pointer;border:2px solid ' + (selected ? '#5b8def' : 'var(--border-color,#333)') + ';border-radius:10px;padding:14px;' + bg + '">' +
         '<div style="font-weight:700;margin-bottom:6px;">' + _acwEsc(p.PassName || p.PassID) + '</div>' +
-        '<div style="font-size:20px;font-weight:700;color:#4caf88;">₹' + _acwEsc(_acwFmtNum(p.PriceINR || 0)) + '</div>' +
+        '<div style="font-size:20px;font-weight:700;color:#4caf88;">₹' + _acwEsc(_acwFmtNum(_acwPassPrice(p))) + '</div>' +
         '<div style="font-size:13px;color:#ff9f43;">' + _acwEsc(_acwPassCoinLabel(p)) + '</div>' +
         (p.DurationLabel ? '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + _acwEsc(p.DurationLabel) + '</div>' : '') +
         '</div>';
@@ -1767,7 +1775,7 @@ function _acwRenderReviewStep() {
   inner += _acwReviewRow("Lifetime", ACW.lifetimeDays + ' days', "acw-review-lifetime");
   inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">PROMOTION PASS</h4>';
   inner += _acwReviewRow("Pass Name", _acwEsc(ACW.pass ? (ACW.pass.PassName || ACW.pass.PassID) : "-"), "acw-review-pass-name");
-  inner += _acwReviewRow("Price", ACW.pass ? ('₹' + _acwEsc(_acwFmtNum(ACW.pass.PriceINR || 0))) : "-", "acw-review-pass-price");
+  inner += _acwReviewRow("Price", ACW.pass ? ('₹' + _acwEsc(_acwFmtNum(_acwPassPrice(ACW.pass)))) : "-", "acw-review-pass-price");
   inner += _acwReviewRow("Coin Allocation", ACW.pass ? _acwEsc(_acwPassCoinLabel(ACW.pass)) : "-", "acw-review-pass-coins");
   inner += '<h4 style="font-size:12px;color:#5b8def;margin:10px 0 4px 0;">CAMPAIGN FUEL</h4>';
   inner += _acwReviewRow("Campaign Fuel", parseInt(ACW.fuel, 10) + ' coins', "acw-review-fuel");
