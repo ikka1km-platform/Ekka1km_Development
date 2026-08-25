@@ -751,3 +751,174 @@ function adminAdjustWallet(e) {
     return exception(err);
   }
 }
+/**
+ * ============================================================
+ * ADMIN ROUTE: PROMOTION TREASURY -> USER WALLET FUNDING
+ * ?action=adminfundwalletfromtreasury&session=TOKEN
+ *   &userId=&coins=&referenceId=&idempotencyKey=&reason=
+ * Authorization: requirePermission(e, "Treasury") — admin-only,
+ * Founder bypass (same protection as AdminTreasury.adminCreateCampaign).
+ *
+ * The ONE canonical operation that moves coins FROM the existing
+ * Promotion Treasury INTO a user's existing Wallet. It reuses the
+ * existing canonical helpers on BOTH sides:
+ *   - debitPromotionTreasury()  (Treasury.js canonical debit; own
+ *     LockService lock + ReferenceID idempotency + negative-balance
+ *     protection, throws rather than silently succeeding).
+ *   - compensateWallet()        (Wallet.js canonical credit; own
+ *     LockService lock + ReferenceID idempotency + truthful
+ *     Type=CREDIT / Source=TREASURY WalletTransactions row, throws
+ *     if any required write fails).
+ *
+ * Both sides share the SAME deterministic ReferenceID, and each helper
+ * independently refuses a second apply — so a retry of the same logical
+ * funding operation can never double-debit the Treasury nor double-credit
+ * the Wallet.
+ * ============================================================
+ */
+function buildTreasuryWalletFundingReference(userId, coins, explicitRef, idempotencyKey) {
+  const key = String(explicitRef || idempotencyKey || "").trim();
+  if (key) {
+    return "TREASURY_WALLET_" + key.replace(/[^A-Za-z0-9_-]/g, "").substring(0, 60);
+  }
+  const basis = "FUND_TREASURY_WALLET|" + String(userId || "") + "|" + String(coins);
+  let h = 5381;
+  for (let i = 0; i < basis.length; i++) {
+    h = ((h << 5) + h + basis.charCodeAt(i)) >>> 0;
+  }
+  return "TREASURY_WALLET_H" + h.toString(36).toUpperCase();
+}
+
+function adminFundWalletFromTreasury(e) {
+  try {
+    const permResult = requirePermission(e, "Treasury");
+    if (!permResult.valid) return permResult.response;
+    const actorAdminId = permResult.adminId;
+
+    const params = e.parameter || {};
+    const userId = String(params.userId || "").trim();
+    const coins = Math.round(Number(params.coins || 0));
+    const referenceId = buildTreasuryWalletFundingReference(
+      userId,
+      coins,
+      String(params.referenceId || "").trim(),
+      String(params.idempotencyKey || "").trim()
+    );
+    const reason = String(params.reason || "").trim() ||
+      "Promotion Treasury -> user wallet funding";
+
+    if (!userId) return error("userId is required.");
+    if (!(coins > 0)) return error("coins must be a positive whole number.");
+
+    // ---- PRE-FLIGHT (outer lock released before the nested helper locks,
+    // matching AdminTreasury.adminCreateCampaign; nested acquisition would
+    // deadlock because both helpers use the SAME script lock). ----
+    var walletId = "";
+    var treasuryBalance = 0;
+    const lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+    try {
+      treasuryBalance = getPromotionTreasuryBalance();
+      if (coins > treasuryBalance) {
+        return error(
+          "Insufficient PromotionTreasury balance. Required: " + coins +
+          ", Available: " + treasuryBalance
+        );
+      }
+      const wallet = getWalletRow(userId);
+      if (!wallet) {
+        return error("Wallet not found. Create a wallet for this user first. A wallet row is never auto-created by this operation.");
+      }
+      walletId = wallet.WalletID;
+    } finally {
+      lock.releaseLock();
+    }
+
+    // ---- 1) TREASURY DEBIT (-coins) via the canonical treasury helper.
+    // Own lock + ReferenceID idempotency + negative-balance protection.
+    // Throws on failure — never falsely reports success. ----
+    const debit = debitPromotionTreasury({
+      type: "DEBIT",
+      domain: "ADMIN_WALLET_FUNDING",
+      coins: coins,
+      userId: userId,
+      referenceId: referenceId,
+      actorAdminId: actorAdminId,
+      createdBy: "ADMIN:" + actorAdminId
+    });
+
+    // ---- 2) WALLET CREDIT (+coins) via the canonical compensation helper.
+    // Own lock + ReferenceID idempotency; writes a truthful
+    // WalletTransactions row with Type=CREDIT and Source=TREASURY.
+    // Throws if the wallet update or the transaction append fails. ----
+    const credit = compensateWallet(
+      userId,
+      coins,
+      referenceId,
+      reason,
+      "CREDIT",
+      "TREASURY"
+    );
+
+    const debitApplied = !!(debit && !debit.idempotent);
+    const creditApplied = !!(credit && !credit.idempotent);
+    const fullIdempotent = !!(debit && debit.idempotent && credit && credit.idempotent);
+
+    // Best-effort admin audit row only when a real (non-duplicate) credit was
+    // just applied; never fails the funding operation (ledgers are the truth).
+    let auditRecorded = false;
+    if (creditApplied) {
+      auditRecorded = _appendAdminEconomyAdjustment({
+        userId: userId,
+        adminId: actorAdminId,
+        type: "CREDIT",
+        coins: coins,
+        reason: reason,
+        referenceId: referenceId,
+        balanceAfter: credit && credit.after,
+        createdBy: "ADMIN:" + actorAdminId
+      });
+    }
+
+    if (fullIdempotent) {
+      return success({
+        idempotent: true,
+        applied: false,
+        userId: userId,
+        coins: coins,
+        referenceId: referenceId,
+        treasuryTxId: "",
+        treasuryBalance: debit && debit.balance,
+        walletId: walletId,
+        walletBalance: credit && credit.balance
+      }, "Promotion Treasury funding already applied for this reference (idempotent).");
+    }
+
+    return success({
+      idempotent: false,
+      applied: true,
+      userId: userId,
+      coins: coins,
+      referenceId: referenceId,
+      treasuryTxId: debit && debit.treasuryTxId,
+      treasuryDebit: {
+        before: debit && debit.before,
+        after: debit && debit.after,
+        balance: debit && debit.balance
+      },
+      treasuryBalance: debit && debit.balance,
+      walletId: walletId,
+      walletCredit: {
+        before: credit && credit.before,
+        after: credit && credit.after,
+        balance: credit && credit.balance,
+        type: credit && credit.type,
+        source: credit && credit.source
+      },
+      walletBalance: credit && credit.balance,
+      auditRecorded: auditRecorded
+    }, "Promotion Treasury funded user wallet.");
+  } catch (err) {
+    return exception(err);
+  }
+}

@@ -207,6 +207,10 @@ function doGet(e) {
       case "adminadjustwallet":
         return adminAdjustWallet(e);
 
+      // Admin: Promotion Treasury -> user wallet funding (single shared reference)
+      case "adminfundwalletfromtreasury":
+        return adminFundWalletFromTreasury(e);
+
       // News
       case "news":
         return getNews(e);
