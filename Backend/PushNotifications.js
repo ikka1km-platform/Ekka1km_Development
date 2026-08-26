@@ -1,276 +1,32 @@
-/**
- * ============================================================
- * EKKA1KM BACKEND
- * PushNotifications.js
- * V6.0 - Push Notification Architecture
- * Architecture Only - No Firebase/OneSignal/FCM integration
- * 
- * READY FOR PRODUCTION:
- * 1. Set PUSH_ENABLED = true
- * 2. Configure provider (Firebase/OneSignal)
- * 3. Implement sendToProvider()
- * ============================================================
- */
-
-
-/**
- * ============================================================
- * CONFIGURATION
- * ============================================================
- */
-
-var PUSH_CONFIG = {
-  ENABLED: false,
-  PROVIDER: "firebase", // firebase, onesignal, fcm
-  FIREBASE_SERVER_KEY: "",
-  ONESIGNAL_APP_ID: "",
-  ONESIGNAL_REST_KEY: ""
-};
-
-
-/**
- * ============================================================
- * SUBSCRIBE TO PUSH
- * ?action=subscribetopush
- *  &userId=U001
- *  &deviceId=xxx
- *  &token=yyy
- *  &platform=android|ios|web
- * ============================================================
- */
-
-function subscribeToPush(e) {
-  try {
-    var p = e.parameter;
-    var userId = p.userId || "";
-    var deviceId = p.deviceId || "";
-    var token = p.token || "";
-    var platform = p.platform || "web";
-
-    if (!userId || !token) {
-      return error("userId and token are required");
-    }
-
-    var sheet = getSheet("PushSubscriptions");
-
-    if (!sheet) {
-      var ss = getSpreadsheet();
-      sheet = ss.insertSheet("PushSubscriptions");
-      sheet.appendRow([
-        "SubscriptionID",
-        "UserID",
-        "DeviceID",
-        "Token",
-        "Platform",
-        "Status",
-        "CreatedDate"
-      ]);
-    }
-
-    var existingData = sheet.getDataRange().getValues();
-
-    // Check if already subscribed with same token
-    for (var i = 1; i < existingData.length; i++) {
-      if (String(existingData[i][3]).trim() === String(token).trim()) {
-        // Update user ID if changed
-        sheet.getRange(i + 1, 2).setValue(userId);
-        return success({}, "Already subscribed");
-      }
-    }
-
-    var subId = "PS" + Utilities.getUuid().substring(0, 8);
-
-    sheet.appendRow([
-      subId,
-      userId,
-      deviceId,
-      token,
-      platform,
-      "Active",
-      new Date()
-    ]);
-
-    return success({
-      subscriptionId: subId
-    }, "Subscribed successfully");
-
-  } catch (err) {
-    return exception(err);
+/** Android FCM push. Credential property: FCM_SERVICE_ACCOUNT_JSON. */
+var PUSH_CONFIG = { ENABLED: true, PROVIDER: "fcm" };
+function ensurePushSubscriptionsSheet_() { var s = getSheet("PushSubscriptions"); if (!s) { s = getSpreadsheet().insertSheet("PushSubscriptions"); s.appendRow(["SubscriptionID","UserID","DeviceID","Token","Platform","Status","CreatedDate","UpdatedDate","LastError"]); } return s; }
+function subscribeToPush(e) { try {
+  var a = requireAuthenticatedUser(e); if (!a.valid) return a.response;
+  var p = e.parameter || {}, token = String(p.token || "").trim(), deviceId = String(p.deviceId || "").trim();
+  if (!token || !deviceId) return error("token and deviceId are required");
+  var s = ensurePushSubscriptionsSheet_(), rows = s.getDataRange().getValues(), deviceRow = -1, now = new Date();
+  for (var i=1;i<rows.length;i++) {
+    if (String(rows[i][3]||"").trim() === token) { if (String(rows[i][1]||"") !== a.userId) return error("Forbidden: token belongs to another user"); s.getRange(i+1,5,1,5).setValues([["android","Active",rows[i][6],now,""]]); return success({subscriptionId:rows[i][0]},"Push subscription refreshed"); }
+    if (String(rows[i][1]||"") === a.userId && String(rows[i][2]||"") === deviceId) deviceRow=i;
   }
-}
-
-
-/**
- * ============================================================
- * UNSUBSCRIBE FROM PUSH
- * ?action=unsubscribefrompush
- *  &userId=U001
- *  &token=yyy
- * ============================================================
- */
-
-function unsubscribeFromPush(e) {
-  try {
-    var userId = e.parameter.userId || "";
-    var token = e.parameter.token || "";
-
-    if (!token) {
-      return error("token is required");
-    }
-
-    var sheet = getSheet("PushSubscriptions");
-
-    if (!sheet) {
-      return error("No subscriptions found");
-    }
-
-    var data = sheet.getDataRange().getValues();
-
-    for (var i = 1; i < data.length; i++) {
-      if (String(data[i][3]).trim() === String(token).trim()) {
-        // Soft delete - mark as inactive
-        var statusCol = 6; // Status column index (0-based)
-        var lastCol = data[i].length;
-        sheet.getRange(i + 1, statusCol + 1).setValue("Inactive");
-        return success({}, "Unsubscribed successfully");
-      }
-    }
-
-    return error("Subscription not found");
-
-  } catch (err) {
-    return exception(err);
-  }
-}
-
-
-/**
- * ============================================================
- * SEND PUSH NOTIFICATION
- * ?action=sendpushnotification
- *  &userId=U001
- *  &title=Hello
- *  &message=World
- *  &imageUrl=
- *  &actionUrl=
- * ============================================================
- */
-
-function sendPushNotification(e) {
-  try {
-    if (!PUSH_CONFIG.ENABLED) {
-      return success({}, "Push notifications are disabled. Enable PUSH_ENABLED in config.");
-    }
-
-    var p = e.parameter;
-    var targetUserId = p.userId || "";
-    var title = p.title || "";
-    var message = p.message || "";
-
-    if (!title) {
-      return error("Title is required");
-    }
-
-    // Get user's push tokens
-    var sheet = getSheet("PushSubscriptions");
-    if (!sheet) {
-      return error("No push subscriptions found");
-    }
-
-    var data = sheet.getDataRange().getValues();
-    var tokens = [];
-
-    for (var i = 1; i < data.length; i++) {
-      var status = String(data[i][5] || "").toLowerCase();
-
-      if (status !== "active") continue;
-
-      // If targeting specific user
-      if (targetUserId && String(data[i][1]).trim() !== String(targetUserId).trim()) {
-        continue;
-      }
-
-      tokens.push({
-        token: data[i][3],
-        platform: data[i][4]
-      });
-    }
-
-    if (tokens.length === 0) {
-      return success({ sent: 0 }, "No active subscriptions found");
-    }
-
-    // Architecture: sendToProvider would be called here
-    // For now, return the tokens that would receive notification
-    return success({
-      sent: tokens.length,
-      tokens: tokens.map(function(t) { return { platform: t.platform }; }),
-      notification: {
-        title: title,
-        message: message,
-        imageUrl: p.imageUrl || "",
-        actionUrl: p.actionUrl || ""
-      }
-    }, "Push notification prepared for delivery");
-
-  } catch (err) {
-    return exception(err);
-  }
-}
-
-
-/**
- * ============================================================
- * GET PUSH SUBSCRIPTION
- * ?action=getpushsubscription&userId=U001
- * ============================================================
- */
-
-function getPushSubscription(e) {
-  try {
-    var userId = e.parameter.userId || "";
-
-    if (!userId) {
-      return error("UserID required");
-    }
-
-    var sheet = getSheet("PushSubscriptions");
-
-    if (!sheet) {
-      return success({
-        count: 0,
-        data: []
-      }, "No subscriptions");
-    }
-
-    var values = sheet.getDataRange().getValues();
-
-    if (values.length <= 1) {
-      return success({
-        count: 0,
-        data: []
-      }, "No subscriptions");
-    }
-
-    var headers = values[0];
-    var data = [];
-
-    for (var i = 1; i < values.length; i++) {
-      if (String(values[i][1]).trim() === String(userId).trim()) {
-        var row = {};
-        for (var j = 0; j < headers.length; j++) {
-          row[headers[j]] = values[i][j];
-        }
-        data.push(row);
-      }
-    }
-
-    return success({
-      count: data.length,
-      data: data
-    }, "Subscriptions loaded");
-
-  } catch (err) {
-    return exception(err);
-  }
-}
+  if (deviceRow >= 0) { s.getRange(deviceRow+1,4,1,6).setValues([[token,"android","Active",rows[deviceRow][6],now,""]]); return success({subscriptionId:rows[deviceRow][0]},"Push token updated"); }
+  var id="PS"+Utilities.getUuid().substring(0,8); s.appendRow([id,a.userId,deviceId,token,"android","Active",now,now,""]); return success({subscriptionId:id},"Subscribed successfully");
+} catch(err) { return exception(err); } }
+function unsubscribeFromPush(e) { try {
+  var a=requireAuthenticatedUser(e); if(!a.valid)return a.response; var token=String((e.parameter||{}).token||"").trim(); if(!token)return error("token is required");
+  var s=getSheet("PushSubscriptions"); if(!s)return error("Subscription not found"); var rows=s.getDataRange().getValues();
+  for(var i=1;i<rows.length;i++) if(String(rows[i][3]||"").trim()===token) { if(String(rows[i][1]||"")!==a.userId)return error("Forbidden"); s.getRange(i+1,6).setValue("Inactive");s.getRange(i+1,8).setValue(new Date());return success({},"Unsubscribed successfully"); } return error("Subscription not found");
+} catch(err){return exception(err);} }
+function unsubscribePushForSession(e) { var a=requireUserSession(e); if(!a.valid)return; var token=String((e.parameter||{}).pushToken||"").trim(),s=getSheet("PushSubscriptions"); if(!token||!s)return; var rows=s.getDataRange().getValues(); for(var i=1;i<rows.length;i++)if(String(rows[i][3]||"")===token&&String(rows[i][1]||"")===a.userId){s.getRange(i+1,6).setValue("Inactive");s.getRange(i+1,8).setValue(new Date());return;} }
+function getPushSubscription(e) { try {
+  var a=requireAuthenticatedUser(e); if(!a.valid)return a.response; var s=getSheet("PushSubscriptions"); if(!s)return success({count:0,data:[]},"No subscriptions"); var rows=s.getDataRange().getValues(),out=[];
+  for(var i=1;i<rows.length;i++)if(String(rows[i][1]||"")===a.userId)out.push({subscriptionId:rows[i][0],deviceId:rows[i][2],platform:rows[i][4],status:rows[i][5],updatedDate:rows[i][7]}); return success({count:out.length,data:out},"Subscriptions loaded");
+}catch(err){return exception(err);} }
+function sendPushNotification(e) { try {
+  var admin=requireAdminSession(e);if(!admin.valid)return admin.response;if(!PUSH_CONFIG.ENABLED)return error("Push notifications are disabled");var p=e.parameter||{},title=String(p.title||"").trim(),target=String(p.userId||"").trim();if(!title)return error("Title is required");var s=getSheet("PushSubscriptions");if(!s)return success({sent:0,failed:0},"No active subscriptions");var rows=s.getDataRange().getValues(),sent=0,failed=0;
+  for(var i=1;i<rows.length;i++){if(String(rows[i][5]||"").toLowerCase()!=="active"||(target&&String(rows[i][1]||"")!==target))continue;var d=sendFcmMessage_(String(rows[i][3]||""),title,String(p.message||""),String(p.imageUrl||""),String(p.actionUrl||""));if(d.ok)sent++;else{failed++;s.getRange(i+1,9).setValue(d.error||"FCM delivery failed");s.getRange(i+1,8).setValue(new Date());if(d.stale)s.getRange(i+1,6).setValue("Inactive");}}return success({sent:sent,failed:failed},"FCM delivery completed");
+}catch(err){return exception(err);} }
+function sendFcmMessage_(token,title,message,imageUrl,actionUrl){try{var c=getFcmServiceAccount_(),access=getFcmAccessToken_(c),payload={message:{token:token,notification:{title:title,body:message},data:{actionUrl:actionUrl||"",imageUrl:imageUrl||""},android:{priority:"HIGH",notification:{image:imageUrl||"",click_action:"FCM_PLUGIN_ACTIVITY"}}}};var r=UrlFetchApp.fetch("https://fcm.googleapis.com/v1/projects/"+encodeURIComponent(c.project_id)+"/messages:send",{method:"post",contentType:"application/json",payload:JSON.stringify(payload),muteHttpExceptions:true,headers:{Authorization:"Bearer "+access}}),code=r.getResponseCode(),body=r.getContentText();if(code>=200&&code<300)return{ok:true};return{ok:false,stale:/UNREGISTERED|INVALID_ARGUMENT/.test(body),error:"FCM HTTP "+code};}catch(err){return{ok:false,stale:false,error:String(err.message||err)};}}
+function getFcmServiceAccount_(){var raw=PropertiesService.getScriptProperties().getProperty("FCM_SERVICE_ACCOUNT_JSON");if(!raw)throw new Error("FCM_SERVICE_ACCOUNT_JSON Script Property is not configured");var c=JSON.parse(raw);if(!c.project_id||!c.client_email||!c.private_key)throw new Error("FCM service account configuration is incomplete");return c;}
+function getFcmAccessToken_(c){var now=Math.floor(Date.now()/1000),enc=function(v){return Utilities.base64EncodeWebSafe(typeof v==="string"?v:JSON.stringify(v)).replace(/=+$/,"");},h=enc({alg:"RS256",typ:"JWT"}),claims=enc({iss:c.client_email,scope:"https://www.googleapis.com/auth/firebase.messaging",aud:"https://oauth2.googleapis.com/token",iat:now,exp:now+3600}),signature=Utilities.computeRsaSha256Signature(h+"."+claims,c.private_key),assertion=h+"."+claims+"."+Utilities.base64EncodeWebSafe(signature).replace(/=+$/,"");var r=UrlFetchApp.fetch("https://oauth2.googleapis.com/token",{method:"post",payload:{grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",assertion:assertion},muteHttpExceptions:true});if(r.getResponseCode()!==200)throw new Error("Unable to obtain FCM access token");return JSON.parse(r.getContentText()).access_token;}

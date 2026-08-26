@@ -75,6 +75,7 @@ function saveSessionToken(token) {
     CONFIG.STORAGE_KEYS.SESSION,
     token
   );
+  window.dispatchEvent(new Event("ekkaUserAuthenticated"));
 }
 
 
@@ -799,6 +800,11 @@ function logoutUser() {
   }
 
   console.log("LOGOUT: clearing all session keys");
+
+  // Best-effort device cleanup while the authenticated session is still held.
+  if (window.EkkaPush && typeof window.EkkaPush.unsubscribeOnLogout === "function") {
+    window.EkkaPush.unsubscribeOnLogout();
+  }
 
   // New session keys (primary)
   clearSessionUser();

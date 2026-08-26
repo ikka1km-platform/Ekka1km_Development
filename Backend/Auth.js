@@ -251,6 +251,13 @@ function loginByMobile(e) {
 
 function logoutUser(e) {
   const token = (e && e.parameter && e.parameter.session) || "";
+  try {
+    if (token && typeof unsubscribePushForSession === "function") {
+      unsubscribePushForSession(e);
+    }
+  } catch (err) {
+    Logger.log("Push logout cleanup failed: " + err);
+  }
   if (token) PropertiesService.getScriptProperties().deleteProperty("user_session_" + token);
   return success(
     {},
