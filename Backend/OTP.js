@@ -94,16 +94,11 @@ function getDevelopmentLocalOtpConfig() {
   const explicitlyEnabled = String(
     properties.getProperty("EKKA1KM_ENABLE_LOCAL_OTP") || ""
   ).toLowerCase() === "true";
-  const testOtp = String(
-    properties.getProperty("EKKA1KM_DEV_OTP_CODE") || ""
-  ).trim();
-  const validOtp = new RegExp("^\\d{" + CONFIG.OTP_LENGTH + "}$").test(testOtp);
 
   return {
-    // All conditions are required. In particular, an enabled flag alone can
-    // never turn LOCAL OTP on in production.
-    enabled: environment === "development" && explicitlyEnabled && validOtp,
-    testOtp: testOtp
+    // Both conditions are required. An enabled flag alone can never turn LOCAL
+    // OTP on in production; the environment must also be "development".
+    enabled: environment === "development" && explicitlyEnabled
   };
 }
 
@@ -120,9 +115,16 @@ function verifyTrustedOtp(mobile, otp) {
 }
 
 function localSendOtp(mobile, developmentLocal) {
-
-  // The controlled OTP exists only in Script Properties, not in API output.
-  const otp = developmentLocal.testOtp;
+  // DEVELOPMENT OTP: generate a fresh random 6-digit OTP for every request.
+  // This path runs only when getDevelopmentLocalOtpConfig() is enabled, which
+  // requires the environment to be "development". Production never reaches it.
+  const otp =
+    String(
+      Math.floor(
+        100000 +
+        Math.random() * 900000
+      )
+    );
 
   // Store in ScriptProperties with expiry
   const storeKey = "otp_" + mobile;
@@ -152,12 +154,15 @@ function localSendOtp(mobile, developmentLocal) {
       mobile: mobile,
       message:
         "OTP sent successfully",
-      provider: "LOCAL"
+      provider: "LOCAL",
+      // DEVELOPMENT-ONLY: surface the OTP so it can be shown on the login
+      // screen for testing. Production cannot reach this function because local
+      // OTP is only enabled when the environment is "development".
+      devOtp: otp
     },
     "OTP Sent Successfully"
   );
 }
-
 
 function localVerifyOtp(mobile, otp, developmentLocal) {
 

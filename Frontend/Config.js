@@ -34,7 +34,7 @@ const CONFIG = {
 
   OTP_PROVIDER: "LOCAL",
 
-  DEV_MODE: false,
+  DEV_MODE: true,
 
   OTP_EXPIRY_MINUTES: 5,
 

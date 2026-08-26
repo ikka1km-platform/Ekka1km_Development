@@ -489,7 +489,7 @@ OTP._serverOtpRequest = async function(action, mobile, otp) {
       return { success: false, message: (json && json.message) || "OTP request failed" };
     }
     const data = json.data || {};
-    return { success: true, message: json.message || "OTP verified", session: data.session || null, user: data.user || null, mobile: data.mobile || mobile };
+    return { success: true, message: json.message || "OTP verified", session: data.session || null, user: data.user || null, mobile: data.mobile || mobile, devOtp: data.devOtp || null };
   } catch (err) { return { success: false, message: "OTP request failed: " + err.message }; }
 };
 
