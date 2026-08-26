@@ -24,8 +24,10 @@ function getProperties(e) {
   // Properties use OwnerUserID for ownership
   const userId = e && e.parameter ? e.parameter.userId || "" : "";
   if (userId) {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
     properties = properties.filter(function(p) {
-      return String(p.OwnerUserID) === String(userId);
+      return String(p.OwnerUserID || p.UserID) === auth.userId;
     });
   }
 
@@ -83,7 +85,10 @@ function getProperty(id) {
 /**
  * Add property
  */
-function addProperty(data) {
+function addProperty(e) {
+  const auth = requireAuthenticatedUser(e);
+  if (!auth.valid) return auth.response;
+  const data = e.parameter || {};
 
   const sheet =
     getSheet("Properties");
@@ -91,7 +96,7 @@ function addProperty(data) {
   const row = [
     data.PropertyID ||
       "PR" + Date.now(),
-    data.UserID || "",
+    auth.userId,
     data.Title || "",
     data.Description || "",
     data.Category || "",
@@ -119,7 +124,10 @@ function addProperty(data) {
 /**
  * Update property
  */
-function updateProperty(data) {
+function updateProperty(e) {
+  const auth = requireAuthenticatedUser(e);
+  if (!auth.valid) return auth.response;
+  const data = e.parameter || {};
 
   const sheet =
     getSheet("Properties");
@@ -156,6 +164,8 @@ function updateProperty(data) {
         data.PropertyID
       )
     ) {
+      const ownerIndex = headers.indexOf("OwnerUserID") >= 0 ? headers.indexOf("OwnerUserID") : headers.indexOf("UserID");
+      if (ownerIndex < 0 || String(values[i][ownerIndex] || "") !== auth.userId) return error("Forbidden");
 
       headers.forEach(
         function (h, c) {
@@ -194,7 +204,10 @@ function updateProperty(data) {
 /**
  * Delete property
  */
-function deleteProperty(id) {
+function deleteProperty(e) {
+  const auth = requireAuthenticatedUser(e);
+  if (!auth.valid) return auth.response;
+  const id = (e.parameter && (e.parameter.id || e.parameter.PropertyID)) || "";
 
   const sheet =
     getSheet("Properties");
@@ -222,6 +235,8 @@ function deleteProperty(id) {
       ) ===
       String(id)
     ) {
+      const ownerIndex = headers.indexOf("OwnerUserID") >= 0 ? headers.indexOf("OwnerUserID") : headers.indexOf("UserID");
+      if (ownerIndex < 0 || String(values[i][ownerIndex] || "") !== auth.userId) return error("Forbidden");
 
       sheet.deleteRow(
         i + 1

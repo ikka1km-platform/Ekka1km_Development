@@ -35,7 +35,7 @@ function sendOtp(e) {
     const provider =
       CONFIG.OTP_PROVIDER || "LOCAL";
 
-    if (provider === "LOCAL") {
+    if (provider === "LOCAL" && CONFIG.DEV_MODE === true) {
       return localSendOtp(mobile);
     }
 
@@ -43,9 +43,7 @@ function sendOtp(e) {
       return msg91SendOtp(mobile);
     }
 
-    return error(
-      "Unknown OTP provider: " + provider
-    );
+    return error("OTP delivery is not configured for production");
 
   } catch (err) {
     return exception(err);
@@ -78,7 +76,7 @@ function verifyOtp(e) {
     const provider =
       CONFIG.OTP_PROVIDER || "LOCAL";
 
-    if (provider === "LOCAL") {
+    if (provider === "LOCAL" && CONFIG.DEV_MODE === true) {
       return localVerifyOtp(mobile, otp);
     }
 
@@ -86,9 +84,7 @@ function verifyOtp(e) {
       return msg91VerifyOtp(mobile, otp);
     }
 
-    return error(
-      "Unknown OTP provider: " + provider
-    );
+    return error("OTP verification is not configured for production");
 
   } catch (err) {
     return exception(err);
@@ -143,9 +139,7 @@ function localSendOtp(mobile) {
       mobile: mobile,
       message:
         "OTP sent successfully",
-      // Never send OTP in production!
-      // This is for LOCAL dev only:
-      devOtp: otp
+      provider: "LOCAL"
     },
     "OTP Sent Successfully"
   );
@@ -242,16 +236,13 @@ function localVerifyOtp(mobile, otp) {
   }
 
   // Generate session
-  const sessionToken =
-    generateSessionToken();
-
-  const userData =
-    userResult.user;
+  const userData = userResult.user;
+  const sessionToken = createUserSession(userData.UserID);
 
   return success(
     {
       session: sessionToken,
-      user: userData,
+      user: buildPublicUser(userData),
       mobile: mobile,
       isNewUser:
         userResult.isNewUser || false

@@ -34,7 +34,7 @@ const CONFIG = {
 
   OTP_PROVIDER: "LOCAL",
 
-  DEV_MODE: true,
+  DEV_MODE: false,
 
   OTP_EXPIRY_MINUTES: 5,
 
@@ -111,6 +111,21 @@ API URL
 function getApiUrl() {
   return CONFIG.API_BASE_URL;
 }
+
+// Compatibility bridge for legacy endpoint calls: authenticated requests carry
+// the opaque session token, while the backend remains the authority for userId.
+(function attachUserSessionToApiRequests() {
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = function(input, init) {
+    const url = typeof input === "string" ? input : (input && input.url) || "";
+    const session = localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION);
+    if (session && url.indexOf(CONFIG.API_BASE_URL) === 0 && !/[?&]session=/.test(url)) {
+      const joined = url + (url.indexOf("?") === -1 ? "?" : "&") + "session=" + encodeURIComponent(session);
+      return nativeFetch(joined, init);
+    }
+    return nativeFetch(input, init);
+  };
+})();
 
 
 /*

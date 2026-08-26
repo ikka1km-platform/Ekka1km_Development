@@ -11,6 +11,23 @@ function doGet(e) {
   try {
     const action = getAction(e);
 
+    // Private state and user-owned mutations derive identity from a
+    // server-held session before reaching their legacy handlers.
+    const userProtectedActions = {
+      profile: true, updateprofile: true, wallet: true, wallettransactions: true,
+      notifications: true, notification: true, unreadnotifications: true,
+      marknotificationread: true, addproduct: true, updateproduct: true,
+      deleteproduct: true, addbusiness: true, updatebusiness: true,
+      deletebusiness: true, addproperty: true, updateproperty: true,
+      deleteproperty: true, addnews: true, updatenews: true, deletenews: true,
+      createproduct: true, createbusiness: true, createproperty: true,
+      createnews: true, createpasspurchase: true, mypurchasedpasses: true
+    };
+    if (userProtectedActions[action]) {
+      const auth = requireAuthenticatedUser(e);
+      if (!auth.valid) return auth.response;
+    }
+
     switch (action) {
 
       // System

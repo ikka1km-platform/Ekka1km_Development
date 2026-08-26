@@ -57,7 +57,6 @@ function adminLogin(e) {
         fullName: admin.FullName || "",
         role: admin.Role || "",
         message: "OTP sent to registered mobile/email",
-        devOtp: CONFIG.OTP_PROVIDER === "LOCAL" ? otpResult.otp : null
       },
       "OTP Sent Successfully"
     );

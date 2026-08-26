@@ -156,6 +156,8 @@ function createProduct(e) {
  */
 function updateProduct(e) {
   try {
+    var auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
     var p = e && e.parameter ? e.parameter : {};
     var productId = p.productId || p.id || "";
 
@@ -221,8 +223,12 @@ function updateProduct(e) {
  */
 function deleteProduct(e) {
   try {
+    var auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
     var productId = e && e.parameter ? e.parameter.productId || e.parameter.id || "" : "";
     if (!productId) return error("productId required");
+    var product = getRowById("Products", "ProductID", productId);
+    if (!product || String(product.UserID || "") !== auth.userId) return error("Forbidden");
 
     var updated = updateRow("Products", "ProductID", productId, {
       Status: "Deleted",
@@ -349,6 +355,8 @@ function createProperty(e) {
  */
 function updateProperty(e) {
   try {
+    var auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
     var p = e && e.parameter ? e.parameter : {};
     var propertyId = p.propertyId || "";
 
@@ -359,6 +367,7 @@ function updateProperty(e) {
     var headers = data[0];
 
     var userIdIndex = headers.indexOf("OwnerUserID");
+    if (userIdIndex < 0) userIdIndex = headers.indexOf("UserID");
     var updatedDateIndex = headers.indexOf("UpdatedDate");
     var propertyRow = null;
     var rowIndex = -1;
@@ -419,8 +428,12 @@ function updateProperty(e) {
  */
 function deleteProperty(e) {
   try {
+    var auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
     var propertyId = e && e.parameter ? e.parameter.propertyId || "" : "";
     if (!propertyId) return error("propertyId required");
+    var property = getRowById("Properties", "PropertyID", propertyId);
+    if (!property || String(property.OwnerUserID || property.UserID || "") !== auth.userId) return error("Forbidden");
 
     var updated = updateRow("Properties", "PropertyID", propertyId, {
       Status: "Deleted",
@@ -536,6 +549,8 @@ function createBusiness(e) {
  */
 function updateBusiness(e) {
   try {
+    var auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
     var p = e && e.parameter ? e.parameter : {};
     var businessId = p.businessId || p.id || "";
 
@@ -546,6 +561,7 @@ function updateBusiness(e) {
     var headers = data[0];
 
     var userIdIndex = headers.indexOf("OwnerUserID");
+    if (userIdIndex < 0) userIdIndex = headers.indexOf("UserID");
     var businessRow = null;
     var rowIndex = -1;
 
@@ -600,8 +616,12 @@ function updateBusiness(e) {
  */
 function deleteBusiness(e) {
   try {
+    var auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
     var businessId = e && e.parameter ? e.parameter.businessId || e.parameter.id || "" : "";
     if (!businessId) return error("businessId required");
+    var business = getRowById("Businesses", "BusinessID", businessId);
+    if (!business || String(business.OwnerUserID || business.UserID || "") !== auth.userId) return error("Forbidden");
 
     var updated = updateRow("Businesses", "BusinessID", businessId, {
       Status: "Deleted",
@@ -719,6 +739,8 @@ function createNews(e) {
  */
 function updateNews(e) {
   try {
+    var auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
     var p = e && e.parameter ? e.parameter : {};
     var newsId = p.newsId || p.id || "";
 
@@ -783,8 +805,12 @@ function updateNews(e) {
  */
 function deleteNews(e) {
   try {
+    var auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
     var newsId = e && e.parameter ? e.parameter.newsId || e.parameter.id || "" : "";
     if (!newsId) return error("newsId required");
+    var news = getRowById("News", "NewsID", newsId);
+    if (!news || String(news.UserID || "") !== auth.userId) return error("Forbidden");
 
     var updated = updateRow("News", "NewsID", newsId, {
       Status: "Deleted",

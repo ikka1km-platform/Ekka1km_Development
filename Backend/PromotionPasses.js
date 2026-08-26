@@ -517,7 +517,9 @@ function confirmPassPurchase(purchaseId) {
     };
   }
 
-  if (currentStatus !== "PENDING") {
+  // A client-created PENDING record is never proof of payment. A trusted
+  // payment integration must first move it to PAYMENT_VERIFIED.
+  if (currentStatus !== "PAYMENT_VERIFIED") {
     throw new Error("Purchase cannot be confirmed. Current status: " + purchase.Status);
   }
 
@@ -577,7 +579,11 @@ function confirmPassPurchase(purchaseId) {
  */
 function createPassPurchaseEndpoint(e) {
   try {
-    const result = createPassPurchase((e && e.parameter) || {});
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+    const payload = (e && e.parameter) || {};
+    payload.userId = auth.userId;
+    const result = createPassPurchase(payload);
     return success(result, "Pass purchase created (PENDING)");
   } catch (err) {
     return exception(err);
@@ -590,6 +596,8 @@ function createPassPurchaseEndpoint(e) {
  */
 function confirmPassPurchaseEndpoint(e) {
   try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
     const purchaseId = String((e && e.parameter && e.parameter.purchaseId) || "").trim();
     const result = confirmPassPurchase(purchaseId);
     return success(result, "Pass purchase confirmed and treasury credited");
@@ -604,8 +612,9 @@ function confirmPassPurchaseEndpoint(e) {
  */
 function myPurchasedPassesEndpoint(e) {
   try {
-    const userId = String((e && e.parameter && e.parameter.userId) || "").trim();
-    if (!userId) return error("userId required");
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+    const userId = auth.userId;
     const purchases = getUserPassPurchases(userId);
     return success({ count: purchases.length, data: purchases }, "Purchased passes loaded");
   } catch (err) {

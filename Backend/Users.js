@@ -7,23 +7,13 @@
  */
 
 function getUsers() {
-  const users = getSheetData(CONFIG.SHEETS.USERS);
-
-  return success(
-    {
-      count: users.length,
-      data: users
-    },
-    "Users Loaded"
-  );
+  return error("Forbidden");
 }
 
 function getProfile(e) {
-  const userId = getParam(e, "userId", "");
-
-  if (!userId) {
-    return success({}, "Profile Loaded");
-  }
+  const auth = requireAuthenticatedUser(e);
+  if (!auth.valid) return auth.response;
+  const userId = auth.userId;
 
   const user = getRowById(
     CONFIG.SHEETS.USERS,
@@ -32,7 +22,7 @@ function getProfile(e) {
   );
 
   return success(
-    user || {},
+    user ? buildPublicUser(user) : {},
     "Profile Loaded"
   );
 }
@@ -54,12 +44,9 @@ function getProfile(e) {
 
 function updateProfile(e) {
   try {
-    const userId =
-      e.parameter.userId || "";
-
-    if (!userId) {
-      return error("UserID required");
-    }
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+    const userId = auth.userId;
 
     const sheet =
       getSheet(CONFIG.SHEETS.USERS);

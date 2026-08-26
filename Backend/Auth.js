@@ -61,10 +61,10 @@ function loginUser(e) {
             .setValue(new Date());
         }
 
-        return success(
-          user,
-          "Login Successful"
-        );
+        return success({
+          session: createUserSession(user.UserID),
+          user: buildPublicUser(user)
+        }, "Login Successful");
       }
     }
 
@@ -242,26 +242,7 @@ function loginByMobile(e) {
       return error("Mobile number is required");
     }
 
-    const result = findOrCreateUserByMobile(mobile);
-
-    if (!result.success) {
-      return error(result.message);
-    }
-
-    // Generate session
-    const sessionToken = generateSessionToken();
-
-    const userData = result.user;
-
-    return success(
-      {
-        session: sessionToken,
-        user: userData,
-        mobile: mobile,
-        isNewUser: result.isNewUser || false
-      },
-      "Login Successful"
-    );
+    return error("OTP verification is required. Use verifyotp.");
 
   } catch (err) {
     return exception(err);
@@ -269,9 +250,57 @@ function loginByMobile(e) {
 }
 
 function logoutUser(e) {
+  const token = (e && e.parameter && e.parameter.session) || "";
+  if (token) PropertiesService.getScriptProperties().deleteProperty("user_session_" + token);
   return success(
     {},
     "Logout Successful"
   );
+}
+
+/** User sessions are server-held; client userId is never an authority. */
+function createUserSession(userId) {
+  const token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
+  PropertiesService.getScriptProperties().setProperty("user_session_" + token, JSON.stringify({
+    userId: String(userId),
+    expiresAt: Date.now() + (CONFIG.SESSION_EXPIRY_HOURS || 24) * 60 * 60 * 1000
+  }));
+  return token;
+}
+
+function requireUserSession(e) {
+  const token = String((e && e.parameter && e.parameter.session) || "").trim();
+  if (!token) return { valid: false, response: error("Authentication required") };
+  const key = "user_session_" + token;
+  const raw = PropertiesService.getScriptProperties().getProperty(key);
+  if (!raw) return { valid: false, response: error("Invalid or expired session") };
+  try {
+    const session = JSON.parse(raw);
+    if (!session.userId || Date.now() > Number(session.expiresAt || 0)) {
+      PropertiesService.getScriptProperties().deleteProperty(key);
+      return { valid: false, response: error("Invalid or expired session") };
+    }
+    return { valid: true, userId: String(session.userId) };
+  } catch (err) { return { valid: false, response: error("Invalid session") }; }
+}
+
+function requireAuthenticatedUser(e) {
+  const session = requireUserSession(e);
+  if (!session.valid) return session;
+  // Detect, rather than silently accept, an attempt to impersonate another user.
+  const claimed = (e.parameter.userId || e.parameter.UserID || e.parameter.ownerUserId || e.parameter.OwnerUserID || "");
+  if (claimed && String(claimed) !== session.userId) return { valid: false, response: error("Forbidden: user identity mismatch") };
+  e.parameter.userId = session.userId;
+  e.parameter.UserID = session.userId;
+  e.parameter.ownerUserId = session.userId;
+  e.parameter.OwnerUserID = session.userId;
+  return session;
+}
+
+function buildPublicUser(user) {
+  const result = {};
+  const sensitive = { Password: true, password: true, OTP: true, AuthenticatorSecret: true, RecoveryCodes: true };
+  Object.keys(user || {}).forEach(function(key) { if (!sensitive[key]) result[key] = user[key]; });
+  return result;
 }
 

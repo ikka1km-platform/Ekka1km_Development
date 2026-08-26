@@ -23,8 +23,10 @@ function getProducts(e) {
   // Filter by userId if provided (Products use UserID)
   const userId = e && e.parameter ? e.parameter.userId || "" : "";
   if (userId) {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
     data = data.filter(function(p) {
-      return String(p.UserID) === String(userId);
+      return String(p.UserID) === auth.userId;
     });
   }
 
@@ -98,6 +100,8 @@ function getProduct(e) {
 function addProduct(e) {
 
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
 
     const sheet = getSheet("Products");
     const p = e.parameter;
@@ -109,7 +113,7 @@ function addProduct(e) {
 
     sheet.appendRow([
       productId,               // ProductID
-      p.userId || "",          // UserID
+      auth.userId,              // UserID
       "",                      // BusinessID
       p.title || "",           // Title
       p.description || "",     // Description
@@ -163,6 +167,8 @@ function addProduct(e) {
 function updateProduct(e) {
 
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
 
     const id = e.parameter.id;
 
@@ -184,6 +190,7 @@ function updateProduct(e) {
         String(data[i][0]).trim() ===
         String(id).trim()
       ) {
+        if (String(data[i][1] || "") !== auth.userId) return error("Forbidden");
 
         if (e.parameter.title) {
           sheet.getRange(i + 1, 4)
@@ -238,6 +245,8 @@ function updateProduct(e) {
 function deleteProduct(e) {
 
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
 
     const id = e.parameter.id;
 
@@ -259,6 +268,7 @@ function deleteProduct(e) {
         String(data[i][0]).trim() ===
         String(id).trim()
       ) {
+        if (String(data[i][1] || "") !== auth.userId) return error("Forbidden");
 
         sheet.deleteRow(
           i + 1

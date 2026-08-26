@@ -58,8 +58,10 @@ function getNews(e) {
     // Filter by userId if provided (News use UserID)
     const userId = e && e.parameter ? e.parameter.userId || "" : "";
     if (userId) {
+      const auth = requireAuthenticatedUser(e);
+      if (!auth.valid) return auth.response;
       news = news.filter(function(n) {
-        return String(n.UserID) === String(userId);
+        return String(n.UserID) === auth.userId;
       });
     }
 
@@ -175,6 +177,8 @@ function getArticle(e) {
  */
 function addNews(e) {
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
 
     const p =
       e.parameter;
@@ -189,7 +193,7 @@ function addNews(e) {
 
     sheet.appendRow([
       newsId,
-      p.UserID || "",
+      auth.userId,
       p.Title || "",
       p.Description || "",
       p.Category || "",
@@ -227,6 +231,8 @@ function addNews(e) {
  */
 function updateNews(e) {
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
 
     const p =
       e.parameter;
@@ -257,6 +263,7 @@ function updateNews(e) {
         String(data[i][0]) ===
         String(id)
       ) {
+        if (String(data[i][1] || "") !== auth.userId) return error("Forbidden");
 
         const headers =
           data[0];
@@ -307,6 +314,8 @@ function updateNews(e) {
  */
 function deleteNews(e) {
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
 
     const id =
       e.parameter.id || "";
@@ -334,6 +343,7 @@ function deleteNews(e) {
         String(data[i][0]) ===
         String(id)
       ) {
+        if (String(data[i][1] || "") !== auth.userId) return error("Forbidden");
 
         sheet.deleteRow(
           i + 1

@@ -23,8 +23,10 @@ function getBusinesses(e) {
   // Filter by userId if provided (Businesses use OwnerUserID)
   const userId = e && e.parameter ? e.parameter.userId || "" : "";
   if (userId) {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
     data = data.filter(function(b) {
-      return String(b.OwnerUserID) === String(userId);
+      return String(b.OwnerUserID) === auth.userId;
     });
   }
 
@@ -108,6 +110,8 @@ function getBusiness(e) {
 function addBusiness(e) {
 
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
 
     const sheet =
       getSheet("Businesses");
@@ -122,7 +126,7 @@ function addBusiness(e) {
 
     sheet.appendRow([
       businessId,
-      p.userId || "",
+      auth.userId,
       p.title || "",
       p.category || "",
       p.description || "",
@@ -163,6 +167,8 @@ function addBusiness(e) {
 function updateBusiness(e) {
 
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
 
     const id =
       e.parameter.id;
@@ -186,6 +192,7 @@ function updateBusiness(e) {
         String(data[i][0]).trim() ===
         String(id).trim()
       ) {
+        if (String(data[i][1] || "") !== auth.userId) return error("Forbidden");
 
         if (e.parameter.title) {
           sheet.getRange(i + 1, 3)
@@ -311,6 +318,8 @@ function updateBusiness(e) {
 function deleteBusiness(e) {
 
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
 
     const id =
       e.parameter.id;
@@ -334,6 +343,7 @@ function deleteBusiness(e) {
         String(data[i][0]).trim() ===
         String(id).trim()
       ) {
+        if (String(data[i][1] || "") !== auth.userId) return error("Forbidden");
 
         sheet.deleteRow(
           i + 1

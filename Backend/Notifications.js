@@ -9,9 +9,11 @@
 
 function getNotifications(e) {
   try {
-    return success(
-      getSheetData("Notifications")
-    );
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+    return success(getSheetData("Notifications").filter(function(n) {
+      return String(n.UserID || "") === auth.userId;
+    }));
   } catch (err) {
     return exception(err);
   }
@@ -20,6 +22,8 @@ function getNotifications(e) {
 
 function getNotification(e) {
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
     const id =
       e.parameter.notificationId || "";
 
@@ -34,6 +38,7 @@ function getNotification(e) {
         "Notification not found"
       );
     }
+    if (String(row.UserID || "") !== auth.userId) return error("Forbidden");
 
     return success(row);
 
@@ -157,9 +162,13 @@ function getNotificationColor(type) {
 
 function markNotificationRead(e) {
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
     const id =
       e.parameter.notificationId || "";
 
+    const notification = getRowById("Notifications", "NotificationID", id);
+    if (!notification || String(notification.UserID || "") !== auth.userId) return error("Notification not found");
     const updated =
       updateRow(
         "Notifications",
@@ -190,8 +199,9 @@ function markNotificationRead(e) {
 
 function getUnreadNotifications(e) {
   try {
-    const userId =
-      e.parameter.userId || "";
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+    const userId = auth.userId;
 
     const list =
       getSheetData("Notifications");

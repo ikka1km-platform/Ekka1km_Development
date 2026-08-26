@@ -6,11 +6,9 @@
 
 function getWallet(e) {
   try {
-    const userId = e.parameter.userId || "";
-
-    if (!userId) {
-      return error("userId required");
-    }
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+    const userId = auth.userId;
 
     const sheet = getSheet("Wallet");
     const data = sheet.getDataRange().getValues();
@@ -40,7 +38,9 @@ function getWallet(e) {
 
 function getWalletTransactions(e) {
   try {
-    const userId = e.parameter.userId || "";
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+    const userId = auth.userId;
 
     const sheet =
       getSheet("WalletTransactions");
@@ -58,7 +58,6 @@ function getWalletTransactions(e) {
     for (let i = 1; i < data.length; i++) {
 
       if (
-        !userId ||
         String(data[i][2]) === String(userId)
       ) {
         const row = {};

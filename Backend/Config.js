@@ -27,6 +27,10 @@ const CONFIG = {
 
   OTP_PROVIDER: "LOCAL",
 
+  // LOCAL OTP is intentionally development-only. Production must use a
+  // configured external provider; it must never expose an OTP to the caller.
+  DEV_MODE: false,
+
   OTP_EXPIRY_MINUTES: 5,
 
   OTP_MAX_ATTEMPTS: 3,

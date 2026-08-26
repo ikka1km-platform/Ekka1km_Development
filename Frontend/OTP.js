@@ -20,7 +20,7 @@ const OTP = {
   /*
   ============================================================
   SEND OTP
-  Returns: { success, message, devOtp? }
+  Returns: { success, message }
   ============================================================
   */
 
@@ -119,6 +119,8 @@ const OTP = {
 
   async _localSend(mobile) {
 
+    return await this._serverOtpRequest("sendotp", mobile);
+
     try {
 
       // Generate 6-digit OTP
@@ -178,9 +180,6 @@ const OTP = {
       const result = {
         success: true,
         message: "OTP sent successfully",
-        devOtp: CONFIG.DEV_MODE
-          ? otp
-          : null,
         mobile: mobile
       };
 
@@ -208,6 +207,8 @@ const OTP = {
   */
 
   async _localVerify(mobile, otp) {
+
+    return await this._serverOtpRequest("verifyotp", mobile, otp);
 
     try {
 
@@ -476,6 +477,20 @@ const OTP = {
       };
     }
   }
+};
+
+OTP._serverOtpRequest = async function(action, mobile, otp) {
+  try {
+    let url = getApiUrl() + "?action=" + action + "&mobile=" + encodeURIComponent(mobile);
+    if (otp !== undefined) url += "&otp=" + encodeURIComponent(otp);
+    const response = await fetch(url);
+    const json = await response.json();
+    if (!(json && (json.success || json.status === "SUCCESS"))) {
+      return { success: false, message: (json && json.message) || "OTP request failed" };
+    }
+    const data = json.data || {};
+    return { success: true, message: json.message || "OTP verified", session: data.session || null, user: data.user || null, mobile: data.mobile || mobile };
+  } catch (err) { return { success: false, message: "OTP request failed: " + err.message }; }
 };
 
 
