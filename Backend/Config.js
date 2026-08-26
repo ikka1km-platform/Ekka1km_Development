@@ -25,10 +25,13 @@ const CONFIG = {
   // OTP SETTINGS
   //============================================================
 
-  OTP_PROVIDER: "LOCAL",
+  // Safe default: no OTP provider is selected until one is explicitly
+  // configured. LOCAL is never a fallback provider.
+  OTP_PROVIDER: "NONE",
 
-  // LOCAL OTP is intentionally development-only. Production must use a
-  // configured external provider; it must never expose an OTP to the caller.
+  // LOCAL OTP is enabled only by the server-side Script Properties checked in
+  // getDevelopmentLocalOtpConfig(). These defaults must remain production-safe.
+  ENVIRONMENT: "production",
   DEV_MODE: false,
 
   OTP_EXPIRY_MINUTES: 5,

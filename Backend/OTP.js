@@ -32,18 +32,12 @@ function sendOtp(e) {
       );
     }
 
-    const provider =
-      CONFIG.OTP_PROVIDER || "LOCAL";
-
-    if (provider === "LOCAL" && CONFIG.DEV_MODE === true) {
-      return localSendOtp(mobile);
+    const developmentLocal = getDevelopmentLocalOtpConfig();
+    if (developmentLocal.enabled) {
+      return localSendOtp(mobile, developmentLocal);
     }
 
-    if (provider === "MSG91") {
-      return msg91SendOtp(mobile);
-    }
-
-    return error("OTP delivery is not configured for production");
+    return sendTrustedOtp(mobile);
 
   } catch (err) {
     return exception(err);
@@ -73,18 +67,12 @@ function verifyOtp(e) {
       );
     }
 
-    const provider =
-      CONFIG.OTP_PROVIDER || "LOCAL";
-
-    if (provider === "LOCAL" && CONFIG.DEV_MODE === true) {
-      return localVerifyOtp(mobile, otp);
+    const developmentLocal = getDevelopmentLocalOtpConfig();
+    if (developmentLocal.enabled) {
+      return localVerifyOtp(mobile, otp, developmentLocal);
     }
 
-    if (provider === "MSG91") {
-      return msg91VerifyOtp(mobile, otp);
-    }
-
-    return error("OTP verification is not configured for production");
+    return verifyTrustedOtp(mobile, otp);
 
   } catch (err) {
     return exception(err);
@@ -98,16 +86,43 @@ function verifyOtp(e) {
  * ============================================================
  */
 
-function localSendOtp(mobile) {
+function getDevelopmentLocalOtpConfig() {
+  const properties = PropertiesService.getScriptProperties();
+  const environment = String(
+    properties.getProperty("EKKA1KM_ENV") || CONFIG.ENVIRONMENT || "production"
+  ).toLowerCase();
+  const explicitlyEnabled = String(
+    properties.getProperty("EKKA1KM_ENABLE_LOCAL_OTP") || ""
+  ).toLowerCase() === "true";
+  const testOtp = String(
+    properties.getProperty("EKKA1KM_DEV_OTP_CODE") || ""
+  ).trim();
+  const validOtp = new RegExp("^\\d{" + CONFIG.OTP_LENGTH + "}$").test(testOtp);
 
-  // Generate 6-digit OTP
-  const otp =
-    String(
-      Math.floor(
-        100000 +
-        Math.random() * 900000
-      )
-    );
+  return {
+    // All conditions are required. In particular, an enabled flag alone can
+    // never turn LOCAL OTP on in production.
+    enabled: environment === "development" && explicitlyEnabled && validOtp,
+    testOtp: testOtp
+  };
+}
+
+function sendTrustedOtp(mobile) {
+  // No trusted provider integration is configured in this codebase. Do not
+  // claim delivery or fall back to LOCAL OTP when the provider is unavailable.
+  return error("No trusted OTP provider is configured");
+}
+
+function verifyTrustedOtp(mobile, otp) {
+  // Keep verification fail-closed until a real provider implementation is
+  // configured; this function never creates a session.
+  return error("No trusted OTP provider is configured");
+}
+
+function localSendOtp(mobile, developmentLocal) {
+
+  // The controlled OTP exists only in Script Properties, not in API output.
+  const otp = developmentLocal.testOtp;
 
   // Store in ScriptProperties with expiry
   const storeKey = "otp_" + mobile;
@@ -115,6 +130,7 @@ function localSendOtp(mobile) {
   const payload = {
     mobile: mobile,
     otp: otp,
+    mode: "DEVELOPMENT_LOCAL",
     attempts: 0,
     createdAt: new Date().getTime(),
     expiresAt:
@@ -129,10 +145,7 @@ function localSendOtp(mobile) {
       JSON.stringify(payload)
     );
 
-  // Log OTP for debugging in dev mode
-  console.log(
-    "OTP for " + mobile + ": " + otp
-  );
+  console.log("Development LOCAL OTP issued for " + mobile);
 
   return success(
     {
@@ -146,7 +159,7 @@ function localSendOtp(mobile) {
 }
 
 
-function localVerifyOtp(mobile, otp) {
+function localVerifyOtp(mobile, otp, developmentLocal) {
 
   const storeKey = "otp_" + mobile;
 
@@ -169,6 +182,11 @@ function localVerifyOtp(mobile, otp) {
     return error(
       "Invalid OTP data. Please request a new OTP."
     );
+  }
+
+  if (payload.mode !== "DEVELOPMENT_LOCAL") {
+    PropertiesService.getScriptProperties().deleteProperty(storeKey);
+    return error("Invalid OTP data. Please request a new OTP.");
   }
 
   // Check expiry
