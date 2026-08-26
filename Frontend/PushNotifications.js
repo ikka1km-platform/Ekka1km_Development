@@ -15,7 +15,7 @@
   function session() { return localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION) || ""; }
   async function registerToken(token) {
     if (!token || !session()) return;
-    const url = getApiUrl() + "?action=subscribetopush&token=" + encodeURIComponent(token) + "&deviceId=" + encodeURIComponent(deviceId()) + "&platform=android";
+    const url = getApiUrl() + "?action=subscribetopush&token=" + encodeURIComponent(token) + "&deviceId=" + encodeURIComponent(deviceId()) + "&platform=android&userId=" + encodeURIComponent(getUserId());
     const response = await fetch(url);
     const result = await response.json();
     if (!result.success) throw new Error(result.message || "Push registration failed");
@@ -43,6 +43,7 @@
     if (permission.receive === "granted") await push.register();
   }
   async function unsubscribeOnLogout() {
+    initialized = false;
     const token = localStorage.getItem(STORAGE_KEY), activeSession = session();
     if (!token || !activeSession) return;
     try { await fetch(getApiUrl() + "?action=unsubscribefrompush&token=" + encodeURIComponent(token)); }
