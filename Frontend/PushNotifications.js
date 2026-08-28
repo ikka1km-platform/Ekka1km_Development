@@ -25,28 +25,62 @@
   function handleAction(notification) {
     const data = (notification && notification.notification && notification.notification.data) || (notification && notification.data) || {};
     const actionUrl = data.actionUrl || data.actionurl || "";
-    if (!actionUrl) return;
-    if (/^https?:\/\//i.test(actionUrl)) { window.location.assign(actionUrl); return; }
+    
+    // Default to opening Notifications Center if no custom deep link is provided
+    if (!actionUrl) {
+      if (typeof openPage === "function") openPage("notifications");
+      return;
+    }
+    
+    if (/^https?:\/\//i.test(actionUrl)) {
+      window.location.assign(actionUrl);
+      return;
+    }
+
     const parts = actionUrl.replace(/^\/?#?\/?/, "").split(/[?/#]/);
-    const page = parts[0];
-    const id = parts[1];
-    if (page && typeof openPage === "function") {
-      openPage(page);
+    const rawPage = (parts[0] || "").toLowerCase();
+    const id = parts[1] || "";
+
+    if (rawPage === "properties" || rawPage === "property" || rawPage === "propertydetails") {
+      if (typeof openPage === "function") openPage("properties");
       if (id) {
-        setTimeout(function() {
-          if ((page === "properties" || page === "propertydetails") && typeof openPropertyDetailModal === "function") {
-            openPropertyDetailModal(id);
-          } else if ((page === "products" || page === "productdetails") && typeof openProductDetailModal === "function") {
-            openProductDetailModal(id);
-          } else if ((page === "businesses" || page === "businessdetails") && typeof openBusinessDetailModal === "function") {
-            openBusinessDetailModal(id);
-          } else if ((page === "news" || page === "newsarticle") && typeof openNewsArticleModal === "function") {
-            openNewsArticleModal(id);
-          } else if ((page === "live" || page === "livepipstream") && typeof openLiveWatchModal === "function") {
-            openLiveWatchModal(id);
+        setTimeout(function () {
+          if (typeof showPropertyDetailsById === "function") {
+            showPropertyDetailsById(id);
           }
-        }, 300);
+        }, 350);
       }
+    } else if (rawPage === "products" || rawPage === "product" || rawPage === "productdetails") {
+      if (typeof openPage === "function") openPage("products");
+      if (id) {
+        setTimeout(function () {
+          if (typeof showProductDetailsById === "function") {
+            showProductDetailsById(id);
+          }
+        }, 350);
+      }
+    } else if (rawPage === "businesses" || rawPage === "business" || rawPage === "businessdetails") {
+      if (typeof openPage === "function") openPage("businesses");
+      if (id) {
+        setTimeout(function () {
+          if (typeof showBusinessDetailsById === "function") {
+            showBusinessDetailsById(id);
+          }
+        }, 350);
+      }
+    } else if (rawPage === "news" || rawPage === "newsarticle" || rawPage === "article") {
+      if (typeof openPage === "function") openPage("news");
+      if (id) {
+        setTimeout(function () {
+          if (typeof showNewsDetailsById === "function") {
+            showNewsDetailsById(id);
+          }
+        }, 350);
+      }
+    } else if (typeof openPage === "function" && rawPage) {
+      openPage(rawPage);
+    } else if (typeof openPage === "function") {
+      openPage("notifications");
     }
   }
   async function initialize() {

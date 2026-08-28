@@ -250,10 +250,11 @@ function renderNotifications() {
       const type = notificationSafeRender(item.Type) || "";
       const icon = notificationSafeRender(item.Icon) || "notifications";
       const color = notificationSafeRender(item.Color) || "#555";
+      const actionUrl = notificationSafeRender(item.ActionURL || item.actionUrl || "");
       
       html += `
       <div class="card notificationCard ${isUnread ? 'notificationUnread' : 'notificationRead'}" 
-           onclick="markNotificationAsRead('${item.NotificationID}')">
+           onclick="handleInAppNotificationClick('${item.NotificationID}', '${actionUrl}')" style="cursor:pointer;">
         <div class="notificationHeader">
           <div class="notificationIcon" style="background:${color}20;color:${color};">
             <i class="material-icons">${icon}</i>
@@ -264,6 +265,7 @@ function renderNotifications() {
             <div class="notificationMeta">
               ${date ? `<span class="notificationDate">${date}</span>` : ''}
               ${type ? `<span class="notificationType">${notificationSafeRender(type)}</span>` : ''}
+              ${actionUrl ? '<span class="notificationType" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);">Tap to view details &rarr;</span>' : ''}
             </div>
           </div>
           ${isUnread ? '<div class="notificationUnreadDot"></div>' : ''}
@@ -275,6 +277,15 @@ function renderNotifications() {
 
   container.innerHTML =
     html;
+}
+
+function handleInAppNotificationClick(notificationId, actionUrl) {
+  if (notificationId && typeof markNotificationAsRead === "function") {
+    markNotificationAsRead(notificationId);
+  }
+  if (actionUrl && window.EkkaPush && typeof window.EkkaPush.handleAction === "function") {
+    window.EkkaPush.handleAction({ data: { actionUrl: actionUrl } });
+  }
 }
 
 
