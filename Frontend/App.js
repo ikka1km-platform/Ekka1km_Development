@@ -550,6 +550,12 @@ const NavigationManager = (() => {
       }
     }
 
+    if (pageId === "notifications") {
+      if (typeof loadNotifications === "function") {
+        loadNotifications();
+      }
+    }
+
     window.scrollTo(0, 0);
   }
 

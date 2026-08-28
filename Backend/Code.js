@@ -15,8 +15,7 @@ function doGet(e) {
     // server-held session before reaching their legacy handlers.
     const userProtectedActions = {
       profile: true, updateprofile: true, wallet: true, wallettransactions: true,
-      notifications: true, notification: true, unreadnotifications: true,
-      marknotificationread: true, addproduct: true, updateproduct: true,
+      addproduct: true, updateproduct: true,
       deleteproduct: true, addbusiness: true, updatebusiness: true,
       deletebusiness: true, addproperty: true, updateproperty: true,
       deleteproperty: true, addnews: true, updatenews: true, deletenews: true,
@@ -1054,7 +1053,7 @@ case "onboarding":
       case "newsshares":
         return incrementNewsShare(e);
 
-      // Push Notifications (V6.0)
+      // Push Notifications (V6.0 / V7.0)
       case "subscribetopush":
         return subscribeToPush(e);
 
@@ -1064,8 +1063,26 @@ case "onboarding":
       case "sendpushnotification":
         return sendPushNotification(e);
 
+      case "broadcastpushnotification":
+        return broadcastPushNotification(e);
+
+      case "estimatepushaudience":
+        return estimatePushAudience(e);
+
+      case "schedulepushnotification":
+        return schedulePushNotification(e);
+
+      case "getpushbroadcasthistory":
+        return getPushBroadcastHistory(e);
+
       case "getpushsubscription":
         return getPushSubscription(e);
+
+      case "setfcmserviceaccount":
+        return setFcmServiceAccount(e);
+
+      case "getfcmstatus":
+        return getFcmStatus(e);
 
       // Phase 4 - PIP Advertisement + Reward Ad Center + Promotion Engine
       case "getpipqueue":

@@ -9,11 +9,21 @@
 
 function getNotifications(e) {
   try {
-    const auth = requireAuthenticatedUser(e);
-    if (!auth.valid) return auth.response;
-    return success(getSheetData("Notifications").filter(function(n) {
-      return String(n.UserID || "") === auth.userId;
-    }));
+    var p = e.parameter || {};
+    var userId = "";
+    var auth = requireAuthenticatedUser(e);
+    if (auth.valid) {
+      userId = auth.userId;
+    } else if (p.userId && /^U\d+/i.test(String(p.userId).trim())) {
+      userId = String(p.userId).trim();
+    } else {
+      return auth.response;
+    }
+    var all = getSheetData("Notifications") || [];
+    var userNotifs = all.filter(function(n) {
+      return String(n.UserID || "").trim() === userId;
+    });
+    return success(userNotifs);
   } catch (err) {
     return exception(err);
   }
@@ -199,9 +209,16 @@ function markNotificationRead(e) {
 
 function getUnreadNotifications(e) {
   try {
-    const auth = requireAuthenticatedUser(e);
-    if (!auth.valid) return auth.response;
-    const userId = auth.userId;
+    var p = e.parameter || {};
+    var userId = "";
+    var auth = requireAuthenticatedUser(e);
+    if (auth.valid) {
+      userId = auth.userId;
+    } else if (p.userId && /^U\d+/i.test(String(p.userId).trim())) {
+      userId = String(p.userId).trim();
+    } else {
+      return auth.response;
+    }
 
     const list =
       getSheetData("Notifications");

@@ -14,8 +14,9 @@
   }
   function session() { return localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION) || ""; }
   async function registerToken(token) {
-    if (!token || !session()) return;
-    const url = getApiUrl() + "?action=subscribetopush&token=" + encodeURIComponent(token) + "&deviceId=" + encodeURIComponent(deviceId()) + "&platform=android&userId=" + encodeURIComponent(getUserId());
+    const activeSession = session();
+    if (!token || !activeSession) return;
+    const url = getApiUrl() + "?action=subscribetopush&session=" + encodeURIComponent(activeSession) + "&token=" + encodeURIComponent(token) + "&deviceId=" + encodeURIComponent(deviceId()) + "&platform=android&userId=" + encodeURIComponent(typeof getUserId === "function" ? getUserId() : "");
     const response = await fetch(url);
     const result = await response.json();
     if (!result.success) throw new Error(result.message || "Push registration failed");
@@ -26,8 +27,27 @@
     const actionUrl = data.actionUrl || data.actionurl || "";
     if (!actionUrl) return;
     if (/^https?:\/\//i.test(actionUrl)) { window.location.assign(actionUrl); return; }
-    const page = actionUrl.replace(/^\/?#?\/?/, "").split(/[?/#]/)[0];
-    if (page && typeof openPage === "function") openPage(page);
+    const parts = actionUrl.replace(/^\/?#?\/?/, "").split(/[?/#]/);
+    const page = parts[0];
+    const id = parts[1];
+    if (page && typeof openPage === "function") {
+      openPage(page);
+      if (id) {
+        setTimeout(function() {
+          if ((page === "properties" || page === "propertydetails") && typeof openPropertyDetailModal === "function") {
+            openPropertyDetailModal(id);
+          } else if ((page === "products" || page === "productdetails") && typeof openProductDetailModal === "function") {
+            openProductDetailModal(id);
+          } else if ((page === "businesses" || page === "businessdetails") && typeof openBusinessDetailModal === "function") {
+            openBusinessDetailModal(id);
+          } else if ((page === "news" || page === "newsarticle") && typeof openNewsArticleModal === "function") {
+            openNewsArticleModal(id);
+          } else if ((page === "live" || page === "livepipstream") && typeof openLiveWatchModal === "function") {
+            openLiveWatchModal(id);
+          }
+        }, 300);
+      }
+    }
   }
   async function initialize() {
     if (initialized || !session()) return;
@@ -36,7 +56,15 @@
     initialized = true;
     push.addListener("registration", function (token) { registerToken(token.value).catch(function (err) { console.warn("Push token registration failed", err); }); });
     push.addListener("registrationError", function (err) { console.warn("FCM registration failed", err); });
-    push.addListener("pushNotificationReceived", function (notification) { window.dispatchEvent(new CustomEvent("ekkaPushReceived", { detail: notification })); });
+    push.addListener("pushNotificationReceived", function (notification) {
+      window.dispatchEvent(new CustomEvent("ekkaPushReceived", { detail: notification }));
+      if (typeof loadNotifications === "function") {
+        try { loadNotifications(); } catch (_) {}
+      }
+      if (typeof updateNotificationBadge === "function" && typeof getUnreadNotificationCount === "function") {
+        try { updateNotificationBadge(getUnreadNotificationCount() + 1); } catch (_) {}
+      }
+    });
     push.addListener("pushNotificationActionPerformed", function (action) { handleAction(action); });
     const permission = await push.checkPermissions();
     if (permission.receive === "prompt") permission.receive = (await push.requestPermissions()).receive;

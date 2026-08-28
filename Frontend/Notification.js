@@ -178,9 +178,10 @@ async function loadNotifications() {
 
   try {
 
+    const sess = localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION) || "";
     const response =
       await fetch(
-        `${getApiUrl()}?action=notifications&userId=${userId}`
+        `${getApiUrl()}?action=notifications&userId=${encodeURIComponent(userId)}&session=${encodeURIComponent(sess)}`
       );
 
     const json =

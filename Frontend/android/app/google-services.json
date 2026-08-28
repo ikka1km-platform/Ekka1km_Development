@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "878799314420",
+    "project_id": "ekka1km",
+    "storage_bucket": "ekka1km.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:878799314420:android:0bffda41a731696b2e6da1",
+        "android_client_info": {
+          "package_name": "com.ekka1km.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC5iQ6J1t1LSH0XEYIpRw0ePpjglfqVOd8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
