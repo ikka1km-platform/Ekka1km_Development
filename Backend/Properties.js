@@ -70,15 +70,36 @@ function getProperties(e) {
 
 /**
  * Get single property
+ * URL:
+ * ?action=property&id=PR001
  */
-function getProperty(id) {
+function getProperty(e) {
+  const id =
+    e &&
+    e.parameter &&
+    e.parameter.id
+      ? e.parameter.id
+      : (typeof e === "string" ? e : (e && e.parameter && e.parameter.propertyId ? e.parameter.propertyId : ""));
 
-  const properties =
-    getSheetData("Properties");
+  if (!id) {
+    return error("Property ID required");
+  }
 
-  return properties.find(function (p) {
-    return String(p.PropertyID) === String(id);
-  });
+  const property =
+    getRowById(
+      "Properties",
+      "PropertyID",
+      id
+    );
+
+  if (!property) {
+    return error("Property not found");
+  }
+
+  return success(
+    property,
+    "Property Loaded"
+  );
 }
 
 
@@ -90,33 +111,39 @@ function addProperty(e) {
   if (!auth.valid) return auth.response;
   const data = e.parameter || {};
 
-  const sheet =
-    getSheet("Properties");
+  const sheet = getSheet("Properties");
+  if (!sheet) return error("Properties sheet not found");
 
-  const row = [
-    data.PropertyID ||
-      "PR" + Date.now(),
-    auth.userId,
-    data.Title || "",
-    data.Description || "",
-    data.Category || "",
-    data.Price || "",
-    data.Address || "",
-    data.City || "",
-    data.State || "",
-    data.Pincode || "",
-    data.Latitude || "",
-    data.Longitude || "",
-    data.Image || "",
-    new Date()
-  ];
+  const propertyId = data.PropertyID || data.propertyId || ("PR" + Utilities.getUuid().substring(0, 8));
+  const status = data.Status || data.status || "Pending";
+  const now = new Date();
+
+  const values = sheet.getDataRange().getValues();
+  const headers = values.length > 0 ? values[0] : [];
+  if (headers.length === 0) {
+    return error("Properties sheet headers not found");
+  }
+
+  const context = {
+    propertyId: propertyId,
+    userId: auth.userId,
+    status: status,
+    now: now,
+    isUpdate: false
+  };
+
+  const row = headers.map(function(header) {
+    return typeof resolvePropertyValueByHeader === "function"
+      ? resolvePropertyValueByHeader(header, data, context)
+      : "";
+  });
 
   sheet.appendRow(row);
 
   return {
     success: true,
-    message:
-      "Property added successfully"
+    message: "Property added successfully",
+    propertyId: propertyId
   };
 }
 

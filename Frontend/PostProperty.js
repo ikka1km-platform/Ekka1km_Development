@@ -80,19 +80,29 @@ function submitProperty() {
     images = [img1, img2, img3].filter(Boolean).join(",");
   }
 
+  var propTypeVal = document.getElementById("propType").value;
+  var propPurposeVal = document.getElementById("propPurpose").value;
+
   var formData = {
     userId: userId,
     businessId: (typeof getPublishAsBusinessId === "function" && !isEdit) ? getPublishAsBusinessId("property") : "",
+    propertyType: propTypeVal,
+    category: propTypeVal,
+    purpose: propPurposeVal,
     title: title,
     description: document.getElementById("propDesc").value.trim(),
-    category: document.getElementById("propType").value,
     price: price,
+    bedrooms: document.getElementById("propBedrooms").value.trim(),
+    bathrooms: document.getElementById("propBathrooms").value.trim(),
+    area: document.getElementById("propArea").value.trim(),
     address: document.getElementById("propAddress").value.trim(),
     city: document.getElementById("propCity").value.trim(),
+    district: document.getElementById("propDistrict").value.trim(),
     state: document.getElementById("propState").value.trim(),
     pincode: "",
     latitude: getCenterLat(),
     longitude: getCenterLng(),
+    images: images,
     image: images,
     status: "Pending"
   };
@@ -146,7 +156,7 @@ function updatePropertyForm(propertyId, existingProperty) {
     openPage("postProperty");
     setTimeout(initPropertyImageUploads, 100);
     
-    document.getElementById("propType").value = existingProperty.Type || "Apartment";
+    document.getElementById("propType").value = existingProperty.PropertyType || existingProperty.Type || existingProperty.Category || "Apartment";
     document.getElementById("propPurpose").value = existingProperty.Purpose || "Sell";
     document.getElementById("propTitle").value = existingProperty.Title || "";
     document.getElementById("propDesc").value = existingProperty.Description || "";
@@ -160,7 +170,7 @@ function updatePropertyForm(propertyId, existingProperty) {
     document.getElementById("propState").value = existingProperty.State || "";
 
     // Preserve existing images into hidden fields and hidden comma field
-    var existingImages = existingProperty.Images || "";
+    var existingImages = existingProperty.Images || existingProperty.Image || "";
     document.getElementById("propImages").value = existingImages;
     var imageParts = existingImages ? existingImages.split(",").map(function(s){ return s.trim(); }) : [];
     document.getElementById("propImage1").value = imageParts[0] || "";
@@ -184,7 +194,7 @@ function updatePropertyForm(propertyId, existingProperty) {
         var property = res.data;
         openPage("postProperty");
         
-        document.getElementById("propType").value = property.Type || "Apartment";
+        document.getElementById("propType").value = property.PropertyType || property.Type || property.Category || "Apartment";
         document.getElementById("propPurpose").value = property.Purpose || "Sell";
         document.getElementById("propTitle").value = property.Title || "";
         document.getElementById("propDesc").value = property.Description || "";
@@ -192,7 +202,7 @@ function updatePropertyForm(propertyId, existingProperty) {
         document.getElementById("propBedrooms").value = property.Bedrooms || "";
         document.getElementById("propBathrooms").value = property.Bathrooms || "";
         document.getElementById("propArea").value = property.Area || "";
-        document.getElementById("propImages").value = property.Images || "";
+        document.getElementById("propImages").value = property.Images || property.Image || "";
         document.getElementById("propAddress").value = property.Address || "";
         document.getElementById("propCity").value = property.City || "";
         document.getElementById("propDistrict").value = property.District || "";

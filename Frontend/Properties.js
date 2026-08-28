@@ -25,6 +25,48 @@ function propertySafeRender(val) {
   return s;
 }
 
+function normalizePropertyImages(images) {
+  if (images === undefined || images === null) return [];
+  if (Array.isArray(images)) {
+    return images.map(function(item) { return String(item || "").trim(); }).filter(Boolean);
+  }
+  if (typeof images === "string") {
+    var s = images.trim();
+    if (!s) return [];
+    if (s.charAt(0) === "[" && s.charAt(s.length - 1) === "]") {
+      try {
+        var parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) {
+          return parsed.map(function(item) { return String(item || "").trim(); }).filter(Boolean);
+        }
+      } catch (_) {}
+    }
+    return s.split(",").map(function(item) { return item.trim(); }).filter(Boolean);
+  }
+  if (typeof images === "object") {
+    try {
+      return Object.values(images).map(function(item) { return String(item || "").trim(); }).filter(Boolean);
+    } catch (_) {
+      return [];
+    }
+  }
+  var str = String(images).trim();
+  return str ? [str] : [];
+}
+
+function getFirstPropertyImage(prop) {
+  if (!prop) return "";
+  var raw = (prop.Images !== undefined && prop.Images !== null && prop.Images !== "")
+    ? prop.Images
+    : ((prop.Image !== undefined && prop.Image !== null && prop.Image !== "")
+      ? prop.Image
+      : ((prop.imageURL !== undefined && prop.imageURL !== null && prop.imageURL !== "")
+        ? prop.imageURL
+        : (prop.image || "")));
+  var list = normalizePropertyImages(raw);
+  return list.length > 0 ? list[0] : "";
+}
+
 /*
 ============================================================
 PROPERTY VIEW ANALYTICS (Preserved)
@@ -88,7 +130,7 @@ async function loadProperties() {
       const state = propertySafeRender(prop.State);
       const desc = propertySafeRender(prop.Description);
       const distance = propertySafeRender(prop.DistanceKm);
-      const imgUrl = prop.Images ? prop.Images.split(",")[0].trim() : "";
+      const imgUrl = getFirstPropertyImage(prop);
 
       html += '<div class="propertyCard" onclick=\'showPropertyDetails(' + JSON.stringify(prop).replace(/'/g, "\\'") + ')\'>';
 
@@ -162,7 +204,7 @@ function renderHomePropertiesPreview(properties) {
   let html = '<div class="homePreviewGrid">';
 
   preview.forEach(prop => {
-    const imgUrl = prop.Images ? prop.Images.split(",")[0].trim() : "";
+    const imgUrl = getFirstPropertyImage(prop);
     const title = prop.Title || "-";
     const price = (prop.Price || 0).toLocaleString();
     const purposeLabel = prop.Purpose === "Rent" ? "For Rent" : "For Sale";
@@ -268,7 +310,7 @@ function showPropertyDetails(property) {
   const floor = propertySafeRender(property.Floor);
   const totalFloors = propertySafeRender(property.TotalFloors);
   const phone = propertySafeRender(property.Phone);
-  const imgUrl = property.Images ? property.Images.split(",")[0].trim() : "";
+  const imgUrl = getFirstPropertyImage(property);
 
   let html = '<div class="hij-detail">';
 

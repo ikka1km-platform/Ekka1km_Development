@@ -279,6 +279,162 @@ function restoreProduct(e) {
 
 /**
  * ============================================================
+ * PROPERTY FIELD RESOLVER (Header-Driven)
+ * ============================================================
+ */
+function resolvePropertyValueByHeader(header, p, context) {
+  p = p || {};
+  context = context || {};
+  var norm = String(header || "").trim().toLowerCase();
+
+  if (norm === "propertyid") {
+    return context.propertyId || p.propertyId || p.PropertyID || p.id || "";
+  }
+  if (norm === "owneruserid" || norm === "userid") {
+    return context.userId || p.userId || p.ownerUserId || p.ownerUserID || p.OwnerUserID || p.UserID || "";
+  }
+  if (norm === "businessid") {
+    return p.businessId || p.businessID || p.BusinessID || "";
+  }
+  if (norm === "propertytype" || norm === "type" || norm === "category") {
+    return p.propertyType || p.PropertyType || p.type || p.Type || p.category || p.Category || "";
+  }
+  if (norm === "purpose") {
+    return p.purpose || p.Purpose || "";
+  }
+  if (norm === "title" || norm === "name") {
+    return p.title || p.Title || p.name || p.Name || "";
+  }
+  if (norm === "description" || norm === "desc") {
+    return p.description || p.Description || p.desc || "";
+  }
+  if (norm === "price") {
+    return p.price !== undefined ? p.price : (p.Price !== undefined ? p.Price : "");
+  }
+  if (norm === "bedrooms" || norm === "bedroom" || norm === "bhk") {
+    return p.bedrooms !== undefined ? p.bedrooms : (p.Bedrooms !== undefined ? p.Bedrooms : (p.bedroom || ""));
+  }
+  if (norm === "bathrooms" || norm === "bathroom" || norm === "bath") {
+    return p.bathrooms !== undefined ? p.bathrooms : (p.Bathrooms !== undefined ? p.Bathrooms : (p.bathroom || ""));
+  }
+  if (norm === "area") {
+    return p.area !== undefined ? p.area : (p.Area !== undefined ? p.Area : "");
+  }
+  if (norm === "images" || norm === "image" || norm === "imageurl") {
+    return p.images || p.Images || p.image || p.Image || p.imageURL || p.imageUrl || "";
+  }
+  if (norm === "videourl" || norm === "video") {
+    return p.videoUrl || p.videoURL || p.VideoURL || p.video || "";
+  }
+  if (norm === "address") {
+    return p.address || p.Address || "";
+  }
+  if (norm === "city") {
+    return p.city || p.City || "";
+  }
+  if (norm === "district") {
+    return p.district || p.District || "";
+  }
+  if (norm === "state") {
+    return p.state || p.State || "";
+  }
+  if (norm === "country") {
+    return p.country || p.Country || (typeof CONFIG !== "undefined" && CONFIG.DEFAULT_COUNTRY) || "India";
+  }
+  if (norm === "pincode" || norm === "pin") {
+    return p.pincode || p.Pincode || p.pin || "";
+  }
+  if (norm === "latitude" || norm === "lat") {
+    return p.latitude !== undefined ? p.latitude : (p.Latitude !== undefined ? p.Latitude : (p.lat !== undefined ? p.lat : ""));
+  }
+  if (norm === "longitude" || norm === "lng" || norm === "long") {
+    return p.longitude !== undefined ? p.longitude : (p.Longitude !== undefined ? p.Longitude : (p.lng !== undefined ? p.lng : ""));
+  }
+  if (norm === "status") {
+    return context.status || p.status || p.Status || "Pending";
+  }
+  if (norm === "createddate") {
+    return context.now || new Date();
+  }
+  if (norm === "updateddate") {
+    return context.isUpdate ? (context.now || new Date()) : "";
+  }
+  if (norm === "featured") {
+    return p.featured || p.Featured || "No";
+  }
+  if (norm === "viewcount" || norm === "views") {
+    return 0;
+  }
+  if (norm === "inquirycount" || norm === "inquiries") {
+    return 0;
+  }
+  if (norm === "promotioncampaignid" || norm === "campaignid") {
+    return p.promotionCampaignId || p.promotionCampaignID || p.campaignId || p.campaignID || "";
+  }
+
+  // Fallback for direct header property
+  if (p[header] !== undefined) return p[header];
+  var keys = Object.keys(p);
+  for (var i = 0; i < keys.length; i++) {
+    if (keys[i].toLowerCase() === norm) {
+      return p[keys[i]];
+    }
+  }
+
+  return "";
+}
+
+/**
+ * Checks if an update payload specifically provided a value for a property column header.
+ */
+function isPropertyFieldProvided(header, p) {
+  if (!p) return false;
+  var norm = String(header || "").trim().toLowerCase();
+  var aliasMap = {
+    "propertyid": ["propertyid", "id"],
+    "owneruserid": ["owneruserid", "userid", "ownerid"],
+    "userid": ["owneruserid", "userid", "ownerid"],
+    "businessid": ["businessid"],
+    "propertytype": ["propertytype", "type", "category"],
+    "type": ["propertytype", "type", "category"],
+    "category": ["propertytype", "type", "category"],
+    "purpose": ["purpose"],
+    "title": ["title", "name"],
+    "description": ["description", "desc"],
+    "price": ["price"],
+    "bedrooms": ["bedrooms", "bedroom", "bhk"],
+    "bathrooms": ["bathrooms", "bathroom", "bath"],
+    "area": ["area"],
+    "images": ["images", "image", "imageurl"],
+    "image": ["images", "image", "imageurl"],
+    "videourl": ["videourl", "video"],
+    "address": ["address"],
+    "city": ["city"],
+    "district": ["district"],
+    "state": ["state"],
+    "country": ["country"],
+    "pincode": ["pincode", "pin"],
+    "latitude": ["latitude", "lat"],
+    "longitude": ["longitude", "lng", "long"],
+    "status": ["status"],
+    "featured": ["featured"],
+    "promotioncampaignid": ["promotioncampaignid", "campaignid"],
+    "campaignid": ["promotioncampaignid", "campaignid"]
+  };
+
+  var aliases = aliasMap[norm] || [norm];
+  for (var k in p) {
+    if (aliases.indexOf(k.toLowerCase()) !== -1) {
+      if (p[k] !== undefined && p[k] !== "") {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * ============================================================
  * CREATE PROPERTY
  * ============================================================
  */
@@ -295,6 +451,8 @@ function createProperty(e) {
     }
 
     const sheet = getSheet("Properties");
+    if (!sheet) return error("Properties sheet not found");
+
     const propertyId = "PR" + Utilities.getUuid().substring(0, 8);
 
     var status = p.status || "Pending";
@@ -302,37 +460,28 @@ function createProperty(e) {
       status = "Pending";
     }
 
-    sheet.appendRow([
-      propertyId,
-      userId,
-      p.title || "",
-      p.description || "",
-      p.category || "",
-      p.price || "",
-      p.address || "",
-      p.city || "",
-      p.state || "",
-      p.pincode || "",
-      p.latitude || "",
-      p.longitude || "",
-      p.image || "",
-      status,
-      new Date()
-    ]);
-
-    // Publish-As: store the selected BusinessID on the new property.
-    // Header-name based write (reuses the existing updateRow helper) so it
-    // is safe regardless of the BusinessID column's position, and silently
-    // no-ops if the column is absent. Personal listings send no businessId,
-    // so this block is skipped and BusinessID stays blank.
-    if (p.businessId) {
-      try {
-        updateRow("Properties", "PropertyID", propertyId, { BusinessID: p.businessId });
-      } catch (be) {
-        Logger.log("Property BusinessID set error: " + be);
-      }
+    var values = sheet.getDataRange().getValues();
+    var headers = values.length > 0 ? values[0] : [];
+    if (headers.length === 0) {
+      return error("Properties sheet headers not found");
     }
 
+    var now = new Date();
+    var context = {
+      propertyId: propertyId,
+      userId: userId,
+      status: status,
+      now: now,
+      isUpdate: false
+    };
+
+    var row = headers.map(function(header) {
+      return resolvePropertyValueByHeader(header, p, context);
+    });
+
+    sheet.appendRow(row);
+
+    // Track event
     try {
       if (typeof trackEvent === "function") {
         trackEvent({
@@ -358,12 +507,16 @@ function updateProperty(e) {
     var auth = requireAuthenticatedUser(e);
     if (!auth.valid) return auth.response;
     var p = e && e.parameter ? e.parameter : {};
-    var propertyId = p.propertyId || "";
+    var propertyId = p.propertyId || p.PropertyID || p.id || "";
 
     if (!propertyId) return error("propertyId required");
 
     var sheet = getSheet("Properties");
+    if (!sheet) return error("Properties sheet not found");
+
     var data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return error("Properties sheet empty");
+
     var headers = data[0];
 
     var userIdIndex = headers.indexOf("OwnerUserID");
@@ -386,7 +539,7 @@ function updateProperty(e) {
 
     // Ownership validation
     var ownerUserId = userIdIndex >= 0 ? String(propertyRow[userIdIndex]) : "";
-    var requestingUserId = p.userId || "";
+    var requestingUserId = (p.userId || p.UserID || auth.userId || "");
     if (requestingUserId && String(ownerUserId) !== String(requestingUserId)) {
       return error("Not authorized to update this property");
     }
@@ -394,11 +547,21 @@ function updateProperty(e) {
     // Do not allow changing immutable fields
     var protectedFields = ["PropertyID", "OwnerUserID", "CreatedDate"];
 
+    var context = {
+      propertyId: propertyId,
+      userId: ownerUserId,
+      status: p.status || p.Status || (headers.indexOf("Status") >= 0 ? propertyRow[headers.indexOf("Status")] : "Pending"),
+      now: new Date(),
+      isUpdate: true
+    };
+
     for (var j = 0; j < headers.length; j++) {
       var key = headers[j];
       if (protectedFields.indexOf(key) >= 0) continue;
-      if (p[key] === undefined || p[key] === "") continue;
-      sheet.getRange(rowIndex + 1, j + 1).setValue(p[key]);
+      if (isPropertyFieldProvided(key, p)) {
+        var val = resolvePropertyValueByHeader(key, p, context);
+        sheet.getRange(rowIndex + 1, j + 1).setValue(val);
+      }
     }
 
     // Update UpdatedDate if the column exists

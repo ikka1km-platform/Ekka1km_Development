@@ -447,9 +447,11 @@ async function submitProperty() {
   }
 
   try {
-    const url = `${getApiUrl()}?action=addproperty`
+    const url = `${getApiUrl()}?action=createproperty`
+      + `&userId=${encodeURIComponent(userId)}`
       + `&ownerUserID=${encodeURIComponent(userId)}`
       + `&propertyType=${encodeURIComponent(propertyType)}`
+      + `&category=${encodeURIComponent(propertyType)}`
       + `&purpose=${encodeURIComponent(purpose)}`
       + `&title=${encodeURIComponent(title)}`
       + `&description=${encodeURIComponent(description)}`
@@ -458,6 +460,7 @@ async function submitProperty() {
       + `&bathrooms=${encodeURIComponent(bathrooms)}`
       + `&area=${encodeURIComponent(area)}`
       + `&images=${encodeURIComponent(images)}`
+      + `&image=${encodeURIComponent(images)}`
       + `&address=${encodeURIComponent(address)}`
       + `&city=${encodeURIComponent(city)}`
       + `&district=${encodeURIComponent(district)}`
