@@ -304,6 +304,18 @@ const NavigationManager = (() => {
   const LIST_PAGE_IDS = new Set(["businesses", "products", "properties", "news"]);
   const MAX_STACK = 50;
 
+  const PAGE_ALIASES = {
+    "propertydetails": "properties",
+    "businessprofile": "businesses",
+    "userprofile": "profile"
+  };
+
+  function resolvePageAlias(pageId) {
+    if (!pageId) return pageId;
+    const lower = String(pageId).toLowerCase().trim();
+    return PAGE_ALIASES[lower] || pageId;
+  }
+
   let navStack = [];
 
   function buildStage(pageId, stage, entityId) {
@@ -426,6 +438,7 @@ const NavigationManager = (() => {
   }
 
   function switchPage(pageId) {
+    pageId = resolvePageAlias(pageId);
 
     const pages =
       document.querySelectorAll(
@@ -600,6 +613,7 @@ const NavigationManager = (() => {
   }
 
   function openPage(pageId) {
+    pageId = resolvePageAlias(pageId);
 
     const current = getCurrentPageId();
 
@@ -1774,7 +1788,21 @@ window.addEventListener(
     // Initialize drawer keyboard navigation (a11y)
     initDrawerKeyboardNav();
 
-    openPage("home");
+    // Check if there is a pending push notification click action (e.g. cold start)
+    let handledPendingPush = false;
+    if (window.EkkaPush && typeof window.EkkaPush.hasPendingAction === "function" && window.EkkaPush.hasPendingAction()) {
+      handledPendingPush = window.EkkaPush.consumePendingAction();
+    }
+
+    // Only default to "home" if no notification click action was pending
+    if (!handledPendingPush) {
+      openPage("home");
+    }
+
+    // Mark app ready in EkkaPush so any subsequent notification clicks execute immediately
+    if (window.EkkaPush && typeof window.EkkaPush.setAppReady === "function") {
+      window.EkkaPush.setAppReady(true);
+    }
 
     loadLocation();
 

@@ -215,7 +215,8 @@ function broadcastPushNotification(e) {
 
     for (var j = 0; j < targetRows.length; j++) {
       var target = targetRows[j];
-      var d = sendFcmMessage_(target.token, title, message, imageUrl, actionUrl);
+      var nId = "NT" + Utilities.getUuid().substring(0, 8);
+      var d = sendFcmMessage_(target.token, title, message, imageUrl, actionUrl, nId);
 
       if (d.ok) {
         sent++;
@@ -226,7 +227,6 @@ function broadcastPushNotification(e) {
         try {
           var sNotif = getSheet("Notifications");
           if (sNotif) {
-            var nId = "NT" + Utilities.getUuid().substring(0, 8);
             sNotif.appendRow([
               nId,
               target.userId,
@@ -471,7 +471,7 @@ function sendPushNotification(e) {
   return broadcastPushNotification(e);
 }
 
-function sendFcmMessage_(token, title, message, imageUrl, actionUrl) {
+function sendFcmMessage_(token, title, message, imageUrl, actionUrl, notificationId) {
   try {
     var c = getFcmServiceAccount_();
     var access = getFcmAccessToken_(c);
@@ -483,6 +483,7 @@ function sendFcmMessage_(token, title, message, imageUrl, actionUrl) {
           body: message
         },
         data: {
+          notificationId: notificationId || "",
           title: title,
           body: message,
           message: message,

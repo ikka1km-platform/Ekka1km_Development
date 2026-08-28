@@ -45,6 +45,9 @@ ENTERPRISE PUSH NOTIFICATION STUDIO (V7.1)
     isEstimating: false
   };
 
+  // Expose studio state to global window for inline template event bindings
+  window.PUSH_STATE = PUSH_STATE;
+
   // Common Indian Multi-Name Presets for Instant Fuzzy Lookup
   var POPULAR_INDIAN_LOCATIONS = [
     { name: "Rajgarh (Biaora)", district: "Rajgarh District", state: "Madhya Pradesh", lat: 24.008, lng: 76.730 },
@@ -952,6 +955,8 @@ ENTERPRISE PUSH NOTIFICATION STUDIO (V7.1)
       }
     }, 400);
   }
+
+  window._pushTriggerEstimate = triggerAudienceEstimation;
 
   /*
   ============================================================
