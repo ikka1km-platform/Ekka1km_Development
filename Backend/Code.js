@@ -425,18 +425,6 @@ case "notification_sent":
       case "live":
         return getLive(e);
 
-      case "adminlivestreams":
-        return getAdminLiveStreams(e);
-
-      case "adminupdatelivestatus":
-        return adminUpdateLiveStatus(e);
-
-      case "adminlivechat":
-        return getAdminLiveChat(e);
-
-      case "adminaddlive":
-        return addLive(e);
-
       case "livechannel":
         return getLiveChannel(e);
 
