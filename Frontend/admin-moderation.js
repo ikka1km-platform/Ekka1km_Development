@@ -47,7 +47,7 @@ AdminModules.register("moderation", async function(container) {
     var session = AdminAuth.getSession();
     if (!session) return null;
     try {
-      var response = await fetch(getApiUrl() + "?action=announcement&announcementId=" + encodeURIComponent(contentId) + "&session=" + encodeURIComponent(session));
+      var response = await fetch(getApiUrl() + "?action=announcement&id=" + encodeURIComponent(contentId) + "&session=" + encodeURIComponent(session));
       var json = await response.json();
       if (json && json.success && json.data) {
         return json.data;
@@ -349,20 +349,32 @@ AdminModules.register("moderation", async function(container) {
     body += '</div>';
 
     // Add action buttons for Pending items
-    var actions = "";
+    var footerActions = "";
     if (String(item.Status || "").toLowerCase() === "pending") {
-      actions = '<div class="modal-actions">' +
-        '<button class="module-btn module-btn-primary" onclick="window._modApproveFromModal(\'' + escapeHtml(item.QueueID || "") + '\')">✅ Approve</button>' +
+      footerActions = '<button class="module-btn module-btn-primary" onclick="window._modApproveFromModal(\'' + escapeHtml(item.QueueID || "") + '\')">✅ Approve</button>' +
         '<button class="module-btn module-btn-danger" onclick="window._modRejectFromModal(\'' + escapeHtml(item.QueueID || "") + '\')">❌ Reject</button>' +
-        '<button class="module-btn module-btn-secondary" onclick="showModal(\'Moderation Item Details\', \'\');">Close</button>' +
-        '</div>';
+        '<button class="module-btn module-btn-secondary" onclick="closeModal()">Close</button>';
     } else {
-      actions = '<div class="modal-actions">' +
-        '<button class="module-btn module-btn-secondary" onclick="showModal(\'Moderation Item Details\', \'\');">Close</button>' +
-        '</div>';
+      footerActions = '<button class="module-btn module-btn-secondary" onclick="closeModal()">Close</button>';
     }
 
-    showModal("Moderation Item Details", body + actions);
+    var mhtml = '<div class="modal-overlay" onclick="closeModal(event)">';
+    mhtml += '  <div class="modal-content modal-lg" onclick="event.stopPropagation()">';
+    mhtml += '    <div class="modal-header">';
+    mhtml += '      <h3>🛡️ Moderation Item Details</h3>';
+    mhtml += '      <button class="modal-close" onclick="closeModal()">✕</button>';
+    mhtml += '    </div>';
+    mhtml += '    <div class="modal-body">';
+    mhtml += body;
+    mhtml += '    </div>';
+    mhtml += '    <div class="modal-footer">';
+    mhtml += footerActions;
+    mhtml += '    </div>';
+    mhtml += '  </div>';
+    mhtml += '</div>';
+
+    closeModal();
+    document.body.insertAdjacentHTML("beforeend", mhtml);
   };
 
   window._modApprove = async function(queueId) {
@@ -371,7 +383,7 @@ AdminModules.register("moderation", async function(container) {
     var result = await updateModeration(queueId, "Approved");
     if (result && result.success) {
       showToast("Item approved successfully", "success");
-      showModal("Moderation Item Details", ""); // Close modal
+      closeModal();
       render();
     } else {
       showToast(result && result.message || "Failed to approve", "error");
@@ -384,7 +396,7 @@ AdminModules.register("moderation", async function(container) {
     var result = await updateModeration(queueId, "Rejected");
     if (result && result.success) {
       showToast("Item rejected", "success");
-      showModal("Moderation Item Details", ""); // Close modal
+      closeModal();
       render();
     } else {
       showToast(result && result.message || "Failed to reject", "error");
@@ -398,7 +410,7 @@ AdminModules.register("moderation", async function(container) {
     var result = await updateModeration(queueId, "Approved");
     if (result && result.success) {
       showToast("Item approved successfully", "success");
-      showModal("Moderation Item Details", ""); // Close modal
+      closeModal();
       render();
     } else {
       showToast(result && result.message || "Failed to approve", "error");
@@ -411,7 +423,7 @@ AdminModules.register("moderation", async function(container) {
     var result = await updateModeration(queueId, "Rejected");
     if (result && result.success) {
       showToast("Item rejected", "success");
-      showModal("Moderation Item Details", ""); // Close modal
+      closeModal();
       render();
     } else {
       showToast(result && result.message || "Failed to reject", "error");

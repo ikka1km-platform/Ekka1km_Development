@@ -25,33 +25,48 @@ function propertySafeRender(val) {
   return s;
 }
 
+function isValidPropertyImageUrl(url) {
+  if (!url) return false;
+  var s = String(url).trim();
+  if (!s) return false;
+  // Discard pure numbers or coordinates (e.g. 75.8189817)
+  if (!isNaN(Number(s))) return false;
+  // Accept http(s), data URIs, root/relative paths with image extensions
+  if (/^(https?:\/\/|data:image\/|\/|\.\/)/i.test(s)) return true;
+  if (/\.(jpeg|jpg|png|webp|gif|svg|avif)(\?.*)?$/i.test(s)) return true;
+  return false;
+}
+
 function normalizePropertyImages(images) {
   if (images === undefined || images === null) return [];
+  var list = [];
   if (Array.isArray(images)) {
-    return images.map(function(item) { return String(item || "").trim(); }).filter(Boolean);
-  }
-  if (typeof images === "string") {
+    list = images.map(function(item) { return String(item || "").trim(); }).filter(Boolean);
+  } else if (typeof images === "string") {
     var s = images.trim();
     if (!s) return [];
     if (s.charAt(0) === "[" && s.charAt(s.length - 1) === "]") {
       try {
         var parsed = JSON.parse(s);
         if (Array.isArray(parsed)) {
-          return parsed.map(function(item) { return String(item || "").trim(); }).filter(Boolean);
+          list = parsed.map(function(item) { return String(item || "").trim(); }).filter(Boolean);
         }
       } catch (_) {}
     }
-    return s.split(",").map(function(item) { return item.trim(); }).filter(Boolean);
-  }
-  if (typeof images === "object") {
+    if (list.length === 0) {
+      list = s.split(",").map(function(item) { return item.trim(); }).filter(Boolean);
+    }
+  } else if (typeof images === "object") {
     try {
-      return Object.values(images).map(function(item) { return String(item || "").trim(); }).filter(Boolean);
+      list = Object.values(images).map(function(item) { return String(item || "").trim(); }).filter(Boolean);
     } catch (_) {
       return [];
     }
+  } else {
+    var str = String(images).trim();
+    list = str ? [str] : [];
   }
-  var str = String(images).trim();
-  return str ? [str] : [];
+  return list.filter(isValidPropertyImageUrl);
 }
 
 function getFirstPropertyImage(prop) {

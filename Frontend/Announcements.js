@@ -30,6 +30,25 @@ const ANNOUNCEMENT_RADIUS_OPTIONS = ["1", "5", "10", "25", "51", "100", "All Ind
 
 /*
 ============================================================
+ESCAPE HTML HELPER
+============================================================
+*/
+
+function announcementEscapeHtml(str) {
+  if (!str) return "";
+  var s = String(str);
+  var am = String.fromCharCode(38) + "amp;";
+  var lt = String.fromCharCode(38) + "lt;";
+  var gt = String.fromCharCode(38) + "gt;";
+  var qt = String.fromCharCode(38) + "quot;";
+  var ap = String.fromCharCode(38) + "#39;";
+  return s.replace(/&/g, am).replace(/</g, lt).replace(/>/g, gt).replace(/"/g, qt).replace(/'/g, ap);
+}
+
+let CURRENT_ANNOUNCEMENTS = [];
+
+/*
+============================================================
 TIME AGO HELPER
 ============================================================
 */
@@ -38,6 +57,7 @@ function timeAgo(dateStr) {
   if (!dateStr) return "";
   const now = new Date();
   const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "";
   const seconds = Math.floor((now - date) / 1000);
   if (seconds < 60) return "Just now";
   const minutes = Math.floor(seconds / 60);
@@ -68,6 +88,7 @@ async function loadAnnouncements() {
     );
     const json = await response.json();
     const announcements = json.data || [];
+    CURRENT_ANNOUNCEMENTS = announcements;
 
     if (announcements.length === 0) {
       container.innerHTML = "<div class='card'>No Announcements found in your area.</div>";
@@ -81,17 +102,18 @@ async function loadAnnouncements() {
       <div style="display:flex;gap:6px;overflow-x:auto;padding:8px 0;margin-bottom:10px;white-space:nowrap;">
         <span class="badge" style="background:var(--primary);color:#fff;cursor:pointer;" onclick="loadAnnouncements()">All</span>
         ${ANNOUNCEMENT_CATEGORIES.map(cat =>
-          `<span class="badge" style="cursor:pointer;background:#e8f5e9;" onclick="loadAnnouncementsByCategory('${cat}')">${cat}</span>`
+          `<span class="badge" style="cursor:pointer;background:#e8f5e9;" onclick="loadAnnouncementsByCategory('${announcementEscapeHtml(cat)}')">${announcementEscapeHtml(cat)}</span>`
         ).join("")}
       </div>
     `;
 
     // Announcement Cards
-    announcements.forEach(item => {
-      const isImportant = (item.Priority || "").toLowerCase() === "important" || (item.Priority || "").toLowerCase() === "emergency";
-      const isUrgent = (item.Priority || "").toLowerCase() === "emergency";
-      const hasImage = item.Image && item.Image.trim();
-      const hasEndDate = item.EndDate && item.EndDate.trim();
+    announcements.forEach((item, index) => {
+      const priority = String(item.Priority || "").toLowerCase();
+      const isImportant = priority === "important" || priority === "emergency";
+      const isUrgent = priority === "emergency";
+      const hasImage = item.Image && String(item.Image).trim();
+      const hasEndDate = item.EndDate && String(item.EndDate).trim();
       
       // Announcer display
       const publisherName = item._publisherName || "";
@@ -100,11 +122,11 @@ async function loadAnnouncements() {
       const publisherCity = item._publisherCity || "";
 
       html += `
-        <div class="announcementCard" style="margin-bottom:12px;padding:14px;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;${isUrgent ? 'border-left:4px solid #d32f2f;' : isImportant ? 'border-left:4px solid #ff9800;' : ''}" onclick='showAnnouncementDetail(${JSON.stringify(item)})'>
+        <div class="announcementCard" style="margin-bottom:12px;padding:14px;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;${isUrgent ? 'border-left:4px solid #d32f2f;' : isImportant ? 'border-left:4px solid #ff9800;' : ''}" onclick="showAnnouncementDetailByIndex(${index})">
           <div style="display:flex;align-items:flex-start;gap:10px;">
             ${hasImage ? `
               <div style="width:70px;min-width:70px;height:70px;border-radius:10px;overflow:hidden;">
-                <img src="${item.Image}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
+                <img src="${announcementEscapeHtml(item.Image)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
               </div>
             ` : `
               <div style="width:70px;min-width:70px;height:70px;border-radius:10px;overflow:hidden;background:#e8f5e9;display:flex;align-items:center;justify-content:center;">
@@ -115,18 +137,18 @@ async function loadAnnouncements() {
               <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;">
                 ${isUrgent ? `<span class="badge" style="background:#d32f2f;color:#fff;font-size:9px;">URGENT</span>` : ""}
                 ${isImportant ? `<span class="badge" style="background:#ff9800;color:#fff;font-size:9px;">IMPORTANT</span>` : ""}
-                ${item.Category ? `<span class="badge" style="background:#e8f5e9;font-size:9px;">${item.Category}</span>` : ""}
+                ${item.Category ? `<span class="badge" style="background:#e8f5e9;font-size:9px;">${announcementEscapeHtml(item.Category)}</span>` : ""}
                 ${isVerified ? `<span class="badge" style="background:#0f9d58;color:#fff;font-size:9px;">✓ OFFICIAL</span>` : ""}
               </div>
-              <h3 style="font-size:14px;margin:0 0 4px;line-height:1.3;">${item.Title || ""}</h3>
-              ${isVerified ? `<div style="font-size:10px;color:#0f9d58;font-weight:500;margin-bottom:2px;">${publisherName}${publisherDesignation ? " · " + publisherDesignation : ""}</div>` : ""}
+              <h3 style="font-size:14px;margin:0 0 4px;line-height:1.3;">${announcementEscapeHtml(item.Title || "")}</h3>
+              ${isVerified ? `<div style="font-size:10px;color:#0f9d58;font-weight:500;margin-bottom:2px;">${announcementEscapeHtml(publisherName)}${publisherDesignation ? " · " + announcementEscapeHtml(publisherDesignation) : ""}</div>` : ""}
               <p style="font-size:12px;color:#666;margin:0;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
-                ${(item.Description || "").substring(0, 100)}
+                ${announcementEscapeHtml((item.Description || "").substring(0, 100))}
               </p>
               <div style="font-size:10px;color:#999;margin-top:6px;">
                 <span>${timeAgo(item.CreatedDate)}</span>
-                ${item.City ? ` · ${item.City}` : ""}
-                ${item.Radius ? ` · ${item.Radius}${item.Radius === "All India" ? "" : " KM"}` : ""}
+                ${item.City ? ` · ${announcementEscapeHtml(item.City)}` : ""}
+                ${item.Radius ? ` · ${announcementEscapeHtml(item.Radius)}${String(item.Radius).toLowerCase() === "all india" ? "" : " KM"}` : ""}
                 ${hasEndDate ? ` · Ends: ${new Date(item.EndDate).toLocaleDateString()}` : ""}
               </div>
             </div>
@@ -154,7 +176,7 @@ async function loadAnnouncementsByCategory(category) {
   const container = document.getElementById("announcementList");
   if (!container) return;
 
-  container.innerHTML = "<div class='card'>Loading " + category + " announcements...</div>";
+  container.innerHTML = "<div class='card'>Loading " + announcementEscapeHtml(category) + " announcements...</div>";
 
   try {
     const response = await fetch(
@@ -166,20 +188,21 @@ async function loadAnnouncementsByCategory(category) {
     const filtered = all.filter(function(item) {
       return (item.Category || "").toLowerCase() === category.toLowerCase();
     });
+    CURRENT_ANNOUNCEMENTS = filtered;
 
     if (filtered.length === 0) {
-      container.innerHTML = `<div class='card'>No ${category} announcements found. <button onclick="loadAnnouncements()" class="btn-gray">Back to All</button></div>`;
+      container.innerHTML = `<div class='card'>No ${announcementEscapeHtml(category)} announcements found. <button onclick="loadAnnouncements()" class="btn-gray">Back to All</button></div>`;
       return;
     }
 
     let html = `<button onclick="loadAnnouncements()" style="margin-bottom:10px;font-size:12px;">← All Announcements</button>`;
-    html += `<div style="font-size:16px;font-weight:600;margin-bottom:12px;">${category}</div>`;
+    html += `<div style="font-size:16px;font-weight:600;margin-bottom:12px;">${announcementEscapeHtml(category)}</div>`;
 
-    filtered.forEach(item => {
+    filtered.forEach((item, index) => {
       html += `
-        <div class="announcementCard" style="margin-bottom:10px;padding:12px;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;" onclick='showAnnouncementDetail(${JSON.stringify(item)})'>
-          <h4 style="font-size:13px;margin:0 0 4px;">${item.Title || ""}</h4>
-          <p style="font-size:11px;color:#666;margin:0;">${(item.Description || "").substring(0, 80)}</p>
+        <div class="announcementCard" style="margin-bottom:10px;padding:12px;background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);cursor:pointer;" onclick="showAnnouncementDetailByIndex(${index})">
+          <h4 style="font-size:13px;margin:0 0 4px;">${announcementEscapeHtml(item.Title || "")}</h4>
+          <p style="font-size:11px;color:#666;margin:0;">${announcementEscapeHtml((item.Description || "").substring(0, 80))}</p>
           <div style="font-size:10px;color:#999;margin-top:4px;">${timeAgo(item.CreatedDate)}</div>
         </div>
       `;
@@ -195,27 +218,41 @@ async function loadAnnouncementsByCategory(category) {
 
 /*
 ============================================================
+SHOW ANNOUNCEMENT DETAIL BY INDEX
+============================================================
+*/
+
+function showAnnouncementDetailByIndex(index) {
+  if (CURRENT_ANNOUNCEMENTS && CURRENT_ANNOUNCEMENTS[index]) {
+    showAnnouncementDetail(CURRENT_ANNOUNCEMENTS[index]);
+  }
+}
+
+
+/*
+============================================================
 ANNOUNCEMENT DETAIL
 ============================================================
 */
 
 function showAnnouncementDetail(item) {
   const container = document.getElementById("announcementList");
-  if (!container) return;
+  if (!container || !item) return;
 
   // Track view using existing analytics infrastructure
-  const userId = getUserId() || "";
+  const userId = typeof getUserId === "function" ? (getUserId() || "") : "";
   const announcementId = item.AnnouncementID || "";
   if (announcementId) {
     const trackUrl = `${getApiUrl()}?action=trackevent&eventType=AnnouncementView&userId=${encodeURIComponent(userId)}&entityType=Announcement&entityId=${encodeURIComponent(announcementId)}`;
     fetch(trackUrl).catch(() => {});
   }
 
-  const hasImage = item.Image && item.Image.trim();
-  const isImportant = (item.Priority || "").toLowerCase() === "important" || (item.Priority || "").toLowerCase() === "emergency";
-  const isUrgent = (item.Priority || "").toLowerCase() === "emergency";
-  const hasEndDate = item.EndDate && item.EndDate.trim();
-  const hasStartDate = item.StartDate && item.StartDate.trim();
+  const hasImage = item.Image && String(item.Image).trim();
+  const priority = String(item.Priority || "").toLowerCase();
+  const isImportant = priority === "important" || priority === "emergency";
+  const isUrgent = priority === "emergency";
+  const hasEndDate = item.EndDate && String(item.EndDate).trim();
+  const hasStartDate = item.StartDate && String(item.StartDate).trim();
   const views = parseInt(item.Views) || 0;
   
   // Announcer info
@@ -228,7 +265,7 @@ function showAnnouncementDetail(item) {
     <div class="card" style="padding:0;overflow:hidden;">
       ${hasImage ? `
         <div style="position:relative;">
-          <img src="${item.Image}" style="width:100%;max-height:250px;object-fit:cover;" onerror="this.style.display='none'">
+          <img src="${announcementEscapeHtml(item.Image)}" style="width:100%;max-height:250px;object-fit:cover;" onerror="this.style.display='none'">
         </div>
       ` : ""}
 
@@ -236,33 +273,31 @@ function showAnnouncementDetail(item) {
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
           ${isUrgent ? `<span class="badge" style="background:#d32f2f;color:#fff;">URGENT</span>` : ""}
           ${isImportant ? `<span class="badge" style="background:#ff9800;color:#fff;">IMPORTANT</span>` : ""}
-          ${item.Category ? `<span class="badge" style="background:var(--primary);color:#fff;">${item.Category}</span>` : ""}
+          ${item.Category ? `<span class="badge" style="background:var(--primary);color:#fff;">${announcementEscapeHtml(item.Category)}</span>` : ""}
           ${isVerified ? `<span class="badge" style="background:#0f9d58;color:#fff;">✓ OFFICIAL</span>` : ""}
         </div>
         
         ${isVerified ? `
         <div style="margin-bottom:12px;padding:10px;background:#e8f5e9;border-radius:8px;font-size:12px;">
-          <div style="font-weight:600;color:#0f9d58;">${publisherName}</div>
-          ${publisherDesignation ? `<div style="color:#555;">${publisherDesignation}${publisherAuthorityType ? " · " + publisherAuthorityType : ""}</div>` : ""}
+          <div style="font-weight:600;color:#0f9d58;">${announcementEscapeHtml(publisherName)}</div>
+          ${publisherDesignation ? `<div style="color:#555;">${announcementEscapeHtml(publisherDesignation)}${publisherAuthorityType ? " · " + announcementEscapeHtml(publisherAuthorityType) : ""}</div>` : ""}
         </div>
         ` : ""}
 
-        <h1 style="font-size:20px;margin:0 0 8px;line-height:1.3;">${item.Title || ""}</h1>
+        <h1 style="font-size:20px;margin:0 0 8px;line-height:1.3;">${announcementEscapeHtml(item.Title || "")}</h1>
 
         <div style="display:flex;gap:12px;font-size:12px;color:#888;margin-bottom:15px;flex-wrap:wrap;">
           <span>🕐 ${timeAgo(item.CreatedDate)}</span>
-          ${item.City ? `<span>📍 ${item.City}${item.State ? ", " + item.State : ""}</span>` : ""}
-          ${item.Radius ? `<span>📡 ${item.Radius}${item.Radius === "All India" ? "" : " KM"}</span>` : ""}
+          ${item.City ? `<span>📍 ${announcementEscapeHtml(item.City)}${item.State ? ", " + announcementEscapeHtml(item.State) : ""}</span>` : ""}
+          ${item.Radius ? `<span>📡 ${announcementEscapeHtml(item.Radius)}${String(item.Radius).toLowerCase() === "all india" ? "" : " KM"}</span>` : ""}
           ${hasStartDate ? `<span>📅 Starts: ${new Date(item.StartDate).toLocaleDateString()}</span>` : ""}
           ${hasEndDate ? `<span>⏰ Ends: ${new Date(item.EndDate).toLocaleDateString()}</span>` : ""}
           <span>👁 ${views} ${views === 1 ? "view" : "views"}</span>
         </div>
 
-        <div style="font-size:14px;line-height:1.7;color:#333;white-space:pre-wrap;">
-          ${item.Description || ""}
-        </div>
+        <div style="font-size:14px;line-height:1.7;color:#333;white-space:pre-wrap;">${announcementEscapeHtml(item.Description || "")}</div>
 
-        ${item.Address ? `<div style="margin-top:12px;font-size:12px;color:#666;"><strong>Location:</strong> ${item.Address}</div>` : ""}
+        ${item.Address ? `<div style="margin-top:12px;font-size:12px;color:#666;"><strong>Location:</strong> ${announcementEscapeHtml(item.Address)}</div>` : ""}
       </div>
     </div>
 
@@ -284,6 +319,9 @@ V2: Detect active Announcer and load official context
 */
 
 async function openPostAnnouncementForm() {
+  if (typeof closeFloatingMenu === "function") {
+    closeFloatingMenu();
+  }
   if (!requireLogin()) return;
   
   var userId = getUserId();
@@ -350,6 +388,10 @@ async function loadAnnouncerPostInfo(announcerId, announcerData) {
     return;
   }
   
+  // Show the radius selector container
+  var radiusContainer = document.getElementById("annRadiusContainer");
+  if (radiusContainer) radiusContainer.style.display = "block";
+
   // Set hidden announcerId field
   var idField = document.getElementById("announcerIdField");
   if (idField) idField.value = announcer.AnnouncerID || "";
@@ -365,17 +407,17 @@ async function loadAnnouncerPostInfo(announcerId, announcerData) {
         OFFICIAL JURISDICTION
       </div>
       <div style="font-size:15px;font-weight:600;color:#1b5e20;margin-bottom:2px;">
-        ${announcer.DepartmentName || "Official Authority"}
+        ${announcementEscapeHtml(announcer.DepartmentName || "Official Authority")}
       </div>
-      ${announcer.Designation ? `<div style="font-size:12px;color:#388e3c;margin-bottom:4px;">${announcer.Designation}</div>` : ""}
+      ${announcer.Designation ? `<div style="font-size:12px;color:#388e3c;margin-bottom:4px;">${announcementEscapeHtml(announcer.Designation)}</div>` : ""}
       <div style="font-size:12px;color:#555;margin-bottom:4px;">
-        ${announcer.Address ? announcer.Address + ", " : ""}${locationStr}${announcer.Country ? ", " + announcer.Country : ""}
+        ${announcer.Address ? announcementEscapeHtml(announcer.Address) + ", " : ""}${announcementEscapeHtml(locationStr)}${announcer.Country ? ", " + announcementEscapeHtml(announcer.Country) : ""}
       </div>
       <div style="font-size:12px;color:#555;">
-        <strong>Maximum Authorized Coverage:</strong> ${maxRadius}${maxRadius === "All India" ? "" : " KM"}
+        <strong>Maximum Authorized Coverage:</strong> ${announcementEscapeHtml(maxRadius)}${String(maxRadius).toLowerCase() === "all india" ? "" : " KM"}
       </div>
       <div style="font-size:11px;color:#777;margin-top:4px;">
-        <strong>Allowed Radii:</strong> ${allowedRadii}
+        <strong>Allowed Radii:</strong> ${announcementEscapeHtml(allowedRadii)}
       </div>
     </div>
   `;
@@ -581,6 +623,9 @@ function clearAnnouncementForm() {
   
   var contextContainer = document.getElementById("announcerPostContext");
   if (contextContainer) contextContainer.innerHTML = "";
+  
+  var radiusContainer = document.getElementById("annRadiusContainer");
+  if (radiusContainer) radiusContainer.style.display = "none";
   
   // Reset location fields to editable
   var cityField = document.getElementById("annCity");

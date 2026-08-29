@@ -6,6 +6,23 @@ V2.0 - Official Verified Announcer Application & Dashboard
 ============================================================
 */
 
+/*
+============================================================
+ESCAPE HTML HELPER
+============================================================
+*/
+
+function announcerEscapeHtml(str) {
+  if (!str) return "";
+  var s = String(str);
+  var am = String.fromCharCode(38) + "amp;";
+  var lt = String.fromCharCode(38) + "lt;";
+  var gt = String.fromCharCode(38) + "gt;";
+  var qt = String.fromCharCode(38) + "quot;";
+  var ap = String.fromCharCode(38) + "#39;";
+  return s.replace(/&/g, am).replace(/</g, lt).replace(/>/g, gt).replace(/"/g, qt).replace(/'/g, ap);
+}
+
 function openAnnouncerPanel() {
   if (!requireLogin()) return;
   var userId = getUserId();
@@ -17,6 +34,12 @@ function openAnnouncerPanel() {
 async function loadAnnouncerStatus(userId) {
   var container = document.getElementById("announcerContent");
   if (!container) return;
+
+  if (!userId) {
+    container.innerHTML = '<div class="card" style="padding:24px;text-align:center;"><div style="font-size:48px;margin-bottom:12px;">📢</div><h3 style="margin:0 0 8px;">Official Announcer Portal</h3><p style="font-size:13px;color:#666;margin:0 0 16px;">Please log in to apply for or manage your official Announcer profile.</p><button class="btn-primary" onclick="openPage(\'login\')">Login to Continue</button></div>';
+    return;
+  }
+
   container.innerHTML = "<div class='card'>Loading...</div>";
   try {
     var response = await fetch(getApiUrl() + "?action=myannouncerstatus&userId=" + encodeURIComponent(userId));
@@ -60,16 +83,16 @@ function renderAnnouncerCard(announcer) {
   
   var html = '<div class="card" style="padding:16px;margin-bottom:12px;">';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
-  html += '<div style="font-size:14px;font-weight:600;">' + (announcer.DepartmentName || "Announcer") + '</div>';
-  html += '<div style="font-size:12px;padding:3px 10px;border-radius:12px;background:' + statusColor + '20;color:' + statusColor + ';font-weight:600;">' + statusLabel + '</div>';
+  html += '<div style="font-size:14px;font-weight:600;">' + announcerEscapeHtml(announcer.DepartmentName || "Announcer") + '</div>';
+  html += '<div style="font-size:12px;padding:3px 10px;border-radius:12px;background:' + statusColor + '20;color:' + statusColor + ';font-weight:600;">' + announcerEscapeHtml(statusLabel) + '</div>';
   html += '</div>';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;color:#555;">';
-  html += '<div><strong>Announcer ID:</strong> ' + (announcer.AnnouncerID || "") + '</div>';
-  html += '<div><strong>Designation:</strong> ' + (announcer.Designation || "N/A") + '</div>';
-  html += '<div><strong>Authority Type:</strong> ' + (announcer.AuthorityType || "N/A") + '</div>';
-  html += '<div><strong>Location:</strong> ' + (announcer.City || "") + (announcer.State ? ", " + announcer.State : "") + '</div>';
-  html += '<div><strong>Max Radius:</strong> ' + (announcer.MaxRadius || "N/A") + '</div>';
-  html += '<div><strong>Allowed Radii:</strong> ' + allowedRadii + '</div>';
+  html += '<div><strong>Announcer ID:</strong> ' + announcerEscapeHtml(announcer.AnnouncerID || "") + '</div>';
+  html += '<div><strong>Designation:</strong> ' + announcerEscapeHtml(announcer.Designation || "N/A") + '</div>';
+  html += '<div><strong>Authority Type:</strong> ' + announcerEscapeHtml(announcer.AuthorityType || "N/A") + '</div>';
+  html += '<div><strong>Location:</strong> ' + announcerEscapeHtml(announcer.City || "") + (announcer.State ? ", " + announcerEscapeHtml(announcer.State) : "") + '</div>';
+  html += '<div><strong>Max Radius:</strong> ' + announcerEscapeHtml(announcer.MaxRadius || "N/A") + '</div>';
+  html += '<div><strong>Allowed Radii:</strong> ' + announcerEscapeHtml(allowedRadii) + '</div>';
   html += '<div><strong>Applied:</strong> ' + formatDate(announcer.RequestedDate) + '</div>';
   if (announcer.VerifiedDate) html += '<div><strong>Verified:</strong> ' + formatDate(announcer.VerifiedDate) + '</div>';
   html += '</div>';
@@ -124,8 +147,8 @@ async function renderAnnouncerDashboard(announcer, userId) {
         var a = announcements[i];
         html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0f0;">';
         html += '<div style="flex:1;min-width:0;">';
-        html += '<div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (a.Title || "Untitled") + '</div>';
-        html += '<div style="font-size:10px;color:#888;">' + formatDate(a.CreatedDate) + ' Radius: ' + (a.Radius || "N/A") + '</div>';
+        html += '<div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + announcerEscapeHtml(a.Title || "Untitled") + '</div>';
+        html += '<div style="font-size:10px;color:#888;">' + formatDate(a.CreatedDate) + ' Radius: ' + announcerEscapeHtml(a.Radius || "N/A") + '</div>';
         html += '</div>';
         html += '<div style="margin-left:8px;">' + getStatusBadge(a.Status) + '</div>';
         html += '</div>';
@@ -164,9 +187,9 @@ async function loadMyAnnouncements(announcerId, userId) {
         html += '<div class="card" style="padding:12px;margin-bottom:8px;">';
         html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;">';
         html += '<div style="flex:1;min-width:0;">';
-        html += '<div style="font-size:14px;font-weight:500;">' + (a.Title || "Untitled") + '</div>';
-        html += '<div style="font-size:11px;color:#666;margin-top:4px;">' + (a.Description || "").substring(0, 100) + '</div>';
-        html += '<div style="font-size:10px;color:#999;margin-top:6px;">' + formatDate(a.CreatedDate) + ' Radius: ' + (a.Radius || "N/A") + ' Views: ' + views + '</div>';
+        html += '<div style="font-size:14px;font-weight:500;">' + announcerEscapeHtml(a.Title || "Untitled") + '</div>';
+        html += '<div style="font-size:11px;color:#666;margin-top:4px;">' + announcerEscapeHtml((a.Description || "").substring(0, 100)) + '</div>';
+        html += '<div style="font-size:10px;color:#999;margin-top:6px;">' + formatDate(a.CreatedDate) + ' Radius: ' + announcerEscapeHtml(a.Radius || "N/A") + ' Views: ' + views + '</div>';
         html += '</div>';
         html += '<div style="margin-left:8px;">' + getStatusBadge(a.Status) + '</div>';
         html += '</div></div>';

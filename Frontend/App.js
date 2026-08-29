@@ -569,6 +569,19 @@ const NavigationManager = (() => {
       }
     }
 
+    if (pageId === "announcements") {
+      if (typeof loadAnnouncements === "function") {
+        loadAnnouncements();
+      }
+    }
+
+    if (pageId === "announcerPanel") {
+      var userId = typeof getUserId === "function" ? getUserId() : "";
+      if (typeof loadAnnouncerStatus === "function") {
+        loadAnnouncerStatus(userId);
+      }
+    }
+
     window.scrollTo(0, 0);
   }
 

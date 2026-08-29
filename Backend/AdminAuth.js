@@ -49,7 +49,7 @@ function adminLogin(e) {
       return error("Failed to generate OTP. Please try again.");
     }
 
-    // Return success with admin info (no OTP in production)
+    // Return success with admin info
     return success(
       {
         adminId: admin.AdminID,
@@ -57,6 +57,7 @@ function adminLogin(e) {
         fullName: admin.FullName || "",
         role: admin.Role || "",
         message: "OTP sent to registered mobile/email",
+        devOtp: otpResult.otp
       },
       "OTP Sent Successfully"
     );

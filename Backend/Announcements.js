@@ -259,7 +259,7 @@ function getAnnouncements(e) {
  */
 function getAnnouncement(e) {
   try {
-    var id = e.parameter.id || "";
+    var id = e.parameter.id || e.parameter.announcementId || "";
     if (!id) {
       return error("AnnouncementID required");
     }
@@ -393,6 +393,18 @@ function createAnnouncement(e) {
     var announcementId = "A" + Utilities.getUuid().substring(0, 8);
     var status = "Pending";
 
+    // Canonicalize priority
+    var validPriorities = ["Normal", "Important", "Emergency"];
+    var canonicalPriority = "Normal";
+    if (p.priority) {
+      for (var pri = 0; pri < validPriorities.length; pri++) {
+        if (validPriorities[pri].toLowerCase() === String(p.priority).trim().toLowerCase()) {
+          canonicalPriority = validPriorities[pri];
+          break;
+        }
+      }
+    }
+
     sheet.appendRow([
       announcementId,
       userId,
@@ -409,7 +421,7 @@ function createAnnouncement(e) {
       annLng,
       p.startDate || "",
       p.endDate || "",
-      p.priority || "Normal",
+      canonicalPriority,
       status,
       new Date(),
       new Date(),
@@ -674,6 +686,19 @@ function addAnnouncement(e) {
 
     var announcementId = "A" + Utilities.getUuid().substring(0, 8);
 
+    // Canonicalize priority
+    var validPriorities = ["Normal", "Important", "Emergency"];
+    var canonicalPriority = "Normal";
+    var rawPri = p.Priority || p.priority || "";
+    if (rawPri) {
+      for (var pri = 0; pri < validPriorities.length; pri++) {
+        if (validPriorities[pri].toLowerCase() === String(rawPri).trim().toLowerCase()) {
+          canonicalPriority = validPriorities[pri];
+          break;
+        }
+      }
+    }
+
     sheet.appendRow([
       announcementId,
       p.UserID || "",
@@ -690,7 +715,7 @@ function addAnnouncement(e) {
       p.Longitude || "",
       p.StartDate || "",
       p.EndDate || "",
-      p.Priority || "Normal",
+      canonicalPriority,
       "Pending",
       new Date(),
       new Date(),
