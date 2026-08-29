@@ -513,13 +513,222 @@ function getLiveAnalytics(e) {
 
 /**
  * ============================================================
- * ADD LIVE
+ * GET ADMIN LIVE STREAMS (Phase 5.8 - Live Monitoring)
+ * ?action=adminlivestreams&session=TOKEN
+ * ============================================================
+ */
+function getAdminLiveStreams(e) {
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    const streams = getSheetData(CONFIG.SHEETS.LIVE) || [];
+    const viewersData = getSheetData(CONFIG.SHEETS.LIVE_VIEWERS) || [];
+    const likesData = getSheetData(CONFIG.SHEETS.LIVE_LIKES) || [];
+    const sharesData = getSheetData(CONFIG.SHEETS.LIVE_SHARES) || [];
+    const chatData = getSheetData(CONFIG.SHEETS.LIVE_CHAT) || [];
+    const modData = getSheetData(CONFIG.SHEETS.LIVE_MODERATORS) || [];
+    const subData = getSheetData(CONFIG.SHEETS.LIVE_SUBSCRIBERS) || [];
+
+    // Build metric lookup maps
+    const activeViewersMap = {};
+    viewersData.forEach(function(v) {
+      if (v.LiveID && v.Active === true) {
+        activeViewersMap[v.LiveID] = (activeViewersMap[v.LiveID] || 0) + 1;
+      }
+    });
+
+    const likesMap = {};
+    likesData.forEach(function(l) {
+      if (l.LiveID && String(l.Type || "LIKE").toUpperCase() === "LIKE") {
+        likesMap[l.LiveID] = (likesMap[l.LiveID] || 0) + 1;
+      }
+    });
+
+    const sharesMap = {};
+    sharesData.forEach(function(s) {
+      if (s.LiveID) {
+        sharesMap[s.LiveID] = (sharesMap[s.LiveID] || 0) + 1;
+      }
+    });
+
+    const chatMap = {};
+    chatData.forEach(function(c) {
+      if (c.LiveID) {
+        chatMap[c.LiveID] = (chatMap[c.LiveID] || 0) + 1;
+      }
+    });
+
+    const modMap = {};
+    modData.forEach(function(m) {
+      if (m.LiveID) {
+        modMap[m.LiveID] = (modMap[m.LiveID] || 0) + 1;
+      }
+    });
+
+    const subMap = {};
+    subData.forEach(function(sb) {
+      if (sb.LiveID) {
+        subMap[sb.LiveID] = (subMap[sb.LiveID] || 0) + 1;
+      }
+    });
+
+    let totalActiveStreams = 0;
+    let totalConcurrentViewers = 0;
+    let totalLikes = 0;
+    let totalShares = 0;
+    let totalChatMessages = chatData.length;
+    let totalModerators = modData.length;
+
+    const enrichedStreams = streams.map(function(s) {
+      const liveId = String(s.LiveID || "");
+      const isLive = String(s.IsLive || "").toLowerCase() === "yes";
+      const status = String(s.Status || "Active");
+      const viewers = activeViewersMap[liveId] || Number(s.ViewerCount || 0);
+      const likes = likesMap[liveId] || 0;
+      const shares = sharesMap[liveId] || 0;
+      const chatCount = chatMap[liveId] || 0;
+      const modCount = modMap[liveId] || 0;
+      const subCount = subMap[liveId] || 0;
+
+      if (isLive && status.toLowerCase() !== "deleted") {
+        totalActiveStreams++;
+        totalConcurrentViewers += viewers;
+      }
+      totalLikes += likes;
+      totalShares += shares;
+
+      return {
+        LiveID: liveId,
+        Title: s.Title || "Live Stream",
+        Description: s.Description || "",
+        Streamer: s.Streamer || s.Announcer || s.UserID || "Streamer",
+        UserID: s.UserID || "",
+        Category: s.Category || "General",
+        City: s.City || "",
+        State: s.State || "",
+        StreamURL: s.StreamURL || s.VideoURL || s.HLSUrl || "",
+        ImageURL: s.ImageURL || s.Thumbnail || "",
+        IsLive: isLive ? "Yes" : "No",
+        IsFeatured: String(s.IsFeatured || "").toLowerCase() === "yes" ? "Yes" : "No",
+        AllowPIP: String(s.AllowPIP || "").toLowerCase() === "yes" ? "Yes" : "No",
+        Status: status,
+        ViewerCount: viewers,
+        LikeCount: likes,
+        ShareCount: shares,
+        ChatCount: chatCount,
+        ModeratorCount: modCount,
+        SubscriberCount: subCount,
+        CreatedDate: s.CreatedDate || s.StartDate || ""
+      };
+    });
+
+    // Sort: Live streams first, then newest
+    enrichedStreams.sort(function(a, b) {
+      if (a.IsLive === "Yes" && b.IsLive !== "Yes") return -1;
+      if (a.IsLive !== "Yes" && b.IsLive === "Yes") return 1;
+      return new Date(b.CreatedDate || 0) - new Date(a.CreatedDate || 0);
+    });
+
+    return success({
+      summary: {
+        totalStreams: streams.length,
+        activeLiveStreams: totalActiveStreams,
+        totalConcurrentViewers: totalConcurrentViewers,
+        totalLikes: totalLikes,
+        totalShares: totalShares,
+        totalChatMessages: totalChatMessages,
+        totalModerators: totalModerators
+      },
+      data: enrichedStreams
+    }, "Admin live streams loaded successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ============================================================
+ * ADMIN UPDATE LIVE STATUS (Phase 5.8)
+ * ?action=adminupdatelivestatus&liveId=L001&isLive=No&status=Suspended
+ * ============================================================
+ */
+function adminUpdateLiveStatus(e) {
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    const p = e.parameter || {};
+    const liveId = p.liveId || "";
+
+    if (!liveId) {
+      return error("liveId is required");
+    }
+
+    const updates = {};
+    if (p.status !== undefined) updates.Status = p.status;
+    if (p.isLive !== undefined) updates.IsLive = p.isLive;
+    if (p.isFeatured !== undefined) updates.IsFeatured = p.isFeatured;
+    if (p.allowPip !== undefined) updates.AllowPIP = p.allowPip;
+    updates.UpdatedDate = new Date();
+
+    const updated = updateRow(CONFIG.SHEETS.LIVE, "LiveID", liveId, updates);
+    if (!updated) {
+      return error("Live channel not found");
+    }
+
+    return success({
+      liveId: liveId,
+      updates: updates
+    }, "Live stream status updated successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
+/**
+ * ============================================================
+ * ADD LIVE (Admin / Creator)
  * ============================================================
  */
 function addLive(e) {
-  return error(
-    "Admin panel version coming later"
-  );
+  try {
+    const p = e.parameter || {};
+    const sheet = getSheet(CONFIG.SHEETS.LIVE);
+    if (!sheet) return error("Live sheet not found");
+
+    const liveId = "LIVE" + Utilities.getUuid().substring(0, 8).toUpperCase();
+    const title = p.title || "New Live Stream";
+    const category = p.category || "General";
+    const streamer = p.streamer || p.announcer || p.userId || "Host";
+    const city = p.city || "";
+    const isLive = p.isLive || "Yes";
+
+    sheet.appendRow([
+      liveId,
+      title,
+      p.description || "",
+      category,
+      city,
+      p.streamUrl || "",
+      p.imageUrl || "",
+      isLive,
+      p.isFeatured || "No",
+      p.allowPip || "Yes",
+      streamer,
+      "Active",
+      new Date(),
+      p.userId || ""
+    ]);
+
+    return success({ liveId: liveId }, "Live stream created successfully");
+  } catch (err) {
+    return exception(err);
+  }
 }
 
 
@@ -529,9 +738,7 @@ function addLive(e) {
  * ============================================================
  */
 function updateLive(e) {
-  return error(
-    "Admin panel version coming later"
-  );
+  return adminUpdateLiveStatus(e);
 }
 
 
@@ -542,27 +749,21 @@ function updateLive(e) {
  */
 function deleteLive(e) {
   try {
-
-    const liveId =
-      e.parameter.liveId || "";
+    const liveId = e.parameter.liveId || "";
+    if (!liveId) return error("liveId required");
 
     updateRow(
-      "Live",
+      CONFIG.SHEETS.LIVE,
       "LiveID",
       liveId,
       {
-        Status:
-          "Deleted",
-        IsLive:
-          "No"
+        Status: "Deleted",
+        IsLive: "No",
+        UpdatedDate: new Date()
       }
     );
 
-    return success(
-      {},
-      "Live deleted"
-    );
-
+    return success({ liveId: liveId }, "Live stream deleted");
   } catch (err) {
     return exception(err);
   }
@@ -575,8 +776,24 @@ function deleteLive(e) {
  * ============================================================
  */
 function setFeaturedLive(e) {
-  return error(
-    "Admin panel version coming later"
-  );
+  try {
+    const liveId = e.parameter.liveId || "";
+    const isFeatured = e.parameter.isFeatured || "Yes";
+    if (!liveId) return error("liveId required");
+
+    updateRow(
+      CONFIG.SHEETS.LIVE,
+      "LiveID",
+      liveId,
+      {
+        IsFeatured: isFeatured,
+        UpdatedDate: new Date()
+      }
+    );
+
+    return success({ liveId: liveId, isFeatured: isFeatured }, "Featured status updated");
+  } catch (err) {
+    return exception(err);
+  }
 }
 

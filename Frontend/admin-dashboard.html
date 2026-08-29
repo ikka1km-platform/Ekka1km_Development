@@ -85,6 +85,10 @@
 
         <div class="nav-section">Monitoring</div>
 
+        <a class="nav-item" href="#" data-module="live">
+          <span class="nav-icon">🔴</span> Live Monitoring
+        </a>
+
         <a class="nav-item" href="#" data-module="workforce">
           <span class="nav-icon">💼</span> Workforce
         </a>
@@ -251,7 +255,7 @@
               <div class="stat-card-value" id="statCoinsDistributed">0</div>
             </div>
 
-            <div class="stat-card" data-module="workforce">
+            <div class="stat-card" data-module="live">
               <div class="stat-card-header">
                 <span class="stat-card-label">Live Users</span>
                 <div class="stat-card-icon red">🔴</div>
@@ -627,6 +631,8 @@
   <script src="admin-wallet.js"></script>
   <!-- Phase 5.7D - Admin Moderation Module -->
   <script src="admin-moderation.js"></script>
+  <!-- Phase 5.8 - Live Monitoring & Moderation Module -->
+  <script src="admin-live.js"></script>
   <!-- Send Push Notification module (reuses notifications nav slot) -->
   <script src="admin-push.js"></script>
 
