@@ -2611,11 +2611,18 @@ li{
   opacity: .8;
 }
 
+
 /* ==========================================================
    DASHBOARD HIGH-FIDELITY DESIGN SYSTEM (Task 3)
+   ========================================================== */
+
+.dashboardContainer {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   max-width: 100%;
   margin: 0 auto;
+}
 
 #dashboard.page {
   padding-bottom: 90px;
@@ -2624,6 +2631,8 @@ li{
 #dashboard > .sectionTitle {
   display: none;
 }
+
+/* 1. Header Bar */
 .dashboardHeaderBar {
   display: flex;
   align-items: center;
@@ -2635,16 +2644,43 @@ li{
   box-shadow: 0 2px 8px rgba(15, 157, 88, 0.25);
   color: #fff;
 }
+
+.dashboardHeaderBarBtn {
   width: 36px;
   height: 36px;
   margin-top: 0;
   padding: 0;
   background: rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.dashboardHeaderBarBtn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 .dashboardHeaderBarBtn:active {
   transform: scale(0.94);
 }
 
+.dashboardHeaderBarBtn i {
+  font-size: 18px;
+}
+
+.dashboardHeaderBarTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.2px;
+  margin: 0;
+  text-align: center;
   flex: 1;
 }
 
@@ -2655,30 +2691,46 @@ li{
   border: 1px solid #e5e7eb;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
   padding: 14px 16px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
 
 .dashboardCardHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .dashboardCardTitle {
   font-size: 14px;
   font-weight: 700;
   color: #1e293b;
+  margin: 0;
+  letter-spacing: 0.1px;
 }
 
 .dashboardViewAllLink {
   font-size: 12px;
   font-weight: 600;
   color: #0f9d58;
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.dashboardViewAllLink:hover {
+  color: #087f46;
   text-decoration: underline;
 }
 
 /* Thematic Soft Icon Wrap Colors */
 .dashboardQuickActionIconWrap,
 .dashboardActivityIconWrap,
+.dashboardRecentOrderThumb,
+.dashboardNotificationIconWrap {
+  display: flex;
+  align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
@@ -2689,6 +2741,14 @@ li{
 }
 .icon-blue {
   background: #e3f2fd;
+  color: #1976d2;
+}
+.icon-purple {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+.icon-orange {
+  background: #fff3e0;
   color: #e65100;
 }
 .icon-red {
@@ -2701,6 +2761,13 @@ li{
 }
 .icon-teal {
   background: #e0f2f1;
+  color: #00796b;
+}
+.icon-rose {
+  background: #fce4ec;
+  color: #c2185b;
+}
+
 /* 2. Profile Summary Card */
 .dashboardProfileSummaryCard {
   padding: 16px;
@@ -2713,9 +2780,33 @@ li{
   margin-bottom: 14px;
 }
 
+.dashboardProfileAvatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e2e8f0;
   flex-shrink: 0;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
+
+.dashboardProfileAvatarFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f9d58 0%, #087f46 100%);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.dashboardProfileSummaryDetails {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboardProfileNameRow {
+  display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
@@ -2723,22 +2814,79 @@ li{
 }
 
 .dashboardProfileName {
+  font-size: 16px;
+  font-weight: 700;
   color: #0f172a;
   margin: 0;
   line-height: 1.2;
 }
 
 .dashboardBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.dashboardBadge i {
+  font-size: 13px;
+}
+
+.dashboardBadge.verified {
+  background: #e8f5e9;
+  color: #0f9d58;
+  border: 1px solid #c8e6c9;
+}
+
+.dashboardBadge.pending {
+  background: #fff8e1;
+  color: #f57f17;
+  border: 1px solid #ffe082;
+}
+
+.dashboardProfileMeta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #64748b;
+  margin: 2px 0 0;
+  line-height: 1.3;
+}
+
+.dashboardProfileMeta i {
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.dashboardProfileMeta.memberSince {
+  color: #94a3b8;
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.dashboardProfileStatsRow {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
 }
 
+.dashboardProfileStatBox {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
   padding: 10px 6px;
   text-align: center;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
+
 .dashboardProfileStatBox:hover {
   background: #f1f5f9;
   border-color: #cbd5e1;
@@ -2748,12 +2896,27 @@ li{
 .dashboardProfileStatBox:active {
   transform: scale(0.97);
 }
+
+.dashboardProfileStatValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.1;
 }
 
 .dashboardProfileStatLabel {
+  font-size: 11px;
   font-weight: 600;
   color: #64748b;
   margin-top: 4px;
+  letter-spacing: 0.2px;
+}
+
+/* 3. Quick Actions Grid (4x2) */
+.dashboardQuickActionsCard {
+  padding: 14px 16px;
+}
+
 .dashboardQuickActionsGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -2762,9 +2925,15 @@ li{
 
 .dashboardQuickActionItem {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   text-align: center;
   padding: 10px 4px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
   transition: all 0.15s ease;
   gap: 6px;
 }
@@ -2772,6 +2941,8 @@ li{
 .dashboardQuickActionItem:hover {
   background: #f1f5f9;
   border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .dashboardQuickActionItem:active {
@@ -2785,13 +2956,23 @@ li{
   transition: transform 0.15s ease;
 }
 
+.dashboardQuickActionItem:hover .dashboardQuickActionIconWrap {
+  transform: scale(1.06);
+}
+
 .dashboardQuickActionIconWrap i {
   font-size: 22px;
 }
+
+.dashboardQuickActionLabel {
+  font-size: 11px;
+  font-weight: 600;
   color: #1e293b;
   line-height: 1.2;
 }
 
+/* 4. Multi-Column Body Grid */
+.dashboardBodyGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
@@ -2803,6 +2984,9 @@ li{
   flex-direction: column;
   gap: 12px;
 }
+
+/* My Activity Overview Card */
+.dashboardActivityOverviewCard {
   padding: 14px 16px;
 }
 
@@ -2810,6 +2994,9 @@ li{
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.dashboardActivityItem {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -2817,16 +3004,24 @@ li{
   border-radius: 10px;
   background: #f8fafc;
   border: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
 .dashboardActivityItem:hover {
   background: #f1f5f9;
   border-color: #e2e8f0;
   transform: translateX(2px);
+}
 
 .dashboardActivityItem:active {
   transform: scale(0.98);
 }
 
 .dashboardActivityIconWrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
 }
 
 .dashboardActivityIconWrap i {
@@ -2834,6 +3029,11 @@ li{
 }
 
 .dashboardActivityDetails {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboardActivityTitle {
   font-size: 13px;
   font-weight: 600;
   color: #0f172a;
@@ -2841,6 +3041,8 @@ li{
 }
 
 .dashboardActivitySubtitle {
+  font-size: 11px;
+  color: #64748b;
   margin-top: 1px;
 }
 
@@ -2853,6 +3055,10 @@ li{
   border-radius: 9999px;
 }
 
+.dashboardActivityChevron {
+  font-size: 18px;
+  color: #94a3b8;
+  transition: transform 0.15s ease;
 }
 
 .dashboardActivityItem:hover .dashboardActivityChevron {
@@ -2860,6 +3066,8 @@ li{
   transform: translateX(2px);
 }
 
+/* 5. My Wallet Card */
+.dashboardWalletSummaryCard {
   padding: 14px 16px;
 }
 
@@ -2867,8 +3075,9 @@ li{
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 12px 14px;
@@ -2888,11 +3097,15 @@ li{
 }
 
 .dashboardWalletCoinBadge i {
+  font-size: 24px;
+}
 
 .dashboardWalletHeroText {
   flex: 1;
   min-width: 0;
 }
+
+.dashboardWalletHeroValue {
   font-size: 22px;
   font-weight: 800;
   color: #0f172a;
@@ -2917,6 +3130,12 @@ li{
   padding: 7px 12px;
   background: #0f9d58;
   color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
   box-shadow: 0 2px 6px rgba(15, 157, 88, 0.25);
   flex-shrink: 0;
 }
@@ -2940,49 +3159,73 @@ li{
   gap: 8px;
 }
 
+.dashboardWalletSubStatItem {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 8px;
   text-align: center;
 }
 
 .dashboardWalletSubStatLabel {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.2px;
 }
+
 .dashboardWalletSubStatValue {
   font-size: 15px;
   font-weight: 700;
+  margin-top: 2px;
 }
 
-.text-success {
+.dashboardWalletSubStatValue.text-success {
+  color: #0f9d58;
 }
 
-.text-muted {
+.dashboardWalletSubStatValue.text-muted {
   color: #64748b;
 }
 
-  flex-direction: column;
-  gap: 8px;
+/* 6. Recent Orders / Leads Card */
+.dashboardRecentOrdersCard {
+  padding: 14px 16px;
 }
+
+.dashboardRecentOrdersList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dashboardRecentOrderItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
   border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .dashboardRecentOrderItem:hover {
-}
-
-.dashboardRecentOrderItem:active {
-  transform: scale(0.98);
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  transform: translateX(2px);
 }
 
 .dashboardRecentOrderThumb {
+  width: 36px;
   height: 36px;
   border-radius: 8px;
 }
+
+.dashboardRecentOrderThumb i {
+  font-size: 18px;
+}
+
 .dashboardRecentOrderDetails {
   flex: 1;
   min-width: 0;
@@ -2991,20 +3234,31 @@ li{
 .dashboardRecentOrderTitle {
   font-size: 13px;
   font-weight: 600;
+  color: #0f172a;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dashboardRecentOrderMeta {
   font-size: 11px;
   color: #64748b;
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 .dashboardStatusPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+}
 
+.dashboardStatusPill.order {
   background: #e8f5e9;
   color: #0f9d58;
 }
@@ -3016,203 +3270,127 @@ li{
 
 /* 7. Recent Notifications Card */
 .dashboardRecentNotificationsCard {
+  padding: 14px 16px;
 }
 
 .dashboardNotificationsList {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+}
 
 .dashboardNotificationItem {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
   background: #f8fafc;
   border: 1px solid #f1f5f9;
-  border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
+
+.dashboardNotificationItem:hover {
+  background: #f1f5f9;
   border-color: #e2e8f0;
 }
 
 .dashboardNotificationIconWrap {
-  width: 34px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #e8f5e9;
+  color: #0f9d58;
 }
 
 .dashboardNotificationIconWrap i {
-  font-size: 17px;
+  font-size: 16px;
+}
+
+.dashboardNotificationDetails {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboardNotificationTitle {
+  font-size: 12px;
+  font-weight: 600;
   color: #1e293b;
   line-height: 1.3;
 }
 
 .dashboardNotificationMeta {
-  font-size: 10px;
-.dashboardEmptyState {
-  text-align: center;
-  padding: 18px 12px;
+  font-size: 11px;
   color: #94a3b8;
-  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* Empty State */
+.dashboardEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 12px;
+  text-align: center;
+  color: #94a3b8;
 }
 
 .dashboardEmptyState i {
-  font-size: 24px;
+  font-size: 32px;
+  margin-bottom: 6px;
   color: #cbd5e1;
-  display: block;
+}
 
-/* Responsive Dashboard Breakpoints */
-@media (max-width: 767px) {
+.dashboardEmptyState p {
+  font-size: 12px;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 768px) {
   .dashboardBodyGrid {
     grid-template-columns: 1fr;
-    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboardQuickActionsGrid {
     gap: 6px;
   }
 
   .dashboardQuickActionItem {
     padding: 8px 2px;
+  }
+
   .dashboardQuickActionIconWrap {
     width: 36px;
     height: 36px;
+    border-radius: 10px;
   }
+
+  .dashboardQuickActionIconWrap i {
+    font-size: 18px;
   }
 
   .dashboardQuickActionLabel {
     font-size: 10px;
   }
-    padding: 12px 14px;
-  }
 
-    height: 50px;
-  }
-
-  .dashboardProfileStatValue {
-    font-size: 16px;
+  .dashboardProfileStatsRow {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-/* ==========================================================
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:10px;
-}
-
-.myContentCard{
-  background:#fff;
-  border-radius:14px;
-  box-shadow:var(--shadow);
-  padding:15px;
-  display:flex;
-  color:var(--text-secondary);
-  font-weight:500;
-}
-
-}
-
-/* ==========================================================
-   RECENT ACTIVITY (Stage 4C)
-   ========================================================== */
-
-.recentActivityList{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-
-  box-shadow:var(--shadow);
-  padding:12px;
-  display:flex;
-  align-items:center;
-
-.recentType{
-  display:inline-flex;
-  align-items:center;
-}
-
-.recentBody{
-  flex:1;
-  min-width:0;
-}
-
-.recentTitle{
-  font-size:14px;
-  font-weight:600;
-  color:var(--text-primary);
-  white-space:nowrap;
-  flex-wrap:wrap;
-  align-items:center;
-  gap:6px;
-  margin-top:3px;
-}
-
-.recentPrice{
-  font-size:12px;
-  font-weight:700;
-  color:#1a1a2e;
-.recentStatus{
-  font-size:11px;
-  color:#888;
-  text-transform:capitalize;
-}
-
-.dashboardEmpty{
-  text-align:center;
-  color:#888;
-  font-size:13px;
-}
-
-/* ==========================================================
-   TYPOGRAPHY UTILITIES
-========================================================== */
-
-h1{font-size:24px;font-weight:700;line-height:1.3;}
-h2{font-size:20px;font-weight:600;line-height:1.35;}
-.text-muted{color:var(--text-muted);font-size:13px;}
-.text-secondary{color:var(--text-secondary);font-size:14px;}
-.text-small{font-size:12px;color:var(--text-muted);}
-
-/* ==========================================================
-   COMPACT HEADER (Stage 2)
-.header-menu-icon{
-  font-size:26px;
-  color:var(--text-primary);
-  cursor:pointer;
-  align-items:center;
-  flex:1;
-  text-align:center;
-}
-
-.header-brand{
-  font-size:22px;
-  font-weight:700;
-  color:#4ade80;
-  line-height:1.2;
-  text-shadow:0 2px 4px rgba(0,0,0,0.2);
-}
-
-.header-tagline{
-  font-size:11px;
-  color:rgba(255,255,255,0.9);
-  line-height:1.2;
-}
-  align-items:center;
-}
-
-.header-notif-icon{
-  font-size:24px;
-  color:#fff;
-  cursor:pointer;
-  position:relative;
-}
-
-.header-notif-icon:hover{
-  background:rgba(255,255,255,0.15);
-}
 
 /* ==========================================================
    LOCATION CARD (Stage 2)
 ======================================================== */
 
+.locationCard{
+  background:transparent;
   border-radius:var(--radius-lg);
   box-shadow:none;
   margin-bottom:12px;
@@ -3223,16 +3401,26 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
 .locationCard-main{
   display:flex;
   align-items:center;
+  gap:10px;
+  padding:14px 16px;
   cursor:pointer;
   transition:background .2s;
   background:#fff;
+  border-radius:16px;
   box-shadow:var(--shadow);
 }
 
 .locationCard-main:active{
+  background:#f5f5f5;
+}
 
 .locationCard-pin{
   font-size:32px;
+  color:#0f9d58;
+  flex-shrink:0;
+}
+
+.locationCard-info{
   flex:1;
   min-width:0;
 }
@@ -3250,17 +3438,24 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
   font-size:16px;
   font-weight:700;
   color:var(--text-primary);
+  white-space:nowrap;
+  overflow:hidden;
   text-overflow:ellipsis;
+}
 
 .locationCard-subtitle{
+  font-size:13px;
   color:var(--text-secondary);
   font-weight:500;
   margin-top:1px;
 }
+
+.locationCard-arrow{
   font-size:24px;
   color:var(--text-muted);
   flex-shrink:0;
 }
+
 .locationCard-select{
   position:absolute;
   opacity:0;
@@ -3281,6 +3476,8 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
 }
 
 .searchRow-input{
+  flex:1;
+  position:relative;
   display:flex;
   align-items:center;
   background:var(--card);
@@ -3294,16 +3491,25 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
   font-size:20px;
   color:var(--text-muted);
   padding-left:14px;
+  flex-shrink:0;
+}
 
 .searchRow-input input{
   width:100%;
   padding:12px 14px;
   border:none;
+  outline:none;
+  background:transparent;
+  font-size:14px;
   color:var(--text-primary);
   margin-bottom:0;
 }
 
 .searchRow-input input::placeholder{
+  color:var(--text-muted);
+}
+
+.searchRow-radius{
   flex-shrink:0;
 }
 
@@ -3325,18 +3531,29 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
 
 /* ==========================================================
    GLOBAL DISCOVERY BAR
+======================================================== */
 
 #globalDisco{
   position:relative;
   z-index:99;
+  background:var(--page-bg);
+  padding-top:56px;
+}
+
+.disco-full-content{
   display:block;
 }
 
 .disco-compact-content{
+  display:none;
   padding:10px 15px;
   background:var(--card);
   border-bottom:1px solid rgba(0,0,0,.04);
   box-shadow:0 2px 8px rgba(0,0,0,.04);
+}
+
+#globalDisco.disco-compact .disco-full-content{
+  display:none;
 }
 
 #globalDisco.disco-compact .disco-compact-content{
@@ -3349,14 +3566,22 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
 .discoCompact{
   display:flex;
   align-items:center;
+  gap:6px;
+  cursor:pointer;
   flex:1;
   min-width:0;
   padding:4px 0;
 }
+
+.discoCompact-pin{
+  font-size:20px;
+  color:var(--primary);
   flex-shrink:0;
 }
 
 .discoCompact-text{
+  font-size:13px;
+  font-weight:600;
   color:var(--text-primary);
   white-space:nowrap;
   overflow:hidden;
@@ -3387,14 +3612,18 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
   font-weight:700;
   color:var(--primary);
 }
+
 .discoCompact-radiusIcon{
   font-size:16px;
   color:var(--primary);
 }
 
 .discoRadiusPicker{
+  display:none;
+  position:absolute;
   top:100%;
   right:0;
+  background:var(--card);
   border-radius:var(--radius-md);
   box-shadow:0 8px 30px rgba(0,0,0,.18);
   padding:6px 0;
@@ -3406,6 +3635,10 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
 .discoRadiusPicker.open{
   display:block;
 }
+
+.discoRadiusPicker-item{
+  padding:10px 16px;
+  font-size:13px;
   font-weight:500;
   color:var(--text-primary);
   cursor:pointer;
@@ -3414,6 +3647,12 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
 }
 
 .discoRadiusPicker-item:hover{
+  background:#f5f5f5;
+}
+
+.discoRadiusPicker-item.active{
+  color:var(--primary);
+  font-weight:700;
   background:#e8f5e9;
 }
 
@@ -3423,15 +3662,18 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
 
 .catShortcuts{
   display:flex;
+  justify-content:space-between;
   gap:4px;
   margin-bottom:12px;
   overflow-x:auto;
   -webkit-overflow-scrolling:touch;
   padding:2px 0;
 }
+
 .catShortcuts::-webkit-scrollbar{
   display:none;
 }
+
 .catItem{
   display:flex;
   flex-direction:column;
@@ -3441,21 +3683,40 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
   padding:4px 6px;
   min-width:56px;
   transition:transform .15s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+
 .catItem:active{
   transform:scale(.92);
 }
+
 .catItem-icon{
+  width:52px;
+  height:52px;
+  border-radius:50%;
+  background:#e8f5e9;
+  display:flex;
+  align-items:center;
   justify-content:center;
   transition:background .2s;
 }
+
+.catItem:nth-child(1) .catItem-icon{
+  background:#e8f5e9;
+}
+
 .catItem:nth-child(1) .catItem-icon span{
   color:#0f9d58;
 }
 
+.catItem:nth-child(2) .catItem-icon{
   background:#fff3e0;
 }
 
 .catItem:nth-child(2) .catItem-icon span{
+  color:#ff9800;
+}
+
 .catItem:nth-child(3) .catItem-icon{
   background:#e3f2fd;
 }
@@ -3486,6 +3747,9 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
 
 .catItem:nth-child(6) .catItem-icon span{
   color:#666;
+}
+
+.catItem-label{
   font-size:11px;
   font-weight:500;
   color:var(--text-secondary);
@@ -3493,11 +3757,15 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
   white-space:nowrap;
 }
 
+/* ==========================================================
+   WELCOME STRIP (Stage 3E) — ROOT LEVEL (all viewports)
 ========================================================== */
 
 .welcomeStrip{
   display:flex;
   align-items:center;
+  justify-content:space-between;
+  gap:10px;
   margin-top:12px;
   padding:10px 14px;
   background:linear-gradient(135deg,#0f9d58,#1db954);
@@ -3506,6 +3774,7 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
   box-shadow:var(--shadow);
 }
 
+.welcomeStrip-brand{
   font-size:15px;
   font-weight:700;
   letter-spacing:.3px;
@@ -3521,6 +3790,7 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
 @media(max-width:480px){
   .welcomeStrip{
     flex-direction:column;
+    align-items:flex-start;
     gap:4px;
   }
   .welcomeStrip-text{
@@ -3540,10 +3810,16 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
   width:280px;
   max-width:85vw;
   background:#fff;
+  z-index:100001;
+  box-shadow:4px 0 24px rgba(0,0,0,.18);
   transform:translateX(-100%);
   transition:transform .35s cubic-bezier(.16,1,.3,1);
   display:flex;
   flex-direction:column;
+}
+
+.sideDrawer.open{
+  transform:translateX(0);
 }
 
 .sideDrawer-header{
@@ -3552,6 +3828,7 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
   flex-direction:column;
   align-items:stretch;
   padding:18px 20px 20px;
+  background:linear-gradient(170deg,#0b0f1a 0%,#141d2f 45%,#1a273d 80%,#0f9d58 180%);
   color:#fff;
   overflow:hidden;
   border-bottom:1px solid rgba(255,255,255,.06);
@@ -3559,6 +3836,9 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
 
 /* decorative soft glow */
 .sideDrawer-header::before{
+  content:'';
+  position:absolute;
+  top:-70px;
   right:-70px;
   width:220px;
   height:220px;
@@ -3570,11 +3850,20 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
 
 /* subtle bottom sheen */
 .sideDrawer-header::after{
+  content:'';
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
   height:1px;
   background:linear-gradient(90deg,transparent,rgba(15,157,88,.5),transparent);
   pointer-events:none;
   opacity:.7;
 }
+
+.sideDrawer-close{
+  position:absolute;
+  top:12px;
   right:12px;
   font-size:20px;
   cursor:pointer;
@@ -3613,33 +3902,48 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
   align-items:center;
   justify-content:center;
   flex-shrink:0;
+  overflow:hidden;
   font-size:30px;
   color:#fff;
+}
 
 .sideDrawer-avatar img{
   width:100%;
   height:100%;
+  object-fit:cover;
+}
 
 .sideDrawer-avatar .material-icons{
   font-size:30px;
   color:#fff;
 }
+
+.sideDrawer-avatarInitial{
+  font-size:28px;
   font-weight:700;
   color:#fff;
 }
 
+.sideDrawer-userInfo{
+  min-width:0;
   flex:1;
 }
 
+.sideDrawer-nameRow{
   display:flex;
   align-items:center;
   gap:8px;
   min-width:0;
   width:100%;
+}
+
 .sideDrawer-userName{
   flex:1;
   min-width:0;
   font-size:22px;
+  font-weight:800;
+  line-height:1.2;
+  letter-spacing:.2px;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -3649,6 +3953,9 @@ h2{font-size:20px;font-weight:600;line-height:1.35;}
 .sideDrawer-verifBadge{
   display:inline-flex;
   align-items:center;
+  justify-content:center;
+  color:#fbbf24;
+  flex-shrink:0;
   flex:0 0 auto;
   font-size:18px;
   background:rgba(255,255,255,.15);
