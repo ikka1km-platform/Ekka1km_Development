@@ -2611,779 +2611,1243 @@ li{
   opacity: .8;
 }
 
-
-/* ==========================================================
-   DASHBOARD HIGH-FIDELITY DESIGN SYSTEM (Task 3)
-   ========================================================== */
-
-.dashboardContainer {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-width: 100%;
-  margin: 0 auto;
-}
-
-#dashboard.page {
-  padding-bottom: 90px;
-}
-
-#dashboard > .sectionTitle {
-  display: none;
-}
-
-/* 1. Header Bar */
-.dashboardHeaderBar {
+/* PREMIUM HEADER */
+.dashboardPremiumHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 10px 14px;
-  background: linear-gradient(135deg, #0f9d58 0%, #087f46 100%);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(15, 157, 88, 0.25);
-  color: #fff;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #0f9d58, #1db954);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 157, 88, 0.35);
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
 }
 
-.dashboardHeaderBarBtn {
-  width: 36px;
-  height: 36px;
-  margin-top: 0;
-  padding: 0;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+.dashboardPremiumHeader::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0));
+  pointer-events: none;
+}
+
+.dashboardBackBtn,
+.dashboardSettingsBtn {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
   color: #fff;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  position: relative;
+  z-index: 1;
 }
 
-.dashboardHeaderBarBtn:hover {
-  background: rgba(255, 255, 255, 0.3);
+.dashboardBackBtn:active,
+.dashboardSettingsBtn:active {
+  transform: scale(0.95);
+  background: rgba(255,255,255,0.3);
 }
 
-.dashboardHeaderBarBtn:active {
-  transform: scale(0.94);
+.dashboardBackBtn i,
+.dashboardSettingsBtn i {
+  font-size: 20px;
+  color: #fff;
 }
 
-.dashboardHeaderBarBtn i {
-  font-size: 18px;
-}
-
-.dashboardHeaderBarTitle {
-  font-size: 17px;
+.dashboardHeaderTitle {
+  flex: 1;
+  text-align: center;
+  font-size: 20px;
   font-weight: 700;
   color: #fff;
-  letter-spacing: 0.2px;
-  margin: 0;
-  text-align: center;
-  flex: 1;
+  letter-spacing: 0.3px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  position: relative;
+  z-index: 1;
 }
 
-/* Base Dashboard Card */
-.dashboardCard {
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
-  padding: 14px 16px;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+/* PREMIUM HERO CARD */
+.dashboardHeroCard {
+  background: linear-gradient(135deg, #0f9d58 0%, #087f46 50%, #0a5c32 100%);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 12px 40px rgba(15, 157, 88, 0.25), 0 4px 12px rgba(0,0,0,0.15);
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
 }
 
-.dashboardCardHeader {
+.dashboardHeroCard::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.dashboardHeroCard::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -10%;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.dashboardProfileHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #f1f5f9;
+  gap: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  position: relative;
+  z-index: 1;
 }
 
-.dashboardCardTitle {
-  font-size: 14px;
+.dashboardHeroCard .dashboardProfilePhoto,
+.dashboardHeroCard .dashboardProfilePhotoPlaceholder {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  border: 4px solid rgba(255,255,255,0.35);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35), 0 0 0 10px rgba(255,255,255,0.1), 0 0 0 12px rgba(15, 157, 88, 0.2);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(124, 92, 191, 0.5), rgba(91, 141, 239, 0.4));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
   font-weight: 700;
-  color: #1e293b;
+  font-size: 36px;
+  transition: all 0.3s ease;
+}
+
+.dashboardHeroCard .dashboardProfileInfo h3 {
+  color: #fff;
+  font-size: 24px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  letter-spacing: 0.3px;
+  line-height: 1.2;
   margin: 0;
+}
+
+.dashboardHeroCard .dashboardProfileContact {
+  color: rgba(255,255,255,0.95);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.dashboardHeroCard .dashboardProfileContact i {
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+.dashboardHeroCard .dashboardMemberSince {
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-weight: 500;
   letter-spacing: 0.1px;
 }
 
-.dashboardViewAllLink {
-  font-size: 12px;
-  font-weight: 600;
-  color: #0f9d58;
-  cursor: pointer;
-  transition: color 0.15s ease, transform 0.15s ease;
-}
-
-.dashboardViewAllLink:hover {
-  color: #087f46;
-  text-decoration: underline;
-}
-
-/* Thematic Soft Icon Wrap Colors */
-.dashboardQuickActionIconWrap,
-.dashboardActivityIconWrap,
-.dashboardRecentOrderThumb,
-.dashboardNotificationIconWrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.icon-green {
-  background: #e8f5e9;
-  color: #0f9d58;
-}
-.icon-blue {
-  background: #e3f2fd;
-  color: #1976d2;
-}
-.icon-purple {
-  background: #f3e5f5;
-  color: #7b1fa2;
-}
-.icon-orange {
-  background: #fff3e0;
-  color: #e65100;
-}
-.icon-red {
-  background: #ffebee;
-  color: #d32f2f;
-}
-.icon-indigo {
-  background: #e8eaf6;
-  color: #3949ab;
-}
-.icon-teal {
-  background: #e0f2f1;
-  color: #00796b;
-}
-.icon-rose {
-  background: #fce4ec;
-  color: #c2185b;
-}
-
-/* 2. Profile Summary Card */
-.dashboardProfileSummaryCard {
-  padding: 16px;
-}
-
-.dashboardProfileSummaryTop {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 14px;
-}
-
-.dashboardProfileAvatar {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid #e2e8f0;
-  flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.dashboardProfileAvatarFallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #0f9d58 0%, #087f46 100%);
-  color: #fff;
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.dashboardProfileSummaryDetails {
-  flex: 1;
-  min-width: 0;
-}
-
-.dashboardProfileNameRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 4px;
-}
-
-.dashboardProfileName {
-  font-size: 16px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0;
-  line-height: 1.2;
+.dashboardHeroCard .dashboardMemberSince i {
+  font-size: 15px;
+  opacity: 0.85;
 }
 
 .dashboardBadge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-}
-
-.dashboardBadge i {
-  font-size: 13px;
+  gap: 5px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .dashboardBadge.verified {
-  background: #e8f5e9;
-  color: #0f9d58;
-  border: 1px solid #c8e6c9;
+  background: rgba(76, 175, 136, 0.3);
+  color: #a5d6a7;
+  border: 1px solid rgba(76, 175, 136, 0.6);
+  box-shadow: 0 3px 12px rgba(76, 175, 136, 0.3);
 }
 
 .dashboardBadge.pending {
-  background: #fff8e1;
-  color: #f57f17;
-  border: 1px solid #ffe082;
+  background: rgba(255, 159, 67, 0.3);
+  color: #ffcc80;
+  border: 1px solid rgba(255, 159, 67, 0.6);
+  box-shadow: 0 3px 12px rgba(255, 159, 67, 0.3);
 }
 
-.dashboardProfileMeta {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  color: #64748b;
-  margin: 2px 0 0;
-  line-height: 1.3;
-}
-
-.dashboardProfileMeta i {
-  font-size: 14px;
-  color: #94a3b8;
-}
-
-.dashboardProfileMeta.memberSince {
-  color: #94a3b8;
-  font-size: 11px;
-  margin-top: 3px;
-}
-
-.dashboardProfileStatsRow {
+/* PREMIUM STATS ROW */
+.dashboardPremiumStats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid #f1f5f9;
-}
-
-.dashboardProfileStatBox {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 10px 6px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.dashboardProfileStatBox:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  transform: translateY(-1px);
-}
-
-.dashboardProfileStatBox:active {
-  transform: scale(0.97);
-}
-
-.dashboardProfileStatValue {
-  font-size: 18px;
-  font-weight: 700;
-  color: #0f172a;
-  line-height: 1.1;
-}
-
-.dashboardProfileStatLabel {
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-  margin-top: 4px;
-  letter-spacing: 0.2px;
-}
-
-/* 3. Quick Actions Grid (4x2) */
-.dashboardQuickActionsCard {
-  padding: 14px 16px;
-}
-
-.dashboardQuickActionsGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-
-.dashboardQuickActionItem {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 10px 4px;
-  border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  gap: 6px;
-}
-
-.dashboardQuickActionItem:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-}
-
-.dashboardQuickActionItem:active {
-  transform: scale(0.95);
-}
-
-.dashboardQuickActionIconWrap {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  transition: transform 0.15s ease;
-}
-
-.dashboardQuickActionItem:hover .dashboardQuickActionIconWrap {
-  transform: scale(1.06);
-}
-
-.dashboardQuickActionIconWrap i {
-  font-size: 22px;
-}
-
-.dashboardQuickActionLabel {
-  font-size: 11px;
-  font-weight: 600;
-  color: #1e293b;
-  line-height: 1.2;
-}
-
-/* 4. Multi-Column Body Grid */
-.dashboardBodyGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 12px;
-  align-items: start;
+  margin-top: 20px;
+  position: relative;
+  z-index: 1;
 }
 
-.dashboardGridCol {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* My Activity Overview Card */
-.dashboardActivityOverviewCard {
-  padding: 14px 16px;
-}
-
-.dashboardActivityList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dashboardActivityItem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #f1f5f9;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.dashboardActivityItem:hover {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
-  transform: translateX(2px);
-}
-
-.dashboardActivityItem:active {
-  transform: scale(0.98);
-}
-
-.dashboardActivityIconWrap {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-}
-
-.dashboardActivityIconWrap i {
-  font-size: 19px;
-}
-
-.dashboardActivityDetails {
-  flex: 1;
-  min-width: 0;
-}
-
-.dashboardActivityTitle {
-  font-size: 13px;
-  font-weight: 600;
-  color: #0f172a;
-  line-height: 1.2;
-}
-
-.dashboardActivitySubtitle {
-  font-size: 11px;
-  color: #64748b;
-  margin-top: 1px;
-}
-
-.dashboardActivityBadge {
-  font-size: 12px;
-  font-weight: 700;
-  color: #0f9d58;
-  background: #e8f5e9;
-  padding: 2px 8px;
-  border-radius: 9999px;
-}
-
-.dashboardActivityChevron {
-  font-size: 18px;
-  color: #94a3b8;
-  transition: transform 0.15s ease;
-}
-
-.dashboardActivityItem:hover .dashboardActivityChevron {
-  color: #0f9d58;
-  transform: translateX(2px);
-}
-
-/* 5. My Wallet Card */
-.dashboardWalletSummaryCard {
-  padding: 14px 16px;
-}
-
-.dashboardWalletHero {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 12px 14px;
-  margin-bottom: 10px;
-}
-
-.dashboardWalletCoinBadge {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  background: #e8f5e9;
-  color: #0f9d58;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.dashboardWalletCoinBadge i {
-  font-size: 24px;
-}
-
-.dashboardWalletHeroText {
-  flex: 1;
-  min-width: 0;
-}
-
-.dashboardWalletHeroValue {
-  font-size: 22px;
-  font-weight: 800;
-  color: #0f172a;
-  line-height: 1.1;
-}
-
-.dashboardWalletHeroLabel {
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  margin-top: 2px;
-}
-
-.dashboardWalletTopUpBtn {
-  width: auto;
-  margin-top: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 7px 12px;
-  background: #0f9d58;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: 0 2px 6px rgba(15, 157, 88, 0.25);
-  flex-shrink: 0;
-}
-
-.dashboardWalletTopUpBtn:hover {
-  background: #087f46;
-  box-shadow: 0 3px 8px rgba(15, 157, 88, 0.35);
-}
-
-.dashboardWalletTopUpBtn:active {
-  transform: scale(0.95);
-}
-
-.dashboardWalletTopUpBtn i {
-  font-size: 16px;
-}
-
-.dashboardWalletSubStatsRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.dashboardWalletSubStatItem {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 8px;
+.dashboardPremiumStatItem {
+  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.06) 100%);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  padding: 22px 16px;
   text-align: center;
-}
-
-.dashboardWalletSubStatLabel {
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-}
-
-.dashboardWalletSubStatValue {
-  font-size: 15px;
-  font-weight: 700;
-  margin-top: 2px;
-}
-
-.dashboardWalletSubStatValue.text-success {
-  color: #0f9d58;
-}
-
-.dashboardWalletSubStatValue.text-muted {
-  color: #64748b;
-}
-
-/* 6. Recent Orders / Leads Card */
-.dashboardRecentOrdersCard {
-  padding: 14px 16px;
-}
-
-.dashboardRecentOrdersList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dashboardRecentOrderItem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #f1f5f9;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.dashboardRecentOrderItem:hover {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
-  transform: translateX(2px);
-}
-
-.dashboardRecentOrderThumb {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-}
-
-.dashboardRecentOrderThumb i {
-  font-size: 18px;
-}
-
-.dashboardRecentOrderDetails {
-  flex: 1;
-  min-width: 0;
-}
-
-.dashboardRecentOrderTitle {
-  font-size: 13px;
-  font-weight: 600;
-  color: #0f172a;
-  line-height: 1.2;
-  white-space: nowrap;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.08);
+  position: relative;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.dashboardRecentOrderMeta {
-  font-size: 11px;
-  color: #64748b;
-  margin-top: 2px;
+.dashboardPremiumStatItem::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
 
-.dashboardStatusPill {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 9999px;
+.dashboardPremiumStatItem:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.08) 100%);
+  border-color: rgba(255,255,255,0.22);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
+.dashboardPremiumStatItem:hover::before {
+  opacity: 1;
+}
+
+.dashboardPremiumStatItem:active {
+  transform: translateY(0) scale(0.98);
+  background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.07) 100%);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.1);
+  transition: all 0.1s ease;
+}
+
+.dashboardPremiumStatValue {
+  font-size: 36px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.8px;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.5), 0 0 40px rgba(255,255,255,0.1);
+  line-height: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.dashboardPremiumStatLabel {
   font-size: 10px;
+  color: rgba(255,255,255,0.85);
+  margin-top: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.8px;
+  position: relative;
+  z-index: 1;
 }
 
-.dashboardStatusPill.order {
-  background: #e8f5e9;
-  color: #0f9d58;
-}
-
-.dashboardStatusPill.lead {
-  background: #e3f2fd;
-  color: #1976d2;
-}
-
-/* 7. Recent Notifications Card */
-.dashboardRecentNotificationsCard {
-  padding: 14px 16px;
-}
-
-.dashboardNotificationsList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dashboardNotificationItem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #f1f5f9;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.dashboardNotificationItem:hover {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
-}
-
-.dashboardNotificationIconWrap {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: #e8f5e9;
-  color: #0f9d58;
-}
-
-.dashboardNotificationIconWrap i {
-  font-size: 16px;
-}
-
-.dashboardNotificationDetails {
-  flex: 1;
-  min-width: 0;
-}
-
-.dashboardNotificationTitle {
-  font-size: 12px;
-  font-weight: 600;
-  color: #1e293b;
-  line-height: 1.3;
-}
-
-.dashboardNotificationMeta {
-  font-size: 11px;
-  color: #94a3b8;
-  margin-top: 2px;
-}
-
-/* Empty State */
-.dashboardEmptyState {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 12px;
-  text-align: center;
-  color: #94a3b8;
-}
-
-.dashboardEmptyState i {
-  font-size: 32px;
-  margin-bottom: 6px;
-  color: #cbd5e1;
-}
-
-.dashboardEmptyState p {
-  font-size: 12px;
-  font-weight: 500;
-  margin: 0;
-}
-
-/* Responsive Breakpoints */
+/* Stats Row Responsive */
 @media (max-width: 768px) {
-  .dashboardBodyGrid {
-    grid-template-columns: 1fr;
+  .dashboardPremiumStats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .dashboardPremiumStatItem {
+    padding: 18px 14px;
+    border-radius: 16px;
+  }
+
+  .dashboardPremiumStatValue {
+    font-size: 28px;
+  }
+
+  .dashboardPremiumStatLabel {
+    font-size: 9px;
+    letter-spacing: 0.6px;
+    margin-top: 8px;
   }
 }
 
 @media (max-width: 480px) {
-  .dashboardQuickActionsGrid {
-    gap: 6px;
-  }
-
-  .dashboardQuickActionItem {
-    padding: 8px 2px;
-  }
-
-  .dashboardQuickActionIconWrap {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-  }
-
-  .dashboardQuickActionIconWrap i {
-    font-size: 18px;
-  }
-
-  .dashboardQuickActionLabel {
-    font-size: 10px;
-  }
-
-  .dashboardProfileStatsRow {
+  .dashboardPremiumStats {
     grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .dashboardPremiumStatItem {
+    padding: 16px 12px;
+    border-radius: 14px;
+  }
+
+  .dashboardPremiumStatValue {
+    font-size: 24px;
+  }
+
+  .dashboardPremiumStatLabel {
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    margin-top: 6px;
   }
 }
 
+/* 2. KPI SUMMARY (Connected Card) */
+.dashboardKpiCardConnected {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  padding: 16px;
+  border: 1px solid rgba(0,0,0,.04);
+}
+
+.dashboardKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.dashboardKpiItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: transform 0.15s;
+}
+
+.dashboardKpiItem:active {
+  transform: scale(0.95);
+}
+
+.dashboardKpiIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #e8f5e9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+
+.dashboardKpiIcon i {
+  font-size: 22px;
+  color: var(--primary);
+}
+
+.dashboardKpiValue {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.dashboardKpiLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* 3. QUICK ACTIONS (8 actions, 4x2 grid) */
+.dashboardQuickActions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.dashboardQuickAction {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.06);
+  padding: 16px 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(.4,0,.2,1);
+  border: 1px solid rgba(0,0,0,.04);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboardQuickAction::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(135deg, var(--primary) 0%, #1db954 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.dashboardQuickAction:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(0,0,0,.06), 0 8px 20px rgba(0,0,0,.1);
+}
+
+.dashboardQuickAction:hover::before {
+  opacity: 1;
+}
+
+.dashboardQuickAction:active {
+  transform: scale(0.95);
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+  transition: all 0.1s ease;
+}
+
+.dashboardQuickActionIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  transition: all 0.3s ease;
+}
+
+.dashboardQuickAction:hover .dashboardQuickActionIcon {
+  background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+  transform: scale(1.05);
+}
+
+.dashboardQuickActionIcon i {
+  font-size: 24px;
+  color: var(--primary);
+  transition: transform 0.3s ease;
+}
+
+.dashboardQuickAction:hover .dashboardQuickActionIcon i {
+  transform: scale(1.1);
+}
+
+.dashboardQuickAction span {
+  font-size: 12px;
+  color: var(--text-primary);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.2px;
+}
+
+/* 4. MY ACTIVITY (Premium rows) */
+.dashboardActivityListCompact {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.06);
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,.04);
+}
+
+.dashboardActivityRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f5f5f5;
+  position: relative;
+}
+
+.dashboardActivityRow:last-child {
+  border-bottom: none;
+}
+
+.dashboardActivityRow::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--primary);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.dashboardActivityRow:hover {
+  background: #f9fafb;
+}
+
+.dashboardActivityRow:hover::before {
+  opacity: 1;
+}
+
+.dashboardActivityRow:active {
+  background: #f5f5f5;
+  transform: scale(0.99);
+}
+
+.dashboardActivityRowIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.dashboardActivityRow:hover .dashboardActivityRowIcon {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(15,157,88,.15);
+}
+
+.dashboardActivityRowIcon i {
+  font-size: 22px;
+  color: var(--primary);
+}
+
+.dashboardActivityRowContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboardActivityRowTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+  letter-spacing: 0.1px;
+}
+
+.dashboardActivityRowSubtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.dashboardActivityRowCount {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  padding: 4px 12px;
+  border-radius: 20px;
+  min-width: 36px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.dashboardActivityRow:hover .dashboardActivityRowCount {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(15,157,88,.15);
+}
+
+.dashboardActivityRowChevron {
+  font-size: 20px;
+  color: #bbb;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.dashboardActivityRow:hover .dashboardActivityRowChevron {
+  color: var(--primary);
+  transform: translateX(2px);
+}
+
+/* 5. WALLET (Premium card) */
+.dashboardWalletCard {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.06);
+  padding: 20px;
+  border: 1px solid rgba(0,0,0,.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboardWalletCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(135deg, var(--primary) 0%, #1db954 100%);
+}
+
+.dashboardWalletRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.dashboardWalletItem {
+  text-align: center;
+  padding: 14px 10px;
+  background: linear-gradient(135deg, #f9fafb 0%, #f5f5f5 100%);
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,.04);
+  transition: all 0.2s ease;
+}
+
+.dashboardWalletItem:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+
+.dashboardWalletItemLabel {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dashboardWalletItemValue {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+}
+
+.dashboardWalletTopupBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  background: linear-gradient(135deg, var(--primary) 0%, #1db954 100%);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(.4,0,.2,1);
+  box-shadow: 0 2px 8px rgba(15,157,88,.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboardWalletTopupBtn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255,255,255,.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.5s ease, height 0.5s ease;
+}
+
+.dashboardWalletTopupBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15,157,88,.3);
+}
+
+.dashboardWalletTopupBtn:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.dashboardWalletTopupBtn:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 6px rgba(15,157,88,.2);
+}
+
+.dashboardWalletTopupBtn i {
+  font-size: 20px;
+}
+
+/* 6. RECENT ORDERS / LEADS (Premium list) */
+.dashboardOrdersListCompact {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.06);
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,.04);
+}
+
+.dashboardOrderRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f5f5f5;
+  position: relative;
+}
+
+.dashboardOrderRow:last-child {
+  border-bottom: none;
+}
+
+.dashboardOrderRow::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--primary);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.dashboardOrderRow:hover {
+  background: #f9fafb;
+}
+
+.dashboardOrderRow:hover::before {
+  opacity: 1;
+}
+
+.dashboardOrderRow:active {
+  background: #f5f5f5;
+  transform: scale(0.99);
+}
+
+.dashboardOrderRowThumb {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.dashboardOrderRow:hover .dashboardOrderRowThumb {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(15,157,88,.15);
+}
+
+.dashboardOrderRowThumb i {
+  font-size: 22px;
+  color: var(--primary);
+}
+
+.dashboardOrderRowInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboardOrderRowTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.1px;
+}
+
+.dashboardOrderRowTime {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+.dashboardOrderRowStatus {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  letter-spacing: 0.3px;
+  transition: all 0.2s ease;
+}
+
+.dashboardOrderRow:hover .dashboardOrderRowStatus {
+  transform: scale(1.05);
+}
+
+.dashboardOrderRowStatus.order {
+  background: #e8f5e9;
+  color: #0f9d58;
+  box-shadow: 0 1px 3px rgba(15,157,88,.1);
+}
+
+.dashboardOrderRowStatus.lead {
+  background: #e3f2fd;
+  color: #1565c0;
+  box-shadow: 0 1px 3px rgba(21,101,192,.1);
+}
+
+/* 7. RECENT NOTIFICATIONS (Premium list) */
+.dashboardNotificationsListCompact {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.06);
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,.04);
+}
+
+.dashboardNotificationRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f5f5f5;
+  position: relative;
+}
+
+.dashboardNotificationRow:last-child {
+  border-bottom: none;
+}
+
+.dashboardNotificationRow::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--primary);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.dashboardNotificationRow:hover {
+  background: #f9fafb;
+}
+
+.dashboardNotificationRow:hover::before {
+  opacity: 1;
+}
+
+.dashboardNotificationRow:active {
+  background: #f5f5f5;
+  transform: scale(0.99);
+}
+
+.dashboardNotificationRowIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.dashboardNotificationRow:hover .dashboardNotificationRowIcon {
+  transform: scale(1.08) rotate(5deg);
+  box-shadow: 0 2px 10px rgba(15,157,88,.2);
+}
+
+.dashboardNotificationRowIcon i {
+  font-size: 22px;
+  color: var(--primary);
+}
+
+.dashboardNotificationRowInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboardNotificationRowTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.1px;
+}
+
+.dashboardNotificationRowTime {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.dashboardViewAllBtn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  background: #f5f5f5;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dashboardViewAllBtn:hover {
+  background: #e8f5e9;
+  color: var(--primary);
+}
+
+.dashboardViewAllBtn:active {
+  transform: scale(0.98);
+}
+
+.dashboardEmpty {
+  text-align: center;
+  padding: 30px 20px;
+  color: #888;
+  font-size: 14px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+}
+
+/* Responsive Dashboard */
+@media (min-width: 768px) {
+  .dashboardKpiGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .dashboardQuickActions {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboardProfileHeader {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .dashboardProfilePhoto,
+  .dashboardProfilePhotoPlaceholder {
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+  }
+
+  .dashboardProfileInfo h3 {
+    font-size: 18px;
+  }
+
+  .dashboardKpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .dashboardKpiCard {
+    padding: 14px;
+    min-height: 100px;
+  }
+
+  .dashboardKpiIcon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .dashboardKpiIcon i {
+    font-size: 20px;
+  }
+
+  .dashboardKpiValue {
+    font-size: 22px;
+  }
+
+  .dashboardQuickActions {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .dashboardQuickAction {
+    padding: 12px 6px;
+  }
+
+  .dashboardQuickActionIcon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .dashboardQuickActionIcon i {
+    font-size: 20px;
+  }
+
+  .dashboardQuickAction span {
+    font-size: 10px;
+  }
+
+  .dashboardWalletCard {
+    padding: 16px;
+  }
+
+  .dashboardWalletItemValue {
+    font-size: 18px;
+  }
+}
+
+.dashboardBadge{
+  display:inline-block;
+  padding:3px 8px;
+  border-radius:10px;
+  font-size:10px;
+  font-weight:600;
+}
+
+.dashboardBadge.verified{
+  background:#e8f5e9;
+  color:#0f9d58;
+}
+
+.dashboardBadge.pending{
+  background:#fff3e0;
+  color:#e65100;
+}
+
+/* ==========================================================
+   MY CONTENT (Stage 4C)
+   ========================================================== */
+
+.myContentGrid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+
+.myContentCard{
+  background:#fff;
+  border-radius:14px;
+  box-shadow:var(--shadow);
+  padding:15px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border:1px solid rgba(0,0,0,.04);
+}
+
+.myContentLabel{
+  font-size:13px;
+  color:var(--text-secondary);
+  font-weight:500;
+}
+
+.myContentCount{
+  font-size:20px;
+  font-weight:700;
+  color:var(--primary);
+}
+
+/* ==========================================================
+   RECENT ACTIVITY (Stage 4C)
+   ========================================================== */
+
+.recentActivityList{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.recentActivityItem{
+  background:#fff;
+  border-radius:14px;
+  box-shadow:var(--shadow);
+  padding:12px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  border:1px solid rgba(0,0,0,.04);
+}
+
+.recentType{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:64px;
+  padding:4px 8px;
+  border-radius:10px;
+  background:#e8f5e9;
+  color:var(--primary);
+  font-size:11px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.3px;
+}
+
+.recentBody{
+  flex:1;
+  min-width:0;
+}
+
+.recentTitle{
+  font-size:14px;
+  font-weight:600;
+  color:var(--text-primary);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.recentMeta{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:6px;
+  margin-top:3px;
+}
+
+.recentPrice{
+  font-size:12px;
+  font-weight:700;
+  color:#1a1a2e;
+}
+
+.recentStatus{
+  font-size:11px;
+  color:#888;
+  text-transform:capitalize;
+}
+
+.dashboardEmpty{
+  text-align:center;
+  padding:20px;
+  color:#888;
+  font-size:13px;
+}
+
+/* ==========================================================
+   TYPOGRAPHY UTILITIES
+========================================================== */
+
+h1{font-size:24px;font-weight:700;line-height:1.3;}
+h2{font-size:20px;font-weight:600;line-height:1.35;}
+h3{font-size:17px;font-weight:600;line-height:1.4;}
+h4{font-size:15px;font-weight:600;line-height:1.4;}
+h5{font-size:14px;font-weight:600;line-height:1.4;}
+h6{font-size:13px;font-weight:600;line-height:1.4;}
+
+.text-muted{color:var(--text-muted);font-size:13px;}
+.text-secondary{color:var(--text-secondary);font-size:14px;}
+.text-small{font-size:12px;color:var(--text-muted);}
+
+/* ==========================================================
+   COMPACT HEADER (Stage 2)
+======================================================== */
+
+.header-left{
+  display:flex;
+  align-items:center;
+}
+
+.header-menu-icon{
+  font-size:26px;
+  color:var(--text-primary);
+  cursor:pointer;
+  padding:6px;
+  border-radius:50%;
+  transition:background .2s;
+}
+
+.header-menu-icon:hover{
+  background:#f0f0f0;
+}
+
+.header-center{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  flex:1;
+  text-align:center;
+}
+
+.header-brand{
+  font-size:22px;
+  font-weight:700;
+  color:#4ade80;
+  line-height:1.2;
+  text-shadow:0 2px 4px rgba(0,0,0,0.2);
+}
+
+.header-tagline{
+  font-size:11px;
+  color:rgba(255,255,255,0.9);
+  line-height:1.2;
+}
+
+.header-right{
+  display:flex;
+  align-items:center;
+}
+
+.header-notif-icon{
+  font-size:24px;
+  color:#fff;
+  cursor:pointer;
+  padding:6px;
+  border-radius:50%;
+  transition:background .2s;
+  position:relative;
+}
+
+.header-notif-icon:hover{
+  background:rgba(255,255,255,0.15);
+}
 
 /* ==========================================================
    LOCATION CARD (Stage 2)
