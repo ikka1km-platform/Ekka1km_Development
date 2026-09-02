@@ -54,6 +54,7 @@ const CommandCenter = {
   _listeners: {},
   _initialized: false,
   _data: null,
+  _loadDataPromise: null,
   _refreshTimer: null,
 
 
@@ -108,6 +109,8 @@ const CommandCenter = {
     this._activeLayer = null;
     this._listeners = {};
     this._initialized = false;
+    this._data = null;
+    this._loadDataPromise = null;
   },
 
 
@@ -137,6 +140,7 @@ const CommandCenter = {
 
   async refreshData() {
 
+    this._data = null;
     await this._loadData();
     this._renderActiveLayer();
     this._updateStatusBar();
@@ -265,34 +269,51 @@ const CommandCenter = {
 
   async _loadData() {
 
+    if (this._data) {
+      return this._data;
+    }
+
+    if (this._loadDataPromise) {
+      return this._loadDataPromise;
+    }
+
     const session = AdminAuth.getSession();
 
     if (!session) {
       console.warn("No admin session for command center data");
-      return;
+      return null;
     }
 
-    try {
+    this._loadDataPromise = (async () => {
+      try {
 
-      const response = await fetch(
-        getApiUrl() +
-        "?action=ccdata" +
-        "&session=" +
-        encodeURIComponent(session)
-      );
+        const response = await fetch(
+          getApiUrl() +
+          "?action=ccdata" +
+          "&session=" +
+          encodeURIComponent(session)
+        );
 
-      const json = await response.json();
+        const json = await response.json();
 
-      if (json && json.success && json.data) {
-        this._data = json.data;
-        console.log("Command Center data loaded", json.data);
-      } else {
-        console.warn("Command Center data load failed:", json.message);
+        if (json && json.success && json.data) {
+          this._data = json.data;
+          console.log("Command Center data loaded", json.data);
+          return json.data;
+        } else {
+          console.warn("Command Center data load failed:", json ? json.message : "Unknown error");
+          return null;
+        }
+
+      } catch (err) {
+        console.error("Command Center data error:", err);
+        return null;
+      } finally {
+        this._loadDataPromise = null;
       }
+    })();
 
-    } catch (err) {
-      console.error("Command Center data error:", err);
-    }
+    return this._loadDataPromise;
   },
 
 

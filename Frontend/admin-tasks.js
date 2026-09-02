@@ -33,23 +33,28 @@ AdminModules.register("tasks", async function(container) {
     container.innerHTML = '<div class="module-loading"><div class="loader"></div><p>Loading tasks...</p></div>';
 
     try {
-      // Load stats
-      var statsResponse = await fetch(getApiUrl() + "?action=admintaskstats&session=" + encodeURIComponent(session));
-      var statsJson = await statsResponse.json();
-      var stats = statsJson.success ? statsJson.data : {};
-
-      // Load tasks
       var url = getApiUrl() + "?action=admintasks&session=" + encodeURIComponent(session) + "&page=" + currentPage + "&limit=20";
       if (currentSearch) url += "&search=" + encodeURIComponent(currentSearch);
       if (currentStatus) url += "&status=" + encodeURIComponent(currentStatus);
       if (currentPriority) url += "&priority=" + encodeURIComponent(currentPriority);
       if (currentDepartment) url += "&department=" + encodeURIComponent(currentDepartment);
 
-      var response = await fetch(url);
-      var json = await response.json();
+      // Load stats and tasks concurrently
+      var statsPromise = fetch(getApiUrl() + "?action=admintaskstats&session=" + encodeURIComponent(session))
+        .then(function(res) { return res.json(); })
+        .catch(function() { return { success: false }; });
+
+      var tasksPromise = fetch(url)
+        .then(function(res) { return res.json(); });
+
+      var results = await Promise.all([statsPromise, tasksPromise]);
+      var statsJson = results[0];
+      var json = results[1];
+
+      var stats = (statsJson && statsJson.success) ? statsJson.data : {};
 
       if (!json || !json.success) {
-        container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Failed to Load Tasks</h3><p>' + (json.message || "Unknown error") + '</p></div>';
+        container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Failed to Load Tasks</h3><p>' + (json ? json.message : "Unknown error") + '</p></div>';
         return;
       }
 

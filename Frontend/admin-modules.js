@@ -53,13 +53,6 @@ const AdminModules = {
       return;
     }
 
-    // Validate session
-    const sessionResult = await AdminAuth.validateSession();
-    if (!sessionResult.valid) {
-      AdminAuth.redirectToLogin();
-      return;
-    }
-
     if (this._currentModule === moduleName) return;
 
     this._currentModule = moduleName;

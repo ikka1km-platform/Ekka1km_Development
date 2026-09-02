@@ -142,19 +142,21 @@ AdminModules.register("users", async function(container) {
       if (currentSearch) url += "&search=" + encodeURIComponent(currentSearch);
       if (currentStatus) url += "&status=" + encodeURIComponent(currentStatus);
 
-      var response = await fetch(url);
-      var json = await response.json();
+      var usersPromise = fetch(url).then(function(res) { return res.json(); });
+      var announcersPromise = fetchAnnouncers();
+
+      var results = await Promise.all([usersPromise, announcersPromise]);
+      var json = results[0];
+      announcersData = results[1] || [];
 
       if (!json || !json.success) {
-        container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Failed to Load Users</h3><p>' + (json.message || "Unknown error") + '</p></div>';
+        container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Failed to Load Users</h3><p>' + (json ? json.message : "Unknown error") + '</p></div>';
         return;
       }
 
       usersData = json.data.data || [];
       totalPages = json.data.totalPages || 1;
 
-      // Fetch announcers for client-side join
-      announcersData = await fetchAnnouncers();
       var announcerLookup = buildAnnouncerLookup(announcersData);
 
       var html = "";

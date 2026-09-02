@@ -38,27 +38,29 @@ const Dashboard = {
       return;
     }
 
-    // Load admin profile into UI
+    // Load admin profile into UI immediately
     this._loadAdminProfile();
 
-    // Load dashboard data
-    await this.loadDashboardData();
-
-    // Start clock
+    // Start clock immediately
     this._startClock();
 
-    // Init sidebar
+    // Init sidebar immediately
     this._initSidebar();
 
-    // Init notification panel
+    // Init notification panel immediately
     this._initNotifications();
 
-    // Init command center map and load live data (Phase 5.3B)
-    this._initCommandCenter();
-    this._loadCommandCenterData();
-
-    // Init module navigation system (Phase 5.4)
+    // Init module navigation system immediately (Phase 5.4)
     AdminModules.init();
+
+    // Init command center map shell (Phase 5.3B)
+    this._initCommandCenter();
+
+    // Parallelize independent initial load requests without blocking the shell
+    await Promise.all([
+      this.loadDashboardData(),
+      this._loadCommandCenterData()
+    ]);
   },
 
 
@@ -200,10 +202,13 @@ const Dashboard = {
     const loadingEl = document.getElementById("dashboardLoading");
     const contentEl = document.getElementById("dashboardContent");
 
-    if (!loadingEl || !contentEl) return;
+    if (loadingEl) {
+      loadingEl.style.display = "none";
+    }
 
-    loadingEl.style.display = loading ? "flex" : "none";
-    contentEl.style.display = loading ? "none" : "block";
+    if (contentEl) {
+      contentEl.style.display = "block";
+    }
   },
 
 
@@ -506,49 +511,55 @@ const Dashboard = {
 
   async _loadCommandCenterData() {
 
-    const session = AdminAuth.getSession();
+    let data = null;
 
-    if (!session) return;
+    if (typeof CommandCenter !== "undefined" && typeof CommandCenter._loadData === "function") {
+      data = await CommandCenter._loadData();
+    } else {
+      const session = AdminAuth.getSession();
+      if (!session) return;
 
-    try {
+      try {
+        const response = await fetch(
+          getApiUrl() +
+          "?action=ccdata" +
+          "&session=" +
+          encodeURIComponent(session)
+        );
 
-      const response = await fetch(
-        getApiUrl() +
-        "?action=ccdata" +
-        "&session=" +
-        encodeURIComponent(session)
-      );
-
-      const json = await response.json();
-
-      if (json && json.success && json.data) {
-
-        // Store city analytics for map click handler
-        this._cityAnalytics = json.data.cityAnalytics || [];
-
-        // Update activity feed
-        if (json.data.activityFeed && json.data.activityFeed.length > 0) {
-          this._updateActivityFeed(json.data.activityFeed);
+        const json = await response.json();
+        if (json && json.success && json.data) {
+          data = json.data;
         }
+      } catch (err) {
+        console.error("Command Center data load error:", err);
+      }
+    }
 
-        // Update top cities
-        if (json.data.topCities && json.data.topCities.length > 0) {
-          this._updateTopCities(json.data.topCities);
-        }
+    if (data) {
 
-        // Update top categories
-        if (json.data.topCategories && json.data.topCategories.length > 0) {
-          this._updateTopCategories(json.data.topCategories);
-        }
+      // Store city analytics for map click handler
+      this._cityAnalytics = data.cityAnalytics || [];
 
-        // Update system health
-        if (json.data.systemHealth) {
-          this._updateSystemHealth(json.data.systemHealth);
-        }
+      // Update activity feed
+      if (data.activityFeed && data.activityFeed.length > 0) {
+        this._updateActivityFeed(data.activityFeed);
       }
 
-    } catch (err) {
-      console.error("Command Center data load error:", err);
+      // Update top cities
+      if (data.topCities && data.topCities.length > 0) {
+        this._updateTopCities(data.topCities);
+      }
+
+      // Update top categories
+      if (data.topCategories && data.topCategories.length > 0) {
+        this._updateTopCategories(data.topCategories);
+      }
+
+      // Update system health
+      if (data.systemHealth) {
+        this._updateSystemHealth(data.systemHealth);
+      }
     }
   },
 
