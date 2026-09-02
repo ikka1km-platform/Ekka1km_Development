@@ -121,6 +121,9 @@ function applyAnnouncer(e) {
       return error("Announcers sheet not configured. Contact admin.");
     }
     
+    // Ensure AutoPublish header exists in Row 1 before appending new row with 23 columns
+    ensureAnnouncersAutoPublishHeader();
+
     sheet.appendRow([
       announcerId,
       userId,
@@ -143,7 +146,8 @@ function applyAnnouncer(e) {
       "", // SuspendedDate
       "", // RevokedDate
       "", // AdminNotes
-      new Date()
+      new Date(), // UpdatedDate
+      "false" // AutoPublish
     ]);
     
     // Audit log
@@ -501,6 +505,97 @@ function adminRevokeAnnouncer(e) {
       AnnouncerID: announcerId,
       Status: "Revoked"
     }, "Announcer authorization revoked. User account remains active.");
+    
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * ENSURE ANNOUNCERS AUTO-PUBLISH HEADER EXISTS
+ * ============================================================
+ */
+function ensureAnnouncersAutoPublishHeader() {
+  try {
+    var sheet = getSheet("Announcers");
+    if (!sheet) return;
+    var values = sheet.getDataRange().getValues();
+    if (!values || values.length === 0) return;
+    var headers = values[0];
+    if (headers.indexOf("AutoPublish") === -1) {
+      var lastHeaderCol = 0;
+      for (var c = 0; c < headers.length; c++) {
+        if (headers[c] !== "" && headers[c] !== null && headers[c] !== undefined) {
+          lastHeaderCol = c + 1;
+        }
+      }
+      var nextCol = (lastHeaderCol > 0 ? lastHeaderCol : headers.length) + 1;
+      sheet.getRange(1, nextCol).setValue("AutoPublish");
+      Logger.log("Announcers header added: AutoPublish in column " + nextCol);
+    }
+  } catch (err) {
+    Logger.log("ensureAnnouncersAutoPublishHeader error: " + err);
+  }
+}
+
+/**
+ * ============================================================
+ * ADMIN: TOGGLE / SET ANNOUNCER AUTO-PUBLISH
+ * ?action=admintoggleautopublish&session=TOKEN&announcerId=AN001&autoPublish=true
+ * ============================================================
+ */
+function adminToggleAutoPublish(e) {
+  try {
+    var sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+    
+    var p = e && e.parameter ? e.parameter : {};
+    var announcerId = (p.announcerId || "").trim();
+    if (!announcerId) return error("AnnouncerID required");
+    
+    var rawAutoPublish = p.autoPublish !== undefined ? String(p.autoPublish).trim().toLowerCase() : "";
+    var autoPublishVal = (rawAutoPublish === "true" || rawAutoPublish === "1" || rawAutoPublish === "yes" || rawAutoPublish === "on") ? "true" : "false";
+    
+    var announcer = getAnnouncerById(announcerId);
+    if (!announcer) return error("Announcer not found");
+    
+    // Only Active announcers should have AutoPublish toggled
+    if (String(announcer.Status || "").toLowerCase() !== "active") {
+      return error("Auto-Publish can only be configured for Active announcers. Current status: " + announcer.Status);
+    }
+    
+    // Ensure AutoPublish header exists in sheet
+    ensureAnnouncersAutoPublishHeader();
+    
+    var updated = updateRow("Announcers", "AnnouncerID", announcerId, {
+      AutoPublish: autoPublishVal,
+      UpdatedDate: new Date()
+    });
+    
+    if (!updated) return error("Failed to update announcer Auto-Publish setting");
+    
+    // Audit log
+    try {
+      var activitySheet = getSheet(CONFIG.SHEETS.ACTIVITY_LOGS);
+      if (activitySheet) {
+        activitySheet.appendRow([
+          Utilities.getUuid().substring(0, 8),
+          "AnnouncerAutoPublishUpdated",
+          announcer.UserID,
+          "Announcer " + announcerId + " (" + announcer.DepartmentName + ") Auto-Publish set to " + autoPublishVal + " by " + sessionResult.adminId,
+          new Date()
+        ]);
+      }
+    } catch (alErr) {
+      Logger.log("Audit log error: " + alErr);
+    }
+    
+    return success({
+      AnnouncerID: announcerId,
+      AutoPublish: autoPublishVal === "true",
+      Status: announcer.Status
+    }, "Announcer Auto-Publish setting updated to " + (autoPublishVal === "true" ? "ON" : "OFF"));
     
   } catch (err) {
     return exception(err);

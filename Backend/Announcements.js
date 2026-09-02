@@ -391,7 +391,12 @@ function createAnnouncement(e) {
     if (!sheet) return error("Announcements sheet not found");
 
     var announcementId = "A" + Utilities.getUuid().substring(0, 8);
-    var status = "Pending";
+    
+    // Check announcer AutoPublish permission (safely default to false)
+    var isAutoPublish = String(announcer.AutoPublish || "").trim().toLowerCase() === "true" ||
+                        String(announcer.AutoPublish || "").trim().toLowerCase() === "yes" ||
+                        String(announcer.AutoPublish || "").trim().toLowerCase() === "1";
+    var status = isAutoPublish ? "Active" : "Pending";
 
     // Canonicalize priority
     var validPriorities = ["Normal", "Important", "Emergency"];
@@ -430,20 +435,22 @@ function createAnnouncement(e) {
       selectedRadius // Radius
     ]);
 
-    // Submit to ModerationQueue
-    try {
-      if (typeof ensureModerationQueueSheet === "function" && typeof submitModeration === "function") {
-        submitModeration({
-          parameter: {
-            contentType: "Announcement",
-            contentId: announcementId,
-            userId: userId,
-            reason: "New official announcement from " + (announcer.DepartmentName || "Verified Announcer") + " pending review"
-          }
-        });
+    // Submit to ModerationQueue ONLY if AutoPublish is OFF (moderation bypass when AutoPublish is ON)
+    if (!isAutoPublish) {
+      try {
+        if (typeof ensureModerationQueueSheet === "function" && typeof submitModeration === "function") {
+          submitModeration({
+            parameter: {
+              contentType: "Announcement",
+              contentId: announcementId,
+              userId: userId,
+              reason: "New official announcement from " + (announcer.DepartmentName || "Verified Announcer") + " pending review"
+            }
+          });
+        }
+      } catch (mqErr) {
+        Logger.log("ModerationQueue submission error: " + mqErr);
       }
-    } catch (mqErr) {
-      Logger.log("ModerationQueue submission error: " + mqErr);
     }
 
     // Track event
@@ -455,7 +462,7 @@ function createAnnouncement(e) {
             userId: userId,
             entityType: "Announcement",
             entityId: announcementId,
-            eventData: JSON.stringify({announcerId: announcerId, radius: selectedRadius})
+            eventData: JSON.stringify({announcerId: announcerId, radius: selectedRadius, autoPublished: isAutoPublish})
           }
         });
       }
@@ -463,12 +470,16 @@ function createAnnouncement(e) {
       Logger.log("AnnouncementCreated track error: " + te);
     }
 
+    var successMessage = isAutoPublish
+      ? "Announcement published successfully."
+      : "Announcement submitted for admin approval.";
+
     return success({
       AnnouncementID: announcementId,
       Status: status,
       AnnouncerID: announcerId,
       Radius: selectedRadius
-    }, "Announcement created successfully. Pending moderation review.");
+    }, successMessage);
 
   } catch (err) {
     return exception(err);

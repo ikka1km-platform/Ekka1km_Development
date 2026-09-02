@@ -81,6 +81,10 @@ function renderAnnouncerCard(announcer) {
   
   var allowedRadii = getAllowedRadiusDisplay(announcer.MaxRadius);
   
+  var isAutoPublish = String(announcer.AutoPublish || "").trim().toLowerCase() === "true" ||
+                      String(announcer.AutoPublish || "").trim().toLowerCase() === "yes" ||
+                      String(announcer.AutoPublish || "").trim().toLowerCase() === "1";
+
   var html = '<div class="card" style="padding:16px;margin-bottom:12px;">';
   html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
   html += '<div style="font-size:14px;font-weight:600;">' + announcerEscapeHtml(announcer.DepartmentName || "Announcer") + '</div>';
@@ -93,6 +97,7 @@ function renderAnnouncerCard(announcer) {
   html += '<div><strong>Location:</strong> ' + announcerEscapeHtml(announcer.City || "") + (announcer.State ? ", " + announcerEscapeHtml(announcer.State) : "") + '</div>';
   html += '<div><strong>Max Radius:</strong> ' + announcerEscapeHtml(announcer.MaxRadius || "N/A") + '</div>';
   html += '<div><strong>Allowed Radii:</strong> ' + announcerEscapeHtml(allowedRadii) + '</div>';
+  html += '<div><strong>Auto-Publish:</strong> ' + (isAutoPublish ? '<span style="color:#2e7d32;font-weight:600;">⚡ Enabled (Instant)</span>' : '<span style="color:#e65100;font-weight:600;">⏳ Disabled (Moderation required)</span>') + '</div>';
   html += '<div><strong>Applied:</strong> ' + formatDate(announcer.RequestedDate) + '</div>';
   if (announcer.VerifiedDate) html += '<div><strong>Verified:</strong> ' + formatDate(announcer.VerifiedDate) + '</div>';
   html += '</div>';
@@ -125,7 +130,18 @@ function getAllowedRadiusDisplay(maxRadius) {
 }
 
 async function renderAnnouncerDashboard(announcer, userId) {
+  var isAutoPublish = String(announcer.AutoPublish || "").trim().toLowerCase() === "true" ||
+                      String(announcer.AutoPublish || "").trim().toLowerCase() === "yes" ||
+                      String(announcer.AutoPublish || "").trim().toLowerCase() === "1";
+
   var html = '<div class="sectionTitle">Announcer Dashboard</div>';
+  
+  html += '<div style="margin-bottom:12px;padding:10px 12px;border-radius:8px;background:' + (isAutoPublish ? '#e8f5e9' : '#fff3e0') + ';color:' + (isAutoPublish ? '#1b5e20' : '#e65100') + ';font-size:12px;">';
+  html += isAutoPublish 
+    ? '⚡ <strong>Auto-Publish is ON:</strong> Your announcements are published automatically after validation.' 
+    : '⏳ <strong>Auto-Publish is OFF:</strong> Your announcements require admin approval before publishing.';
+  html += '</div>';
+
   html += '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">';
   html += '<button class="btn-primary" onclick="openAnnouncerCreateForm(\'' + escapeAttr(announcer.AnnouncerID || "") + '\')">Create Announcement</button>';
   html += '<button class="btn-gray" onclick="loadMyAnnouncements(\'' + escapeAttr(announcer.AnnouncerID || "") + '\',\'' + escapeAttr(userId) + '\')">My Announcements</button>';

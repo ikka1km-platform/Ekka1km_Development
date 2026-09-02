@@ -423,7 +423,9 @@ AdminModules.register("users", async function(container) {
       mhtml += '            <div class="profile-field"><label>Country</label><span>' + escapeHtml(a.Country || "") + '</span></div>';
       mhtml += '            <div class="profile-field"><label>Max Radius</label><span>' + escapeHtml(a.MaxRadius || "") + '</span></div>';
       mhtml += '            <div class="profile-field"><label>Requested Date</label><span>' + escapeHtml(a.RequestedDate || "") + '</span></div>';
+      var isAutoPub = String(a.AutoPublish || "").trim().toLowerCase() === "true" || String(a.AutoPublish || "").trim().toLowerCase() === "yes";
       mhtml += '            <div class="profile-field"><label>Status</label><span>' + statusBadge + '</span></div>';
+      mhtml += '            <div class="profile-field"><label>Auto-Publish</label><span>' + (isAutoPub ? '⚡ <span style="color:#4caf50;font-weight:600;">ON (Direct Publish)</span>' : '⏳ <span style="color:var(--text-muted);">OFF (Moderation Required)</span>') + '</span></div>';
 
       if (a.VerifiedBy) {
         mhtml += '            <div class="profile-field"><label>Verified By</label><span>' + escapeHtml(a.VerifiedBy || "") + '</span></div>';

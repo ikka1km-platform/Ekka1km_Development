@@ -89,6 +89,7 @@ const AdminModules = {
       analytics: "Analytics",
       live: "Live Monitoring & Moderation",
       advertisements: "Advertisements",
+      announcements: "Announcements & Moderation",
       moderation: "Moderation",
       wallet: "Wallet & Rewards",
       gps: "GPS Analytics",

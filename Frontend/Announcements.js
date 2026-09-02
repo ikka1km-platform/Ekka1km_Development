@@ -401,6 +401,11 @@ async function loadAnnouncerPostInfo(announcerId, announcerData) {
   var allowedRadii = getAllowedRadiusOptionsDisplay(maxRadius);
   var locationStr = [announcer.City, announcer.District, announcer.State].filter(Boolean).join(", ");
   
+  // Check AutoPublish permission for informational display
+  var isAutoPublish = String(announcer.AutoPublish || "").trim().toLowerCase() === "true" ||
+                      String(announcer.AutoPublish || "").trim().toLowerCase() === "yes" ||
+                      String(announcer.AutoPublish || "").trim().toLowerCase() === "1";
+
   container.innerHTML = `
     <div style="margin-bottom:16px;padding:14px;background:#e8f5e9;border-radius:12px;border:1px solid #c8e6c9;">
       <div style="font-size:11px;color:#0f9d58;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">
@@ -418,6 +423,11 @@ async function loadAnnouncerPostInfo(announcerId, announcerData) {
       </div>
       <div style="font-size:11px;color:#777;margin-top:4px;">
         <strong>Allowed Radii:</strong> ${announcementEscapeHtml(allowedRadii)}
+      </div>
+      <div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:${isAutoPublish ? '#c8e6c9' : '#fff3e0'};color:${isAutoPublish ? '#1b5e20' : '#e65100'};font-size:11px;font-weight:500;">
+        ${isAutoPublish 
+          ? '⚡ Auto-Publish Active: Valid announcements will be published immediately upon submission.'
+          : '⏳ Moderation Notice: Announcements require admin approval before becoming public.'}
       </div>
     </div>
   `;
@@ -560,7 +570,11 @@ async function submitAnnouncement() {
       var json = await response.json();
 
       if (json.success || json.status === "SUCCESS") {
-        alert(json.message || "Announcement created successfully!");
+        var statusVal = json.data && json.data.Status ? String(json.data.Status).toLowerCase() : "";
+        var defaultMsg = statusVal === "active" 
+          ? "Announcement published successfully." 
+          : "Announcement submitted for admin approval.";
+        alert(json.message || defaultMsg);
         clearAnnouncementForm();
         openPage("announcements");
         loadAnnouncements();

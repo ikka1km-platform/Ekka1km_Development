@@ -277,6 +277,42 @@ function refreshDrawerIdentity() {
       balanceEl.style.display = (wallet || coins) ? "block" : "none";
     }
   }
+
+  // Official Announcer Drawer Item Visibility (restricted exclusively to approved/active announcers)
+  const announcerDrawerEl = document.getElementById("drawerAnnouncerItem");
+  if (announcerDrawerEl) {
+    var uid = user ? (user.UserID || user.userId || user.id || "") : "";
+    if (!uid) {
+      announcerDrawerEl.style.display = "none";
+    } else {
+      var cachedActive = localStorage.getItem("ekka_active_announcer_" + uid);
+      if (cachedActive === "true") {
+        announcerDrawerEl.style.display = "flex";
+      } else {
+        announcerDrawerEl.style.display = "none";
+      }
+
+      if (typeof getApiUrl === "function") {
+        fetch(getApiUrl() + "?action=myannouncerstatus&userId=" + encodeURIComponent(uid))
+          .then(function(res) { return res.json(); })
+          .then(function(json) {
+            var announcers = (json && json.data) || [];
+            var hasActive = false;
+            for (var i = 0; i < announcers.length; i++) {
+              if (String(announcers[i].Status || "").toLowerCase() === "active") {
+                hasActive = true;
+                break;
+              }
+            }
+            localStorage.setItem("ekka_active_announcer_" + uid, hasActive ? "true" : "false");
+            if (announcerDrawerEl) {
+              announcerDrawerEl.style.display = hasActive ? "flex" : "none";
+            }
+          })
+          .catch(function() { /* silent */ });
+      }
+    }
+  }
 }
 
 

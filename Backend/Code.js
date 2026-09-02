@@ -394,6 +394,9 @@ case "notification_sent":
       case "adminrevokeannouncer":
         return adminRevokeAnnouncer(e);
 
+      case "admintoggleautopublish":
+        return adminToggleAutoPublish(e);
+
       case "adminannouncementstatus":
         return setAnnouncementStatus(e);
 
