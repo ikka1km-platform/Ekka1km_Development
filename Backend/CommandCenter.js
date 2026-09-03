@@ -26,16 +26,25 @@ function getCommandCenterData(e) {
       return sessionResult.response;
     }
 
+    // Read each required sheet ONCE per request
+    const users = getSheetData(CONFIG.SHEETS.USERS);
+    const businesses = getSheetData(CONFIG.SHEETS.BUSINESSES);
+    const products = getSheetData(CONFIG.SHEETS.PRODUCTS);
+    const properties = getSheetData(CONFIG.SHEETS.PROPERTIES);
+    const advertisements = getSheetData(CONFIG.SHEETS.ADVERTISEMENTS);
+    const promotions = getSheetData(CONFIG.SHEETS.PROMOTION_CAMPAIGNS);
+    const news = getSheetData(CONFIG.SHEETS.NEWS);
+
     const data = {
-      heatmap: getHeatMapData(),
-      liveUsers: getLiveUsersData(),
-      businesses: getBusinessesMapData(),
-      advertisements: getAdvertisementsMapData(),
-      promotions: getPromotionsMapData(),
-      cityAnalytics: getCityAnalyticsData(),
-      activityFeed: getActivityFeedData(),
-      topCities: getTopCitiesData(),
-      topCategories: getTopCategoriesData(),
+      heatmap: getHeatMapData(users, businesses),
+      liveUsers: getLiveUsersData(users),
+      businesses: getBusinessesMapData(businesses),
+      advertisements: getAdvertisementsMapData(advertisements),
+      promotions: getPromotionsMapData(promotions),
+      cityAnalytics: getCityAnalyticsData(users, businesses, products, properties),
+      activityFeed: getActivityFeedData(users, businesses, products, properties, news),
+      topCities: getTopCitiesData(users, businesses, products),
+      topCategories: getTopCategoriesData(businesses, products),
       systemHealth: getSystemHealthData()
     };
 
@@ -54,12 +63,12 @@ function getCommandCenterData(e) {
  * ============================================================
  */
 
-function getHeatMapData() {
+function getHeatMapData(usersData, businessesData) {
 
   const points = [];
 
   try {
-    const users = getSheetData(CONFIG.SHEETS.USERS);
+    const users = Array.isArray(usersData) ? usersData : getSheetData(CONFIG.SHEETS.USERS);
 
     users.forEach(function(user) {
       const lat = parseFloat(user.Latitude || user.lat || 0);
@@ -77,7 +86,7 @@ function getHeatMapData() {
 
   // Also add business locations for heat map density
   try {
-    const businesses = getSheetData(CONFIG.SHEETS.BUSINESSES);
+    const businesses = Array.isArray(businessesData) ? businessesData : getSheetData(CONFIG.SHEETS.BUSINESSES);
 
     businesses.forEach(function(biz) {
       const lat = parseFloat(biz.Latitude || biz.lat || 0);
@@ -104,12 +113,12 @@ function getHeatMapData() {
  * ============================================================
  */
 
-function getLiveUsersData() {
+function getLiveUsersData(usersData) {
 
   const users = [];
 
   try {
-    const allUsers = getSheetData(CONFIG.SHEETS.USERS);
+    const allUsers = Array.isArray(usersData) ? usersData : getSheetData(CONFIG.SHEETS.USERS);
 
     allUsers.forEach(function(user) {
       const lat = parseFloat(user.Latitude || user.lat || 0);
@@ -141,12 +150,12 @@ function getLiveUsersData() {
  * ============================================================
  */
 
-function getBusinessesMapData() {
+function getBusinessesMapData(businessesData) {
 
   const businesses = [];
 
   try {
-    const allBiz = getSheetData(CONFIG.SHEETS.BUSINESSES);
+    const allBiz = Array.isArray(businessesData) ? businessesData : getSheetData(CONFIG.SHEETS.BUSINESSES);
 
     allBiz.forEach(function(biz) {
       const lat = parseFloat(biz.Latitude || biz.lat || 0);
@@ -181,12 +190,12 @@ function getBusinessesMapData() {
  * ============================================================
  */
 
-function getAdvertisementsMapData() {
+function getAdvertisementsMapData(adsData) {
 
   const ads = [];
 
   try {
-    const allAds = getSheetData(CONFIG.SHEETS.ADVERTISEMENTS);
+    const allAds = Array.isArray(adsData) ? adsData : getSheetData(CONFIG.SHEETS.ADVERTISEMENTS);
 
     allAds.forEach(function(ad) {
       const lat = parseFloat(ad.Latitude || ad.lat || 0);
@@ -219,12 +228,12 @@ function getAdvertisementsMapData() {
  * ============================================================
  */
 
-function getPromotionsMapData() {
+function getPromotionsMapData(promosData) {
 
   const promotions = [];
 
   try {
-    const allPromos = getSheetData(CONFIG.SHEETS.PROMOTION_CAMPAIGNS);
+    const allPromos = Array.isArray(promosData) ? promosData : getSheetData(CONFIG.SHEETS.PROMOTION_CAMPAIGNS);
 
     allPromos.forEach(function(promo) {
       const lat = parseFloat(promo.Latitude || promo.lat || 0);
@@ -255,13 +264,13 @@ function getPromotionsMapData() {
  * ============================================================
  */
 
-function getCityAnalyticsData() {
+function getCityAnalyticsData(usersData, businessesData, productsData, propertiesData) {
 
   const cities = {};
 
   // Aggregate users by city
   try {
-    const users = getSheetData(CONFIG.SHEETS.USERS);
+    const users = Array.isArray(usersData) ? usersData : getSheetData(CONFIG.SHEETS.USERS);
 
     users.forEach(function(user) {
       const city = (user.City || "").trim();
@@ -293,7 +302,7 @@ function getCityAnalyticsData() {
 
   // Aggregate businesses by city
   try {
-    const businesses = getSheetData(CONFIG.SHEETS.BUSINESSES);
+    const businesses = Array.isArray(businessesData) ? businessesData : getSheetData(CONFIG.SHEETS.BUSINESSES);
 
     businesses.forEach(function(biz) {
       const city = (biz.City || "").trim();
@@ -308,7 +317,7 @@ function getCityAnalyticsData() {
 
   // Aggregate products by city
   try {
-    const products = getSheetData(CONFIG.SHEETS.PRODUCTS);
+    const products = Array.isArray(productsData) ? productsData : getSheetData(CONFIG.SHEETS.PRODUCTS);
 
     products.forEach(function(prod) {
       const city = (prod.City || "").trim();
@@ -323,7 +332,7 @@ function getCityAnalyticsData() {
 
   // Aggregate properties by city
   try {
-    const properties = getSheetData(CONFIG.SHEETS.PROPERTIES);
+    const properties = Array.isArray(propertiesData) ? propertiesData : getSheetData(CONFIG.SHEETS.PROPERTIES);
 
     properties.forEach(function(prop) {
       const city = (prop.City || "").trim();
@@ -351,14 +360,14 @@ function getCityAnalyticsData() {
  * ============================================================
  */
 
-function getActivityFeedData() {
+function getActivityFeedData(usersData, businessesData, productsData, propertiesData, newsData) {
 
   const activities = [];
   const now = new Date();
 
   // Recent users
   try {
-    const users = getSheetData(CONFIG.SHEETS.USERS);
+    const users = Array.isArray(usersData) ? usersData : getSheetData(CONFIG.SHEETS.USERS);
     const recent = users.slice(-20).reverse();
 
     recent.forEach(function(user) {
@@ -375,7 +384,7 @@ function getActivityFeedData() {
 
   // Recent businesses
   try {
-    const businesses = getSheetData(CONFIG.SHEETS.BUSINESSES);
+    const businesses = Array.isArray(businessesData) ? businessesData : getSheetData(CONFIG.SHEETS.BUSINESSES);
     const recent = businesses.slice(-20).reverse();
 
     recent.forEach(function(biz) {
@@ -392,7 +401,7 @@ function getActivityFeedData() {
 
   // Recent products
   try {
-    const products = getSheetData(CONFIG.SHEETS.PRODUCTS);
+    const products = Array.isArray(productsData) ? productsData : getSheetData(CONFIG.SHEETS.PRODUCTS);
     const recent = products.slice(-20).reverse();
 
     recent.forEach(function(prod) {
@@ -409,7 +418,7 @@ function getActivityFeedData() {
 
   // Recent properties
   try {
-    const properties = getSheetData(CONFIG.SHEETS.PROPERTIES);
+    const properties = Array.isArray(propertiesData) ? propertiesData : getSheetData(CONFIG.SHEETS.PROPERTIES);
     const recent = properties.slice(-20).reverse();
 
     recent.forEach(function(prop) {
@@ -426,7 +435,7 @@ function getActivityFeedData() {
 
   // Recent news
   try {
-    const news = getSheetData(CONFIG.SHEETS.NEWS);
+    const news = Array.isArray(newsData) ? newsData : getSheetData(CONFIG.SHEETS.NEWS);
     const recent = news.slice(-20).reverse();
 
     recent.forEach(function(article) {
@@ -457,13 +466,13 @@ function getActivityFeedData() {
  * ============================================================
  */
 
-function getTopCitiesData() {
+function getTopCitiesData(usersData, businessesData, productsData) {
 
   const cityStats = {};
 
   // Count users per city
   try {
-    const users = getSheetData(CONFIG.SHEETS.USERS);
+    const users = Array.isArray(usersData) ? usersData : getSheetData(CONFIG.SHEETS.USERS);
 
     users.forEach(function(user) {
       const city = (user.City || "").trim();
@@ -479,7 +488,7 @@ function getTopCitiesData() {
 
   // Count businesses per city
   try {
-    const businesses = getSheetData(CONFIG.SHEETS.BUSINESSES);
+    const businesses = Array.isArray(businessesData) ? businessesData : getSheetData(CONFIG.SHEETS.BUSINESSES);
 
     businesses.forEach(function(biz) {
       const city = (biz.City || "").trim();
@@ -490,7 +499,7 @@ function getTopCitiesData() {
 
   // Count products per city
   try {
-    const products = getSheetData(CONFIG.SHEETS.PRODUCTS);
+    const products = Array.isArray(productsData) ? productsData : getSheetData(CONFIG.SHEETS.PRODUCTS);
 
     products.forEach(function(prod) {
       const city = (prod.City || "").trim();
@@ -513,13 +522,13 @@ function getTopCitiesData() {
  * ============================================================
  */
 
-function getTopCategoriesData() {
+function getTopCategoriesData(businessesData, productsData) {
 
   const categoryStats = {};
 
   // Count businesses per category
   try {
-    const businesses = getSheetData(CONFIG.SHEETS.BUSINESSES);
+    const businesses = Array.isArray(businessesData) ? businessesData : getSheetData(CONFIG.SHEETS.BUSINESSES);
 
     businesses.forEach(function(biz) {
       const cat = (biz.Category || "").trim();
@@ -535,7 +544,7 @@ function getTopCategoriesData() {
 
   // Count products per category
   try {
-    const products = getSheetData(CONFIG.SHEETS.PRODUCTS);
+    const products = Array.isArray(productsData) ? productsData : getSheetData(CONFIG.SHEETS.PRODUCTS);
 
     products.forEach(function(prod) {
       const cat = (prod.Category || "").trim();
