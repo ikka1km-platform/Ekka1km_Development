@@ -25,11 +25,30 @@ function getAdminDashboardSummary(e) {
       return sessionResult.response;
     }
 
-    // Aggregate existing analytics (reuse existing functions)
-    const overview = getDashboardOverviewData();
-    const revenue = getRevenueData();
-    const health = getHealthData();
-    const live = getLiveData();
+    // Open spreadsheet ONCE for all operations in this request
+    const ss = getSpreadsheet();
+
+    // Read full-data sheets ONCE into memory
+    const usersSheet = ss ? ss.getSheetByName(CONFIG.SHEETS.USERS) : null;
+    const userData = usersSheet ? usersSheet.getDataRange().getValues() : [];
+
+    const modSheet = ss ? ss.getSheetByName(CONFIG.SHEETS.MODERATION_QUEUE) : null;
+    const modData = modSheet ? modSheet.getDataRange().getValues() : [];
+
+    const txSheet = ss ? (ss.getSheetByName("WalletTransactions") || ss.getSheetByName(CONFIG.SHEETS.WALLET_TRANSACTIONS)) : null;
+    const txData = txSheet ? txSheet.getDataRange().getValues() : [];
+
+    const rewardSheet = ss ? ss.getSheetByName("AdRewardHistory") : null;
+    const rewardData = rewardSheet ? rewardSheet.getDataRange().getValues() : [];
+
+    const viewersSheet = ss ? ss.getSheetByName(CONFIG.SHEETS.LIVE_VIEWERS) : null;
+    const viewerData = viewersSheet ? viewersSheet.getDataRange().getValues() : [];
+
+    // Aggregate analytics using in-memory data
+    const overview = getDashboardOverviewData(ss, userData, modData);
+    const revenue = getRevenueData(txData, rewardData);
+    const health = getHealthData(ss);
+    const live = getLiveData(viewerData);
 
     // Promotion Engine V2: Reuse AdminEconomy for campaign KPIs
     let economy = { totalPromotionFuel: 0, totalRemainingFuel: 0, totalCoinsConsumed: 0, activeCampaignCount: 0 };
@@ -82,11 +101,11 @@ function getAdminDashboardSummary(e) {
 /**
  * ============================================================
  * GET DASHBOARD OVERVIEW DATA
- * Reuses existing sheet counts
+ * Reuses existing sheet counts and in-memory datasets
  * ============================================================
  */
 
-function getDashboardOverviewData() {
+function getDashboardOverviewData(ssParam, userDataParam, modDataParam) {
 
   const result = {
     totalUsers: 0,
@@ -101,72 +120,21 @@ function getDashboardOverviewData() {
     pendingApprovals: 0
   };
 
-  try {
-    const usersSheet = getSheet(CONFIG.SHEETS.USERS);
-    if (usersSheet) result.totalUsers = Math.max(0, usersSheet.getLastRow() - 1);
-  } catch (e) { /* ignore */ }
+  const ss = ssParam || getSpreadsheet();
 
+  // Users: calculate totalUsers and activeCities from userDataParam if provided
   try {
-    const productsSheet = getSheet(CONFIG.SHEETS.PRODUCTS);
-    if (productsSheet) result.totalProducts = Math.max(0, productsSheet.getLastRow() - 1);
-  } catch (e) { /* ignore */ }
-
-  try {
-    const businessesSheet = getSheet(CONFIG.SHEETS.BUSINESSES);
-    if (businessesSheet) result.totalBusinesses = Math.max(0, businessesSheet.getLastRow() - 1);
-  } catch (e) { /* ignore */ }
-
-  try {
-    const propertiesSheet = getSheet(CONFIG.SHEETS.PROPERTIES);
-    if (propertiesSheet) result.totalProperties = Math.max(0, propertiesSheet.getLastRow() - 1);
-  } catch (e) { /* ignore */ }
-
-  try {
-    const newsSheet = getSheet(CONFIG.SHEETS.NEWS);
-    if (newsSheet) result.totalNews = Math.max(0, newsSheet.getLastRow() - 1);
-  } catch (e) { /* ignore */ }
-
-  try {
-    const mediaSheet = getSheet(CONFIG.SHEETS.MEDIA);
-    if (mediaSheet) result.totalMedia = Math.max(0, mediaSheet.getLastRow() - 1);
-  } catch (e) { /* ignore */ }
-
-  try {
-    const ordersSheet = getSheet(CONFIG.SHEETS.ORDERS);
-    if (ordersSheet) result.totalOrders = Math.max(0, ordersSheet.getLastRow() - 1);
-  } catch (e) { /* ignore */ }
-
-  try {
-    const liveSheet = getSheet(CONFIG.SHEETS.LIVE);
-    if (liveSheet) result.totalLiveChannels = Math.max(0, liveSheet.getLastRow() - 1);
-  } catch (e) { /* ignore */ }
-
-  // Pending approvals from ModerationQueue
-  try {
-    const modSheet = getSheet(CONFIG.SHEETS.MODERATION_QUEUE);
-    if (modSheet) {
-      const modData = modSheet.getDataRange().getValues();
-      if (modData.length > 1) {
-        const headers = modData[0];
-        const statusCol = headers.indexOf("Status");
-        if (statusCol >= 0) {
-          let pending = 0;
-          for (let i = 1; i < modData.length; i++) {
-            if (String(modData[i][statusCol] || "").toLowerCase() === "pending") {
-              pending++;
-            }
-          }
-          result.pendingApprovals = pending;
-        }
+    let userData = userDataParam;
+    if (!userData && ss) {
+      const usersSheet = ss.getSheetByName(CONFIG.SHEETS.USERS);
+      if (usersSheet) {
+        userData = usersSheet.getDataRange().getValues();
       }
     }
-  } catch (e) { /* ignore */ }
 
-  // Active cities (unique cities from Users sheet)
-  try {
-    const usersSheet = getSheet(CONFIG.SHEETS.USERS);
-    if (usersSheet) {
-      const userData = usersSheet.getDataRange().getValues();
+    if (userData && userData.length > 0) {
+      result.totalUsers = Math.max(0, userData.length - 1);
+
       if (userData.length > 1) {
         const headers = userData[0];
         const cityCol = headers.indexOf("City");
@@ -182,6 +150,67 @@ function getDashboardOverviewData() {
     }
   } catch (e) { /* ignore */ }
 
+  // Count-only sheets (reusing the already-opened ss instance)
+  try {
+    const productsSheet = ss ? ss.getSheetByName(CONFIG.SHEETS.PRODUCTS) : null;
+    if (productsSheet) result.totalProducts = Math.max(0, productsSheet.getLastRow() - 1);
+  } catch (e) { /* ignore */ }
+
+  try {
+    const businessesSheet = ss ? ss.getSheetByName(CONFIG.SHEETS.BUSINESSES) : null;
+    if (businessesSheet) result.totalBusinesses = Math.max(0, businessesSheet.getLastRow() - 1);
+  } catch (e) { /* ignore */ }
+
+  try {
+    const propertiesSheet = ss ? ss.getSheetByName(CONFIG.SHEETS.PROPERTIES) : null;
+    if (propertiesSheet) result.totalProperties = Math.max(0, propertiesSheet.getLastRow() - 1);
+  } catch (e) { /* ignore */ }
+
+  try {
+    const newsSheet = ss ? ss.getSheetByName(CONFIG.SHEETS.NEWS) : null;
+    if (newsSheet) result.totalNews = Math.max(0, newsSheet.getLastRow() - 1);
+  } catch (e) { /* ignore */ }
+
+  try {
+    const mediaSheet = ss ? ss.getSheetByName(CONFIG.SHEETS.MEDIA) : null;
+    if (mediaSheet) result.totalMedia = Math.max(0, mediaSheet.getLastRow() - 1);
+  } catch (e) { /* ignore */ }
+
+  try {
+    const ordersSheet = ss ? ss.getSheetByName(CONFIG.SHEETS.ORDERS) : null;
+    if (ordersSheet) result.totalOrders = Math.max(0, ordersSheet.getLastRow() - 1);
+  } catch (e) { /* ignore */ }
+
+  try {
+    const liveSheet = ss ? ss.getSheetByName(CONFIG.SHEETS.LIVE) : null;
+    if (liveSheet) result.totalLiveChannels = Math.max(0, liveSheet.getLastRow() - 1);
+  } catch (e) { /* ignore */ }
+
+  // Pending approvals from ModerationQueue
+  try {
+    let modData = modDataParam;
+    if (!modData && ss) {
+      const modSheet = ss.getSheetByName(CONFIG.SHEETS.MODERATION_QUEUE);
+      if (modSheet) {
+        modData = modSheet.getDataRange().getValues();
+      }
+    }
+
+    if (modData && modData.length > 1) {
+      const headers = modData[0];
+      const statusCol = headers.indexOf("Status");
+      if (statusCol >= 0) {
+        let pending = 0;
+        for (let i = 1; i < modData.length; i++) {
+          if (String(modData[i][statusCol] || "").toLowerCase() === "pending") {
+            pending++;
+          }
+        }
+        result.pendingApprovals = pending;
+      }
+    }
+  } catch (e) { /* ignore */ }
+
   return result;
 }
 
@@ -192,7 +221,7 @@ function getDashboardOverviewData() {
  * ============================================================
  */
 
-function getRevenueData() {
+function getRevenueData(txDataParam, rewardDataParam) {
 
   const result = {
     totalRevenue: 0,
@@ -201,38 +230,42 @@ function getRevenueData() {
 
   // Revenue from WalletTransactions
   try {
-    const txSheet = getSheet("WalletTransactions");
-    if (txSheet) {
-      const txData = txSheet.getDataRange().getValues();
-      if (txData.length > 1) {
-        const headers = txData[0];
-        const amountCol = headers.indexOf("Amount");
-        if (amountCol >= 0) {
-          let revenue = 0;
-          for (let i = 1; i < txData.length; i++) {
-            revenue += Number(txData[i][amountCol] || 0);
-          }
-          result.totalRevenue = revenue;
+    let txData = txDataParam;
+    if (!txData) {
+      const txSheet = getSheet("WalletTransactions");
+      if (txSheet) txData = txSheet.getDataRange().getValues();
+    }
+
+    if (txData && txData.length > 1) {
+      const headers = txData[0];
+      const amountCol = headers.indexOf("Amount");
+      if (amountCol >= 0) {
+        let revenue = 0;
+        for (let i = 1; i < txData.length; i++) {
+          revenue += Number(txData[i][amountCol] || 0);
         }
+        result.totalRevenue = revenue;
       }
     }
   } catch (e) { /* ignore */ }
 
   // Coins distributed from RewardEngine
   try {
-    const rewardSheet = getSheet("AdRewardHistory");
-    if (rewardSheet) {
-      const rewardData = rewardSheet.getDataRange().getValues();
-      if (rewardData.length > 1) {
-        const headers = rewardData[0];
-        const coinsCol = headers.indexOf("Coins");
-        if (coinsCol >= 0) {
-          let coins = 0;
-          for (let i = 1; i < rewardData.length; i++) {
-            coins += Number(rewardData[i][coinsCol] || 0);
-          }
-          result.coinsDistributed = coins;
+    let rewardData = rewardDataParam;
+    if (!rewardData) {
+      const rewardSheet = getSheet("AdRewardHistory");
+      if (rewardSheet) rewardData = rewardSheet.getDataRange().getValues();
+    }
+
+    if (rewardData && rewardData.length > 1) {
+      const headers = rewardData[0];
+      const coinsCol = headers.indexOf("Coins");
+      if (coinsCol >= 0) {
+        let coins = 0;
+        for (let i = 1; i < rewardData.length; i++) {
+          coins += Number(rewardData[i][coinsCol] || 0);
         }
+        result.coinsDistributed = coins;
       }
     }
   } catch (e) { /* ignore */ }
@@ -247,7 +280,7 @@ function getRevenueData() {
  * ============================================================
  */
 
-function getLiveData() {
+function getLiveData(viewerDataParam) {
 
   const result = {
     liveUsers: 0
@@ -255,21 +288,23 @@ function getLiveData() {
 
   // Live users from LiveViewers
   try {
-    const viewersSheet = getSheet(CONFIG.SHEETS.LIVE_VIEWERS);
-    if (viewersSheet) {
-      const viewerData = viewersSheet.getDataRange().getValues();
-      if (viewerData.length > 1) {
-        const headers = viewerData[0];
-        const statusCol = headers.indexOf("Status");
-        if (statusCol >= 0) {
-          let active = 0;
-          for (let i = 1; i < viewerData.length; i++) {
-            if (String(viewerData[i][statusCol] || "").toLowerCase() === "active") {
-              active++;
-            }
+    let viewerData = viewerDataParam;
+    if (!viewerData) {
+      const viewersSheet = getSheet(CONFIG.SHEETS.LIVE_VIEWERS);
+      if (viewersSheet) viewerData = viewersSheet.getDataRange().getValues();
+    }
+
+    if (viewerData && viewerData.length > 1) {
+      const headers = viewerData[0];
+      const statusCol = headers.indexOf("Status");
+      if (statusCol >= 0) {
+        let active = 0;
+        for (let i = 1; i < viewerData.length; i++) {
+          if (String(viewerData[i][statusCol] || "").toLowerCase() === "active") {
+            active++;
           }
-          result.liveUsers = active;
         }
+        result.liveUsers = active;
       }
     }
   } catch (e) { /* ignore */ }
@@ -284,7 +319,7 @@ function getLiveData() {
  * ============================================================
  */
 
-function getHealthData() {
+function getHealthData(ssParam) {
 
   const result = {
     backendApi: "ONLINE",
@@ -297,7 +332,7 @@ function getHealthData() {
 
   // Check Google Sheets connectivity
   try {
-    const ss = getSpreadsheet();
+    const ss = ssParam || getSpreadsheet();
     if (ss) {
       result.googleSheets = "ONLINE";
       result.storage = "ONLINE";
