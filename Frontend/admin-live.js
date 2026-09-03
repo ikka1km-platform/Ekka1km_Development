@@ -11,18 +11,43 @@ moderator management, and stream lifecycle controls
 (function () {
 
   let _liveAutoRefreshTimer = null;
+  let _liveAutoRefreshEnabled = false;
   let _currentLiveStreams = [];
   let _liveSearchQuery = "";
   let _liveStatusFilter = "";
   let _activeLiveIdInModal = null;
   let _activeChatTab = "chat"; // 'chat' or 'moderators'
 
-  AdminModules.register("live", async function (container) {
-
-    // Clean up any previous auto-refresh interval
+  function _stopLiveTimer() {
     if (_liveAutoRefreshTimer) {
       clearInterval(_liveAutoRefreshTimer);
       _liveAutoRefreshTimer = null;
+    }
+  }
+
+  // Register cleanup with AdminModules when leaving Live module
+  if (typeof AdminModules !== "undefined" && typeof AdminModules.registerCleanup === "function") {
+    AdminModules.registerCleanup("live", function () {
+      _stopLiveTimer();
+    });
+  }
+
+  AdminModules.register("live", async function (container) {
+
+    // Clean up any previous auto-refresh interval
+    _stopLiveTimer();
+
+    function _startLiveTimer() {
+      _stopLiveTimer();
+      _liveAutoRefreshTimer = setInterval(function () {
+        if (_activeLiveIdInModal) {
+          if (typeof window._refreshModalChat === "function") {
+            window._refreshModalChat();
+          }
+        } else {
+          loadAndRender();
+        }
+      }, 20000);
     }
 
     async function loadAndRender() {
@@ -57,6 +82,11 @@ moderator management, and stream lifecycle controls
         _currentLiveStreams = json.data && json.data.data || [];
 
         renderMonitoringCenter(container, summary, _currentLiveStreams);
+
+        // Resume timer if previously enabled by user
+        if (_liveAutoRefreshEnabled) {
+          _startLiveTimer();
+        }
 
       } catch (err) {
         console.error("Live monitoring load error:", err);
@@ -99,7 +129,7 @@ moderator management, and stream lifecycle controls
       html += '  </div>';
       html += '  <div class="module-header-right" style="display:flex;gap:8px;align-items:center;">';
       html += '    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;background:#f1f5f9;padding:6px 10px;border-radius:6px;">';
-      html += '      <input type="checkbox" id="liveAutoRefreshCheck" ' + (_liveAutoRefreshTimer ? 'checked' : '') + ' onchange="window._toggleLiveAutoRefresh(this.checked)" /> Auto-Refresh (20s)';
+      html += '      <input type="checkbox" id="liveAutoRefreshCheck" ' + (_liveAutoRefreshEnabled ? 'checked' : '') + ' onchange="window._toggleLiveAutoRefresh(this.checked)" /> Auto-Refresh (20s)';
       html += '    </label>';
       html += '    <button class="module-btn module-btn-primary" onclick="window._refreshLiveMonitoring()">🔄 Refresh</button>';
       html += '    <button class="module-btn module-btn-secondary" onclick="window._openCreateLiveModal()">➕ New Stream</button>';
@@ -237,19 +267,10 @@ moderator management, and stream lifecycle controls
     };
 
     window._toggleLiveAutoRefresh = function (enabled) {
-      if (_liveAutoRefreshTimer) {
-        clearInterval(_liveAutoRefreshTimer);
-        _liveAutoRefreshTimer = null;
-      }
-      if (enabled) {
-        _liveAutoRefreshTimer = setInterval(function () {
-          // If modal is open, refresh chat; otherwise reload table
-          if (_activeLiveIdInModal) {
-            window._refreshModalChat();
-          } else {
-            loadAndRender();
-          }
-        }, 20000);
+      _liveAutoRefreshEnabled = !!enabled;
+      _stopLiveTimer();
+      if (_liveAutoRefreshEnabled) {
+        _startLiveTimer();
       }
     };
 

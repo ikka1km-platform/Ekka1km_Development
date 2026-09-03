@@ -16,6 +16,9 @@ DASHBOARD CONTROLLER
 
 const Dashboard = {
 
+  _initialized: false,
+  _clockInterval: null,
+
   /*
   ============================================================
   INIT
@@ -23,6 +26,8 @@ const Dashboard = {
   */
 
   async init() {
+
+    if (this._initialized) return;
 
     // Check if admin is logged in
     if (!AdminAuth.isLoggedIn()) {
@@ -37,6 +42,8 @@ const Dashboard = {
       AdminAuth.redirectToLogin();
       return;
     }
+
+    this._initialized = true;
 
     // Load admin profile into UI immediately
     this._loadAdminProfile();
@@ -402,13 +409,16 @@ const Dashboard = {
 
   _startClock() {
 
-    const timeEl = document.getElementById("currentTime");
-    const dateEl = document.getElementById("currentDate");
-
-    if (!timeEl && !dateEl) return;
+    if (this._clockInterval) {
+      clearInterval(this._clockInterval);
+      this._clockInterval = null;
+    }
 
     function updateClock() {
       const now = new Date();
+
+      const timeEl = document.getElementById("currentTime");
+      const dateEl = document.getElementById("currentDate");
 
       if (timeEl) {
         timeEl.textContent = now.toLocaleTimeString("en-IN", {
@@ -427,10 +437,31 @@ const Dashboard = {
           year: "numeric"
         });
       }
+
+      // Sync Command Center clock elements using the same single interval
+      const ccTimeEl = document.getElementById("ccCurrentTime");
+      const ccDateEl = document.getElementById("ccCurrentDate");
+
+      if (ccTimeEl) {
+        ccTimeEl.textContent = now.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true
+        });
+      }
+
+      if (ccDateEl) {
+        ccDateEl.textContent = now.toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "short",
+          year: "numeric"
+        });
+      }
     }
 
     updateClock();
-    setInterval(updateClock, 1000);
+    this._clockInterval = setInterval(updateClock, 1000);
   },
 
 
@@ -843,9 +874,11 @@ const Dashboard = {
 
 /*
 ============================================================
-AUTO-INIT ON DOM READY
+GLOBAL EXPORT & AUTO-INIT ON DOM READY
 ============================================================
 */
+
+window.Dashboard = Dashboard;
 
 document.addEventListener("DOMContentLoaded", function() {
   Dashboard.init();

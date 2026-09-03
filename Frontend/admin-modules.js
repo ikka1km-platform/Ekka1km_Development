@@ -22,20 +22,70 @@ const AdminModules = {
   ============================================================
   */
 
-  _currentModule: null,
+  _currentModule: "dashboard",
   _modules: {},
+  _cleanups: {},
   _initialized: false,
 
 
   /*
   ============================================================
   REGISTER MODULE
-  Registers a module with its render function
+  Registers a module with its render function or lifecycle config
   ============================================================
   */
 
-  register(name, renderFn) {
-    this._modules[name] = renderFn;
+  register(name, renderOrConfig) {
+    if (typeof renderOrConfig === "function") {
+      this._modules[name] = renderOrConfig;
+    } else if (renderOrConfig && typeof renderOrConfig.render === "function") {
+      this._modules[name] = renderOrConfig.render;
+      if (typeof renderOrConfig.cleanup === "function") {
+        this._cleanups[name] = renderOrConfig.cleanup;
+      }
+    }
+  },
+
+  registerCleanup(name, cleanupFn) {
+    if (typeof cleanupFn === "function") {
+      this._cleanups[name] = cleanupFn;
+    }
+  },
+
+
+  /*
+  ============================================================
+  MODULE LIFECYCLE HOOKS
+  ============================================================
+  */
+
+  _leaveModule(moduleName) {
+    if (!moduleName) return;
+
+    if (this._cleanups[moduleName]) {
+      try {
+        this._cleanups[moduleName]();
+      } catch (err) {
+        console.error("Module cleanup error (" + moduleName + "):", err);
+      }
+    }
+
+    if (moduleName === "dashboard") {
+      if (typeof CommandCenter !== "undefined" && typeof CommandCenter.pauseAutoRefresh === "function") {
+        CommandCenter.pauseAutoRefresh();
+      }
+    }
+  },
+
+  _enterModule(moduleName) {
+    if (moduleName === "dashboard") {
+      if (typeof CommandCenter !== "undefined" && typeof CommandCenter.resumeAutoRefresh === "function") {
+        CommandCenter.resumeAutoRefresh();
+      }
+      if (typeof CommandCenter !== "undefined" && typeof CommandCenter.resize === "function") {
+        CommandCenter.resize();
+      }
+    }
   },
 
 
@@ -54,6 +104,9 @@ const AdminModules = {
     }
 
     if (this._currentModule === moduleName) return;
+
+    const previousModule = this._currentModule || "dashboard";
+    this._leaveModule(previousModule);
 
     this._currentModule = moduleName;
 
@@ -104,6 +157,7 @@ const AdminModules = {
     if (moduleName === "dashboard") {
       if (dashboardContent) dashboardContent.style.display = "block";
       if (moduleContainer) moduleContainer.style.display = "none";
+      this._enterModule("dashboard");
       return;
     }
 

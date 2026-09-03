@@ -56,6 +56,7 @@ const CommandCenter = {
   _data: null,
   _loadDataPromise: null,
   _refreshTimer: null,
+  _clockInterval: null,
 
 
   /*
@@ -87,6 +88,30 @@ const CommandCenter = {
 
   /*
   ============================================================
+  LIFECYCLE CONTROLS
+  Pause/resume auto-refresh when navigating away/to dashboard
+  ============================================================
+  */
+
+  pauseAutoRefresh() {
+
+    if (this._refreshTimer) {
+      clearInterval(this._refreshTimer);
+      this._refreshTimer = null;
+      console.log("Command Center auto-refresh paused");
+    }
+  },
+
+  resumeAutoRefresh() {
+
+    if (!this._initialized) return;
+    if (this._refreshTimer) return;
+    this._startAutoRefresh();
+  },
+
+
+  /*
+  ============================================================
   DESTROY
   Cleanup map resources
   ============================================================
@@ -97,6 +122,11 @@ const CommandCenter = {
     if (this._refreshTimer) {
       clearInterval(this._refreshTimer);
       this._refreshTimer = null;
+    }
+
+    if (this._clockInterval) {
+      clearInterval(this._clockInterval);
+      this._clockInterval = null;
     }
 
     if (this._map) {
@@ -592,7 +622,16 @@ const CommandCenter = {
       };
 
       updateClock();
-      setInterval(updateClock, 1000);
+
+      if (this._clockInterval) {
+        clearInterval(this._clockInterval);
+        this._clockInterval = null;
+      }
+
+      // If Dashboard master clock is active, it handles ccCurrentTime / ccCurrentDate; otherwise maintain standalone interval
+      if (!window.Dashboard || !window.Dashboard._clockInterval) {
+        this._clockInterval = setInterval(updateClock, 1000);
+      }
     }
   },
 
