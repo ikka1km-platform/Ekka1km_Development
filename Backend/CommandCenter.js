@@ -26,14 +26,57 @@ function getCommandCenterData(e) {
       return sessionResult.response;
     }
 
-    // Read each required sheet ONCE per request
-    const users = getSheetData(CONFIG.SHEETS.USERS);
-    const businesses = getSheetData(CONFIG.SHEETS.BUSINESSES);
-    const products = getSheetData(CONFIG.SHEETS.PRODUCTS);
-    const properties = getSheetData(CONFIG.SHEETS.PROPERTIES);
-    const advertisements = getSheetData(CONFIG.SHEETS.ADVERTISEMENTS);
-    const promotions = getSheetData(CONFIG.SHEETS.PROMOTION_CAMPAIGNS);
-    const news = getSheetData(CONFIG.SHEETS.NEWS);
+    // CacheService 60s cache optimization (Phase 3C)
+    const CACHE_KEY = "command_center_data";
+    const CACHE_TTL = 60; // seconds
+    let cache = null;
+
+    try {
+      if (typeof CacheService !== "undefined" && CacheService.getScriptCache) {
+        cache = CacheService.getScriptCache();
+        const cachedRaw = cache ? cache.get(CACHE_KEY) : null;
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw);
+          if (parsed && typeof parsed === "object" && parsed.heatmap && parsed.liveUsers && parsed.businesses) {
+            return success(parsed, "Command Center Data Loaded");
+          }
+        }
+      }
+    } catch (cacheReadErr) {
+      if (typeof Logger !== "undefined") {
+        Logger.log("Command center cache read error: " + cacheReadErr);
+      }
+    }
+
+    // Open spreadsheet ONCE for all operations in this request
+    const ss = getSpreadsheet();
+
+    function readSheetRows(sheetName) {
+      if (!ss) return [];
+      const sheet = ss.getSheetByName(sheetName);
+      if (!sheet) return [];
+      const values = sheet.getDataRange().getValues();
+      if (values.length === 0) return [];
+      const headers = values[0];
+      const result = [];
+      for (let i = 1; i < values.length; i++) {
+        const row = {};
+        for (let j = 0; j < headers.length; j++) {
+          row[headers[j]] = values[i][j];
+        }
+        result.push(row);
+      }
+      return result;
+    }
+
+    // Read each required sheet ONCE per request using the shared spreadsheet instance
+    const users = readSheetRows(CONFIG.SHEETS.USERS);
+    const businesses = readSheetRows(CONFIG.SHEETS.BUSINESSES);
+    const products = readSheetRows(CONFIG.SHEETS.PRODUCTS);
+    const properties = readSheetRows(CONFIG.SHEETS.PROPERTIES);
+    const advertisements = readSheetRows(CONFIG.SHEETS.ADVERTISEMENTS);
+    const promotions = readSheetRows(CONFIG.SHEETS.PROMOTION_CAMPAIGNS);
+    const news = readSheetRows(CONFIG.SHEETS.NEWS);
 
     const data = {
       heatmap: getHeatMapData(users, businesses),
@@ -47,6 +90,17 @@ function getCommandCenterData(e) {
       topCategories: getTopCategoriesData(businesses, products),
       systemHealth: getSystemHealthData()
     };
+
+    // Store Command Center data in cache
+    try {
+      if (cache) {
+        cache.put(CACHE_KEY, JSON.stringify(data), CACHE_TTL);
+      }
+    } catch (cacheWriteErr) {
+      if (typeof Logger !== "undefined") {
+        Logger.log("Command center cache write error: " + cacheWriteErr);
+      }
+    }
 
     return success(data, "Command Center Data Loaded");
 
