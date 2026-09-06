@@ -84,6 +84,18 @@ const CONFIG = {
 
     ORDERS: "Orders",
 
+    //============================================================
+    // V6.0.0 LIVE STREAMING SYSTEM (Phase 4 / Stage 1 Foundation)
+    //============================================================
+
+    LIVE_CHANNELS: "LiveChannels",
+
+    LIVE_ALLOCATIONS: "LiveAllocations",
+
+    LIVE_SESSIONS: "LiveSessions",
+
+    LIVE_LOCATIONS: "LiveLocations",
+
     LIVE: "Live",
 
     LIVE_SUBSCRIBERS: "LiveSubscribers",

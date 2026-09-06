@@ -425,6 +425,30 @@ case "notification_sent":
         return getReport(e);
 
       // Live
+      case "initializelivedatabase":
+        return initializeLiveDatabase(e);
+
+      case "livedatabasestatus":
+        return getLiveDatabaseStatus(e);
+
+      case "adminlivestreams":
+        return getAdminLiveStreams(e);
+
+      case "adminupdatelivestatus":
+        return adminUpdateLiveStatus(e);
+
+      case "addlive":
+        return addLive(e);
+
+      case "updatelive":
+        return updateLive(e);
+
+      case "deletelive":
+        return deleteLive(e);
+
+      case "setfeaturedlive":
+        return setFeaturedLive(e);
+
       case "live":
         return getLive(e);
 

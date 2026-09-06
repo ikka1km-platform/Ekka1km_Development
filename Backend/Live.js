@@ -797,3 +797,285 @@ function setFeaturedLive(e) {
   }
 }
 
+
+/**
+ * ============================================================
+ * LIVE STREAMING SYSTEM — PHASE 4 / STAGE 1
+ * Approved Data Model & Sheet Schema Definitions
+ * ============================================================
+ */
+
+function LIVE_CHANNELS_HEADERS() {
+  return [
+    "YouTubeChannelID",
+    "ChannelTitle",
+    "ChannelCustomUrl",
+    "ChannelThumbnail",
+    "OAuthStatus",
+    "Status",
+    "ConnectedByAdminID",
+    "ConnectedAt",
+    "UpdatedAt"
+  ];
+}
+
+function LIVE_ALLOCATIONS_HEADERS() {
+  return [
+    "AllocationID",
+    "UserID",
+    "CameraPersonName",
+    "YouTubeChannelID",
+    "Status",
+    "AllocatedByAdminID",
+    "AllocatedAt",
+    "RevokedAt",
+    "Notes"
+  ];
+}
+
+function LIVE_SESSIONS_HEADERS() {
+  return [
+    "LiveSessionID",
+    "CameraPersonID",
+    "CameraPersonName",
+    "YouTubeChannelID",
+    "YouTubeBroadcastID",
+    "YouTubeStreamID",
+    "Latitude",
+    "Longitude",
+    "LocationEventID",
+    "LocationEventName",
+    "IsLocationOffset",
+    "OffsetDistanceKm",
+    "Title",
+    "Description",
+    "Status",
+    "StartedAt",
+    "EndedAt",
+    "DurationSeconds",
+    "CurrentViewers",
+    "EkkaSampledPeak",
+    "EkkaSampledAverage",
+    "EkkaSampleSum",
+    "EkkaSampleCount",
+    "TotalViews",
+    "WatchUrl",
+    "EmbedUrl",
+    "TerminationReason",
+    "CreatedAt",
+    "UpdatedAt"
+  ];
+}
+
+function LIVE_LOCATIONS_HEADERS() {
+  return [
+    "LocationEventID",
+    "DisplayName",
+    "Latitude",
+    "Longitude",
+    "City",
+    "State",
+    "Category",
+    "TotalSessionsCount",
+    "TotalLiveSeconds",
+    "LastLiveAt",
+    "Status",
+    "CreatedAt"
+  ];
+}
+
+/**
+ * Helper: Resolve or create sheet using existing utility or fallback
+ */
+function _getOrCreateLiveSheet(sheetName) {
+  if (typeof getOrCreateSheet === "function") {
+    return getOrCreateSheet(sheetName);
+  }
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+  }
+  return sheet;
+}
+
+/**
+ * Helper: Ensure sheet headers safely starting at column 1 if empty
+ */
+function _ensureLiveSheetHeaders(sheet, requiredHeaders) {
+  const added = [];
+  const existingData = sheet.getDataRange().getValues();
+
+  // If sheet has no data, or only a single empty cell at A1
+  const isEmpty =
+    existingData.length === 0 ||
+    (existingData.length === 1 && (existingData[0].length === 0 || (existingData[0].length === 1 && String(existingData[0][0]).trim() === "")));
+
+  if (isEmpty) {
+    sheet.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]);
+    return requiredHeaders.slice();
+  }
+
+  const currentHeaders = existingData[0];
+  for (let i = 0; i < requiredHeaders.length; i++) {
+    const header = requiredHeaders[i];
+    const index = currentHeaders.indexOf(header);
+    if (index === -1) {
+      sheet.getRange(1, currentHeaders.length + 1).setValue(header);
+      added.push(header);
+      currentHeaders.push(header);
+    }
+  }
+  return added;
+}
+
+/**
+ * Ensure individual sheets exist with authoritative headers
+ */
+function ensureLiveChannelsSheet() {
+  const sheet = _getOrCreateLiveSheet(CONFIG.SHEETS.LIVE_CHANNELS || "LiveChannels");
+  _ensureLiveSheetHeaders(sheet, LIVE_CHANNELS_HEADERS());
+  return sheet;
+}
+
+function ensureLiveAllocationsSheet() {
+  const sheet = _getOrCreateLiveSheet(CONFIG.SHEETS.LIVE_ALLOCATIONS || "LiveAllocations");
+  _ensureLiveSheetHeaders(sheet, LIVE_ALLOCATIONS_HEADERS());
+  return sheet;
+}
+
+function ensureLiveSessionsSheet() {
+  const sheet = _getOrCreateLiveSheet(CONFIG.SHEETS.LIVE_SESSIONS || "LiveSessions");
+  _ensureLiveSheetHeaders(sheet, LIVE_SESSIONS_HEADERS());
+  return sheet;
+}
+
+function ensureLiveLocationsSheet() {
+  const sheet = _getOrCreateLiveSheet(CONFIG.SHEETS.LIVE_LOCATIONS || "LiveLocations");
+  _ensureLiveSheetHeaders(sheet, LIVE_LOCATIONS_HEADERS());
+  return sheet;
+}
+
+/**
+ * ============================================================
+ * INITIALIZE LIVE DATABASE
+ * ?action=initializelivedatabase&session=TOKEN
+ * Initializes the 4 approved Live sheets with authoritative headers.
+ * Idempotent: Can be run multiple times safely without duplicate sheets or columns.
+ * ============================================================
+ */
+function initializeLiveDatabase(e) {
+  try {
+    const isManualRun = !e || !e.parameter;
+    if (!isManualRun) {
+      const sessionResult = requireAdminSession(e);
+      if (!sessionResult.valid) {
+        return sessionResult.response;
+      }
+    }
+
+    const result = {
+      sheetsCreated: [],
+      sheetsUpdated: [],
+      columnsAdded: []
+    };
+
+    const definitions = [
+      { name: CONFIG.SHEETS.LIVE_CHANNELS || "LiveChannels", headers: LIVE_CHANNELS_HEADERS() },
+      { name: CONFIG.SHEETS.LIVE_ALLOCATIONS || "LiveAllocations", headers: LIVE_ALLOCATIONS_HEADERS() },
+      { name: CONFIG.SHEETS.LIVE_SESSIONS || "LiveSessions", headers: LIVE_SESSIONS_HEADERS() },
+      { name: CONFIG.SHEETS.LIVE_LOCATIONS || "LiveLocations", headers: LIVE_LOCATIONS_HEADERS() }
+    ];
+
+    definitions.forEach(function (def) {
+      const sheet = _getOrCreateLiveSheet(def.name);
+      result.sheetsCreated.push(def.name);
+
+      const added = _ensureLiveSheetHeaders(sheet, def.headers);
+      result.sheetsUpdated.push(def.name);
+      if (added && added.length > 0) {
+        result.columnsAdded.push({
+          sheet: def.name,
+          addedColumns: added
+        });
+      }
+    });
+
+    return success(result, "Live database initialized successfully");
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * GET LIVE DATABASE STATUS
+ * ?action=livedatabasestatus&session=TOKEN
+ * Diagnostic check to verify sheets, headers, and row counts.
+ * ============================================================
+ */
+function getLiveDatabaseStatus(e) {
+  try {
+    const isManualRun = !e || !e.parameter;
+    if (!isManualRun) {
+      const sessionResult = requireAdminSession(e);
+      if (!sessionResult.valid) {
+        return sessionResult.response;
+      }
+    }
+
+    const ss = getSpreadsheet();
+    const sheets = [
+      { key: "LIVE_CHANNELS", name: CONFIG.SHEETS.LIVE_CHANNELS || "LiveChannels", expectedHeaders: LIVE_CHANNELS_HEADERS() },
+      { key: "LIVE_ALLOCATIONS", name: CONFIG.SHEETS.LIVE_ALLOCATIONS || "LiveAllocations", expectedHeaders: LIVE_ALLOCATIONS_HEADERS() },
+      { key: "LIVE_SESSIONS", name: CONFIG.SHEETS.LIVE_SESSIONS || "LiveSessions", expectedHeaders: LIVE_SESSIONS_HEADERS() },
+      { key: "LIVE_LOCATIONS", name: CONFIG.SHEETS.LIVE_LOCATIONS || "LiveLocations", expectedHeaders: LIVE_LOCATIONS_HEADERS() }
+    ];
+
+    const status = sheets.map(function (item) {
+      const sheet = ss.getSheetByName(item.name);
+      if (!sheet) {
+        return {
+          sheetKey: item.key,
+          sheetName: item.name,
+          exists: false,
+          rowCount: 0,
+          columnCount: 0,
+          headersValid: false,
+          missingHeaders: item.expectedHeaders,
+          currentHeaders: []
+        };
+      }
+
+      const values = sheet.getDataRange().getValues();
+      const currentHeaders = values.length > 0 ? values[0].map(String) : [];
+      const missingHeaders = item.expectedHeaders.filter(function (h) {
+        return currentHeaders.indexOf(h) === -1;
+      });
+
+      return {
+        sheetKey: item.key,
+        sheetName: item.name,
+        exists: true,
+        rowCount: Math.max(0, values.length - 1),
+        columnCount: currentHeaders.length,
+        headersValid: missingHeaders.length === 0,
+        missingHeaders: missingHeaders,
+        currentHeaders: currentHeaders
+      };
+    });
+
+    const allValid = status.every(function (s) {
+      return s.exists && s.headersValid;
+    });
+
+    return success({
+      allValid: allValid,
+      sheets: status
+    }, allValid ? "All Live sheets verified" : "Some Live sheets missing or incomplete");
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+
