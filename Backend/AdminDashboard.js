@@ -25,6 +25,37 @@ function getAdminDashboardSummary(e) {
       return sessionResult.response;
     }
 
+    // CacheService 60s cache optimization (Phase 3B)
+    const CACHE_KEY = "admin_dashboard_summary_data";
+    const CACHE_TTL = 60; // seconds
+    let cache = null;
+
+    try {
+      if (typeof CacheService !== "undefined" && CacheService.getScriptCache) {
+        cache = CacheService.getScriptCache();
+        const cachedRaw = cache ? cache.get(CACHE_KEY) : null;
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw);
+          if (parsed && parsed.cards && parsed.systemHealth) {
+            return success(
+              {
+                cards: parsed.cards,
+                systemHealth: parsed.systemHealth,
+                admin: {
+                  adminId: sessionResult.adminId
+                }
+              },
+              "Dashboard Summary Loaded"
+            );
+          }
+        }
+      }
+    } catch (cacheReadErr) {
+      if (typeof Logger !== "undefined") {
+        Logger.log("Dashboard summary cache read error: " + cacheReadErr);
+      }
+    }
+
     // Open spreadsheet ONCE for all operations in this request
     const ss = getSpreadsheet();
 
@@ -66,24 +97,41 @@ function getAdminDashboardSummary(e) {
       }
     } catch (e) { /* ignore */ }
 
+    const summaryCards = {
+      totalUsers: overview.totalUsers || 0,
+      totalProducts: overview.totalProducts || 0,
+      totalBusinesses: overview.totalBusinesses || 0,
+      totalProperties: overview.totalProperties || 0,
+      totalRevenue: revenue.totalRevenue || 0,
+      coinsDistributed: revenue.coinsDistributed || 0,
+      liveUsers: live.liveUsers || 0,
+      activeCities: overview.activeCities || 0,
+      pendingApprovals: overview.pendingApprovals || 0,
+      // Promotion Engine V2 cards
+      totalPromotionFuel: economy.totalPromotionFuel,
+      totalRemainingFuel: economy.totalRemainingFuel,
+      totalCoinsConsumed: economy.totalCoinsConsumed,
+      activeCampaignCount: economy.activeCampaignCount
+    };
+
+    // Store dashboard data in cache (cards and systemHealth only, omitting request-specific admin identity)
+    try {
+      if (cache) {
+        const payloadToCache = JSON.stringify({
+          cards: summaryCards,
+          systemHealth: health
+        });
+        cache.put(CACHE_KEY, payloadToCache, CACHE_TTL);
+      }
+    } catch (cacheWriteErr) {
+      if (typeof Logger !== "undefined") {
+        Logger.log("Dashboard summary cache write error: " + cacheWriteErr);
+      }
+    }
+
     return success(
       {
-        cards: {
-          totalUsers: overview.totalUsers || 0,
-          totalProducts: overview.totalProducts || 0,
-          totalBusinesses: overview.totalBusinesses || 0,
-          totalProperties: overview.totalProperties || 0,
-          totalRevenue: revenue.totalRevenue || 0,
-          coinsDistributed: revenue.coinsDistributed || 0,
-          liveUsers: live.liveUsers || 0,
-          activeCities: overview.activeCities || 0,
-          pendingApprovals: overview.pendingApprovals || 0,
-          // Promotion Engine V2 cards
-          totalPromotionFuel: economy.totalPromotionFuel,
-          totalRemainingFuel: economy.totalRemainingFuel,
-          totalCoinsConsumed: economy.totalCoinsConsumed,
-          activeCampaignCount: economy.activeCampaignCount
-        },
+        cards: summaryCards,
         systemHealth: health,
         admin: {
           adminId: sessionResult.adminId
