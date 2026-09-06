@@ -232,8 +232,19 @@ function validateAdminSession(e) {
       permissions = {};
     }
 
-    // Update last activity
-    updateSessionActivity(sessionToken);
+    // Update last activity with 5-minute throttle
+    let lastActMs = 0;
+    if (session.LastActivity) {
+      const parsed = new Date(session.LastActivity).getTime();
+      if (!isNaN(parsed)) {
+        lastActMs = parsed;
+      }
+    }
+
+    const throttleMs = 5 * 60 * 1000; // 5 minutes
+    if (!lastActMs || (now - lastActMs >= throttleMs)) {
+      updateSessionActivity(sessionToken, session);
+    }
 
     return success(
       {
@@ -437,8 +448,19 @@ function requireAdminSession(e) {
     }
   }
 
-  // Update last activity
-  updateSessionActivity(sessionToken);
+  // Update last activity with 5-minute throttle
+  let lastActMs = 0;
+  if (session.LastActivity) {
+    const parsed = new Date(session.LastActivity).getTime();
+    if (!isNaN(parsed)) {
+      lastActMs = parsed;
+    }
+  }
+
+  const throttleMs = 5 * 60 * 1000; // 5 minutes
+  if (!lastActMs || (now - lastActMs >= throttleMs)) {
+    updateSessionActivity(sessionToken, session);
+  }
 
   return {
     valid: true,
@@ -891,6 +913,7 @@ function findAdminSession(sessionToken) {
 
   const headers = data[0];
   const sessionCol = headers.indexOf("SessionID");
+  const activityCol = headers.indexOf("LastActivity");
 
   if (sessionCol === -1) {
     return null;
@@ -902,6 +925,9 @@ function findAdminSession(sessionToken) {
       headers.forEach((h, index) => {
         session[h] = data[i][index];
       });
+      session._sheet = sheet;
+      session._rowIndex = i + 1;
+      session._activityCol = activityCol !== -1 ? activityCol + 1 : -1;
       return session;
     }
   }
@@ -916,33 +942,44 @@ function findAdminSession(sessionToken) {
  * ============================================================
  */
 
-function updateSessionActivity(sessionToken) {
-
-  const sheet = getSheet(CONFIG.SHEETS.ADMIN_SESSIONS);
-
-  if (!sheet) {
-    return;
-  }
-
-  const data = sheet.getDataRange().getValues();
-
-  if (data.length < 2) {
-    return;
-  }
-
-  const headers = data[0];
-  const sessionCol = headers.indexOf("SessionID");
-  const activityCol = headers.indexOf("LastActivity");
-
-  if (sessionCol === -1 || activityCol === -1) {
-    return;
-  }
-
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][sessionCol]).trim() === String(sessionToken).trim()) {
-      sheet.getRange(i + 1, activityCol + 1).setValue(new Date());
+function updateSessionActivity(sessionToken, sessionObj) {
+  try {
+    // Fast path: reuse already identified sheet and row index
+    if (sessionObj && sessionObj._sheet && sessionObj._rowIndex && sessionObj._activityCol > 0) {
+      sessionObj._sheet.getRange(sessionObj._rowIndex, sessionObj._activityCol).setValue(new Date());
+      sessionObj.LastActivity = new Date();
       return;
     }
+
+    // Fallback path if session metadata is not provided
+    const sheet = getSheet(CONFIG.SHEETS.ADMIN_SESSIONS);
+
+    if (!sheet) {
+      return;
+    }
+
+    const data = sheet.getDataRange().getValues();
+
+    if (data.length < 2) {
+      return;
+    }
+
+    const headers = data[0];
+    const sessionCol = headers.indexOf("SessionID");
+    const activityCol = headers.indexOf("LastActivity");
+
+    if (sessionCol === -1 || activityCol === -1) {
+      return;
+    }
+
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][sessionCol]).trim() === String(sessionToken).trim()) {
+        sheet.getRange(i + 1, activityCol + 1).setValue(new Date());
+        return;
+      }
+    }
+  } catch (err) {
+    // Fail-safe: activity updates must never break authorization
   }
 }
 
