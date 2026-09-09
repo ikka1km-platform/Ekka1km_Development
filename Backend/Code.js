@@ -11,6 +11,11 @@ function doGet(e) {
   try {
     const action = getAction(e);
 
+    // Direct Google OAuth redirect hook (when Google redirects to /exec?code=...&state=... or /exec?error=...&state=...)
+    if (!action && e && e.parameter && (e.parameter.code || e.parameter.error) && e.parameter.state) {
+      return handleYouTubeOAuthCallback(e);
+    }
+
     // Private state and user-owned mutations derive identity from a
     // server-held session before reaching their legacy handlers.
     const userProtectedActions = {
@@ -430,6 +435,17 @@ case "notification_sent":
 
       case "livedatabasestatus":
         return getLiveDatabaseStatus(e);
+
+      // Live - Stage 3A YouTube OAuth Foundation
+      case "adminyoutubeauthurl":
+        return getYouTubeOAuthUrl(e);
+
+      case "youtubeoauthcallback":
+      case "oauthcallback":
+        return handleYouTubeOAuthCallback(e);
+
+      case "adminyoutubeoauthstatus":
+        return getYouTubeOAuthStatus(e);
 
       case "adminlivestreams":
         return getAdminLiveStreams(e);
