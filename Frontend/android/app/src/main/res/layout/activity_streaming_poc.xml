@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:keepScreenOn="true">
+
+    <!-- Camera Preview via OpenGlView -->
+    <com.pedro.library.view.OpenGlView
+        android:id="@+id/openGlView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Top Overlay Bar -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:background="#99000000"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/tvStreamState"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="STATUS: READY"
+            android:textColor="#00FF66"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvDiagnostics"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="end"
+            android:text="720p30 | 0 kbps"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:paddingEnd="12dp" />
+
+        <Button
+            android:id="@+id/btnSwitchCamera"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:text="FLIP CAM"
+            android:textSize="11sp"
+            android:backgroundTint="#334155"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+    <!-- Bottom Controls & Key Entry -->
+    <LinearLayout
+        android:id="@+id/bottomControls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:background="#CC0B0F19"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <!-- Endpoint URL selector / display -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Endpoint:"
+                android:textColor="#94A3B8"
+                android:textSize="12sp"
+                android:paddingEnd="8dp" />
+
+            <EditText
+                android:id="@+id/etEndpointUrl"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="rtmps://a.rtmps.youtube.com/live2/"
+                android:textColor="#E2E8F0"
+                android:textSize="12sp"
+                android:singleLine="true"
+                android:background="#1E293B"
+                android:padding="6dp" />
+        </LinearLayout>
+
+        <!-- Ephemeral Stream Key Entry -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="8dp">
+
+            <EditText
+                android:id="@+id/etStreamKey"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Paste YouTube Stream Key (Ephemeral)"
+                android:textColorHint="#64748B"
+                android:textColor="#F8FAFC"
+                android:textSize="13sp"
+                android:inputType="textPassword"
+                android:background="#1E293B"
+                android:padding="8dp" />
+
+            <Button
+                android:id="@+id/btnToggleKeyVisibility"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:text="SHOW"
+                android:textSize="11sp"
+                android:layout_marginStart="6dp"
+                android:backgroundTint="#334155"
+                android:textColor="#FFFFFF" />
+        </LinearLayout>
+
+        <!-- Action Buttons & Logs -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical">
+
+            <Button
+                android:id="@+id/btnStartStop"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="START LIVE STREAM"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:backgroundTint="#DC2626"
+                android:textColor="#FFFFFF" />
+
+            <Button
+                android:id="@+id/btnToggleMic"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:text="MIC ON"
+                android:textSize="12sp"
+                android:backgroundTint="#2563EB"
+                android:textColor="#FFFFFF" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvLogs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:maxLines="3"
+            android:ellipsize="end"
+            android:text="Logs: Initialized RootEncoder 2.8.1 engine"
+            android:textColor="#94A3B8"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+</RelativeLayout>
+
