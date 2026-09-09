@@ -815,7 +815,12 @@ function LIVE_CHANNELS_HEADERS() {
     "Status",
     "ConnectedByAdminID",
     "ConnectedAt",
-    "UpdatedAt"
+    "UpdatedAt",
+    "LastValidatedAt",
+    "TokenExpiresAt",
+    "ScopeGranted",
+    "RevokedAt",
+    "DisconnectReason"
   ];
 }
 
@@ -955,6 +960,83 @@ function ensureLiveLocationsSheet() {
   _ensureLiveSheetHeaders(sheet, LIVE_LOCATIONS_HEADERS());
   return sheet;
 }
+
+/**
+ * LiveChannels and LiveAllocations data access helpers
+ */
+function findLiveChannelById(channelId) {
+  if (!channelId) return null;
+  return getRowById(CONFIG.SHEETS.LIVE_CHANNELS || "LiveChannels", "YouTubeChannelID", channelId);
+}
+
+function getAllLiveChannels() {
+  return getSheetData(CONFIG.SHEETS.LIVE_CHANNELS || "LiveChannels");
+}
+
+function upsertLiveChannel(channelData) {
+  const sheet = ensureLiveChannelsSheet();
+  const headers = LIVE_CHANNELS_HEADERS();
+  const data = sheet.getDataRange().getValues();
+  const idCol = headers.indexOf("YouTubeChannelID");
+  
+  const channelId = String(channelData.YouTubeChannelID || "").trim();
+  if (!channelId) throw new Error("YouTubeChannelID is required for channel upsert");
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]).trim() === channelId) {
+      // Update existing row
+      for (const key in channelData) {
+        const col = headers.indexOf(key);
+        if (col !== -1) {
+          sheet.getRange(i + 1, col + 1).setValue(channelData[key]);
+        }
+      }
+      return { created: false, channelId: channelId };
+    }
+  }
+
+  // Row not found, append new
+  const newRow = [];
+  headers.forEach(function(h) {
+    newRow.push(channelData[h] !== undefined ? channelData[h] : "");
+  });
+  sheet.appendRow(newRow);
+  return { created: true, channelId: channelId };
+}
+
+function findLiveAllocationById(allocationId) {
+  if (!allocationId) return null;
+  return getRowById(CONFIG.SHEETS.LIVE_ALLOCATIONS || "LiveAllocations", "AllocationID", allocationId);
+}
+
+function getAllLiveAllocations() {
+  return getSheetData(CONFIG.SHEETS.LIVE_ALLOCATIONS || "LiveAllocations");
+}
+
+function getActiveAllocationsForUser(userId) {
+  if (!userId) return [];
+  const all = getAllLiveAllocations();
+  const cleanId = String(userId).trim();
+  return all.filter(function(r) {
+    return String(r.UserID || "").trim() === cleanId && String(r.Status || "").toLowerCase() === "active";
+  });
+}
+
+function createLiveAllocation(allocationData) {
+  const sheet = ensureLiveAllocationsSheet();
+  const headers = LIVE_ALLOCATIONS_HEADERS();
+  const newRow = [];
+  headers.forEach(function(h) {
+    newRow.push(allocationData[h] !== undefined ? allocationData[h] : "");
+  });
+  sheet.appendRow(newRow);
+  return allocationData;
+}
+
+function updateLiveAllocation(allocationId, updates) {
+  return updateRow(CONFIG.SHEETS.LIVE_ALLOCATIONS || "LiveAllocations", "AllocationID", allocationId, updates);
+}
+
 
 /**
  * ============================================================

@@ -25,7 +25,8 @@ function doGet(e) {
       deletebusiness: true, addproperty: true, updateproperty: true,
       deleteproperty: true, addnews: true, updatenews: true, deletenews: true,
       createproduct: true, createbusiness: true, createproperty: true,
-      createnews: true, createpasspurchase: true, mypurchasedpasses: true
+      createnews: true, createpasspurchase: true, mypurchasedpasses: true,
+      myauthorizedchannels: true
     };
     if (userProtectedActions[action]) {
       const auth = requireAuthenticatedUser(e);
@@ -446,6 +447,30 @@ case "notification_sent":
 
       case "adminyoutubeoauthstatus":
         return getYouTubeOAuthStatus(e);
+
+      // Live - Stage 3B-3D Channel Management & Health
+      case "adminyoutubechannels":
+        return getAdminYouTubeChannels(e);
+
+      case "adminvalidateyoutubechannel":
+        return adminValidateYouTubeChannel(e);
+
+      case "admindisconnectyoutubechannel":
+        return adminDisconnectYouTubeChannel(e);
+
+      // Live - Stage 3E Broadcaster Allocations
+      case "adminlistallocations":
+        return adminListLiveAllocations(e);
+
+      case "adminallocatechannel":
+        return adminAllocateLiveChannel(e);
+
+      case "adminrevokeallocation":
+        return adminRevokeLiveAllocation(e);
+
+      // Live - Stage 3F Authorized Channel Discovery (Broadcaster)
+      case "myauthorizedchannels":
+        return getMyAuthorizedLiveChannels(e);
 
       case "adminlivestreams":
         return getAdminLiveStreams(e);
