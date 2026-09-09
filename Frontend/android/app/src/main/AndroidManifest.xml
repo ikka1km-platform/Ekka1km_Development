@@ -33,6 +33,20 @@
             android:theme="@style/Theme.AppCompat.NoActionBar"
             android:configChanges="orientation|screenSize"
             android:exported="true" />
+
+        <!-- Production Live Broadcaster Activity -->
+        <activity
+            android:name=".live.LiveBroadcasterActivity"
+            android:label="Ekka1km Live Broadcaster"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false" />
+
+        <!-- Foreground Streaming Service for keeping stream active -->
+        <service
+            android:name=".live.LiveStreamingService"
+            android:foregroundServiceType="camera|microphone"
+            android:exported="false" />
     </application>
 
     <!-- Permissions -->
@@ -44,4 +58,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 </manifest>

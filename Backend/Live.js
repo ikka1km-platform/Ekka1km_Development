@@ -845,6 +845,7 @@ function LIVE_SESSIONS_HEADERS() {
     "CameraPersonName",
     "YouTubeChannelID",
     "YouTubeBroadcastID",
+    "YouTubeVideoID",
     "YouTubeStreamID",
     "Latitude",
     "Longitude",
@@ -1159,5 +1160,692 @@ function getLiveDatabaseStatus(e) {
     return exception(err);
   }
 }
+
+/**
+ * ============================================================
+ * STAGE 4: YOUTUBE LIVE API V3 ENGINE & SESSION LIFECYCLE
+ * ============================================================
+ */
+
+/**
+ * Helper: Find LiveSession by ID
+ */
+function findLiveSessionById(sessionId) {
+  if (!sessionId) return null;
+  return getRowById(CONFIG.SHEETS.LIVE_SESSIONS || "LiveSessions", "LiveSessionID", sessionId);
+}
+
+/**
+ * Helper: Get all LiveSession rows
+ */
+function getAllLiveSessions() {
+  return getSheetData(CONFIG.SHEETS.LIVE_SESSIONS || "LiveSessions");
+}
+
+/**
+ * Helper: Create new LiveSession row
+ */
+function createLiveSessionRow(sessionData) {
+  const sheet = ensureLiveSessionsSheet();
+  const headers = LIVE_SESSIONS_HEADERS();
+  const newRow = [];
+  headers.forEach(function(h) {
+    newRow.push(sessionData[h] !== undefined ? sessionData[h] : "");
+  });
+  sheet.appendRow(newRow);
+  return sessionData;
+}
+
+/**
+ * Helper: Update LiveSession row
+ */
+function updateLiveSession(sessionId, updates) {
+  return updateRow(CONFIG.SHEETS.LIVE_SESSIONS || "LiveSessions", "LiveSessionID", sessionId, updates);
+}
+
+/**
+ * Resolves an active YouTube access token for the given channelId.
+ * Checks stored token in ScriptProperties (YT_AUTH_<channelId>).
+ * If expired or expiring within 5 minutes, automatically calls refreshYouTubeAccessToken(channelId).
+ */
+function getOrRefreshYouTubeAccessToken(channelId) {
+  if (!channelId) {
+    return { success: false, error: "channelId is required" };
+  }
+
+  const tokenKey = (typeof YT_OAUTH_CONSTANTS !== "undefined" && YT_OAUTH_CONSTANTS.TOKEN_STORAGE_PREFIX) ?
+    (YT_OAUTH_CONSTANTS.TOKEN_STORAGE_PREFIX + channelId) : ("YT_AUTH_" + channelId);
+  const properties = PropertiesService.getScriptProperties();
+  const raw = properties.getProperty(tokenKey);
+
+  if (!raw) {
+    return { success: false, error: "No stored credentials for YouTube channel " + channelId + ". Please reconnect via Admin Center." };
+  }
+
+  let tokenData;
+  try {
+    tokenData = JSON.parse(raw);
+  } catch (e) {
+    return { success: false, error: "Corrupted token data in storage" };
+  }
+
+  const now = Date.now();
+  const expiresAt = Number(tokenData.tokenExpiresAt || 0);
+  let accessToken = tokenData.accessToken || "";
+
+  // If token is missing, expired, or expiring within 5 minutes, refresh it
+  if (!accessToken || (expiresAt - now < 5 * 60 * 1000)) {
+    if (typeof refreshYouTubeAccessToken !== "function") {
+      return { success: false, error: "refreshYouTubeAccessToken function unavailable" };
+    }
+    const refreshRes = refreshYouTubeAccessToken(channelId);
+    if (!refreshRes || !refreshRes.success) {
+      return { success: false, error: "Token refresh failed: " + (refreshRes ? refreshRes.error : "Unknown error") };
+    }
+    accessToken = refreshRes.accessToken;
+  }
+
+  return {
+    success: true,
+    accessToken: accessToken
+  };
+}
+
+/**
+ * Creates a YouTube Live Broadcast via YouTube Live Streaming API v3.
+ * POST https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet,status,contentDetails
+ */
+function createYouTubeLiveBroadcast(accessToken, title, description) {
+  if (!accessToken) throw new Error("accessToken required for createYouTubeLiveBroadcast");
+  if (!title) throw new Error("title required for createYouTubeLiveBroadcast");
+
+  const url = "https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet,status,contentDetails";
+  const nowIso = new Date().toISOString();
+
+  const payload = {
+    snippet: {
+      title: String(title).trim(),
+      description: String(description || "").trim(),
+      scheduledStartTime: nowIso
+    },
+    status: {
+      privacyStatus: "public",
+      selfDeclaredMadeForKids: false
+    },
+    contentDetails: {
+      enableAutoStart: true,
+      enableAutoStop: true,
+      recordFromStart: true,
+      enableDvr: true
+    }
+  };
+
+  const response = UrlFetchApp.fetch(url, {
+    method: "post",
+    contentType: "application/json",
+    headers: {
+      "Authorization": "Bearer " + accessToken
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  const statusCode = response.getResponseCode();
+  const responseBody = response.getContentText();
+
+  let json = {};
+  try {
+    json = JSON.parse(responseBody);
+  } catch (e) {
+    throw new Error("Non-JSON response from YouTube liveBroadcasts.insert (HTTP " + statusCode + ")");
+  }
+
+  if (statusCode < 200 || statusCode >= 300) {
+    const errMsg = (json.error && json.error.message) || ("YouTube liveBroadcasts.insert failed (HTTP " + statusCode + ")");
+    throw new Error(errMsg);
+  }
+
+  return {
+    id: json.id,
+    videoId: json.id,
+    title: (json.snippet && json.snippet.title) || title,
+    status: json.status,
+    contentDetails: json.contentDetails
+  };
+}
+
+/**
+ * Creates a dedicated, non-reusable YouTube Live Stream ingestion object.
+ * POST https://www.googleapis.com/youtube/v3/liveStreams?part=snippet,cdn,contentDetails
+ */
+function createYouTubeLiveStream(accessToken, title, liveSessionId) {
+  if (!accessToken) throw new Error("accessToken required for createYouTubeLiveStream");
+
+  const url = "https://www.googleapis.com/youtube/v3/liveStreams?part=snippet,cdn,contentDetails";
+  const streamTitle = "Ekka1km Stream - " + (title || "Live") + " (" + (liveSessionId || Utilities.getUuid().substring(0, 8)) + ")";
+
+  const payload = {
+    snippet: {
+      title: streamTitle
+    },
+    cdn: {
+      frameRate: "variable",
+      ingestionType: "rtmp",
+      resolution: "variable"
+    },
+    contentDetails: {
+      isReusable: false
+    }
+  };
+
+  const response = UrlFetchApp.fetch(url, {
+    method: "post",
+    contentType: "application/json",
+    headers: {
+      "Authorization": "Bearer " + accessToken
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  const statusCode = response.getResponseCode();
+  const responseBody = response.getContentText();
+
+  let json = {};
+  try {
+    json = JSON.parse(responseBody);
+  } catch (e) {
+    throw new Error("Non-JSON response from YouTube liveStreams.insert (HTTP " + statusCode + ")");
+  }
+
+  if (statusCode < 200 || statusCode >= 300) {
+    const errMsg = (json.error && json.error.message) || ("YouTube liveStreams.insert failed (HTTP " + statusCode + ")");
+    throw new Error(errMsg);
+  }
+
+  const cdn = json.cdn || {};
+  const ingestionInfo = cdn.ingestionInfo || {};
+
+  let ingestionAddress = ingestionInfo.rtmpsIngestionAddress || ingestionInfo.ingestionAddress || "rtmps://a.rtmps.youtube.com/live2";
+  if (ingestionAddress.indexOf("rtmp://") === 0) {
+    ingestionAddress = ingestionAddress.replace("rtmp://", "rtmps://");
+  }
+
+  const streamName = ingestionInfo.streamName || "";
+  if (!streamName) {
+    throw new Error("YouTube liveStreams did not return a streamName (stream key)");
+  }
+
+  return {
+    id: json.id,
+    ingestionAddress: ingestionAddress,
+    streamName: streamName
+  };
+}
+
+/**
+ * Binds a YouTube Live Broadcast to a YouTube Live Stream.
+ * POST https://www.googleapis.com/youtube/v3/liveBroadcasts/bind?id={broadcastId}&part=id,contentDetails&streamId={streamId}
+ */
+function bindYouTubeBroadcastToStream(accessToken, broadcastId, streamId) {
+  if (!accessToken) throw new Error("accessToken required for bindYouTubeBroadcastToStream");
+  if (!broadcastId) throw new Error("broadcastId required for bindYouTubeBroadcastToStream");
+  if (!streamId) throw new Error("streamId required for bindYouTubeBroadcastToStream");
+
+  const url = "https://www.googleapis.com/youtube/v3/liveBroadcasts/bind?id=" +
+    encodeURIComponent(broadcastId) +
+    "&part=id,contentDetails&streamId=" +
+    encodeURIComponent(streamId);
+
+  const response = UrlFetchApp.fetch(url, {
+    method: "post",
+    headers: {
+      "Authorization": "Bearer " + accessToken
+    },
+    muteHttpExceptions: true
+  });
+
+  const statusCode = response.getResponseCode();
+  const responseBody = response.getContentText();
+
+  let json = {};
+  try {
+    json = JSON.parse(responseBody);
+  } catch (e) {
+    throw new Error("Non-JSON response from YouTube liveBroadcasts.bind (HTTP " + statusCode + ")");
+  }
+
+  if (statusCode < 200 || statusCode >= 300) {
+    const errMsg = (json.error && json.error.message) || ("YouTube liveBroadcasts.bind failed (HTTP " + statusCode + ")");
+    throw new Error(errMsg);
+  }
+
+  return {
+    success: true,
+    broadcastId: json.id,
+    boundStreamId: streamId
+  };
+}
+
+/**
+ * Transitions a YouTube Live Broadcast to 'complete' status.
+ * POST https://www.googleapis.com/youtube/v3/liveBroadcasts/transition?broadcastStatus=complete&id={broadcastId}&part=id,status
+ * Handles already-completed broadcasts gracefully.
+ */
+function endYouTubeLiveBroadcast(accessToken, broadcastId) {
+  if (!accessToken || !broadcastId) {
+    return { success: false, error: "accessToken and broadcastId are required" };
+  }
+
+  const url = "https://www.googleapis.com/youtube/v3/liveBroadcasts/transition?broadcastStatus=complete&id=" +
+    encodeURIComponent(broadcastId) +
+    "&part=id,status";
+
+  const response = UrlFetchApp.fetch(url, {
+    method: "post",
+    headers: {
+      "Authorization": "Bearer " + accessToken
+    },
+    muteHttpExceptions: true
+  });
+
+  const statusCode = response.getResponseCode();
+  const responseBody = response.getContentText();
+
+  let json = {};
+  try {
+    json = JSON.parse(responseBody);
+  } catch (e) {
+    json = {};
+  }
+
+  if (statusCode >= 200 && statusCode < 300) {
+    return { success: true, status: (json.status && json.status.lifeCycleStatus) || "complete" };
+  }
+
+  const errMessage = (json.error && json.error.message) || responseBody;
+  if (statusCode === 400 || statusCode === 409) {
+    if (/redundant|already|complete|cannot transition/i.test(errMessage)) {
+      return { success: true, status: "complete", note: "Broadcast was already complete" };
+    }
+  }
+
+  return { success: false, error: "YouTube broadcast transition failed: " + errMessage };
+}
+
+/**
+ * ============================================================
+ * ROUTE: START LIVE SESSION
+ * ?action=startlivesession&session=TOKEN&channelId=UC...&title=...&latitude=...&longitude=...
+ * Authenticates user, verifies active allocation, verifies channel health,
+ * creates YouTube broadcast + dedicated non-reusable stream, binds them,
+ * persists LiveSession row in Starting state, and returns ephemeral ingestion credentials.
+ * ============================================================
+ */
+function startLiveSession(e) {
+  const lock = (typeof LockService !== "undefined" && LockService.getScriptLock) ? LockService.getScriptLock() : null;
+  if (lock) {
+    try {
+      lock.waitLock(10000);
+    } catch (lockErr) {
+      return error("Lock acquisition timeout during start live session. Please retry.");
+    }
+  }
+
+  try {
+    // 1. Authenticate caller and derive identity strictly from session
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+
+    const userId = String(auth.userId).trim();
+    if (!userId) return error("Unable to identify authenticated user");
+
+    const p = (e && e.parameter) || {};
+    const channelId = String(p.channelId || "").trim();
+    const title = String(p.title || "").trim();
+    const description = String(p.description || "").trim();
+    const latitudeStr = String(p.latitude || "").trim();
+    const longitudeStr = String(p.longitude || "").trim();
+    const locationEventId = String(p.locationEventId || "").trim();
+    const locationEventName = String(p.locationEventName || "").trim();
+
+    // 2. Validate required inputs
+    if (!channelId) return error("channelId parameter is required");
+    if (!title) return error("title parameter is required");
+    if (!latitudeStr || !longitudeStr) return error("latitude and longitude parameters are required");
+
+    // 3. Authoritative GPS validation: latitude [-90..90], longitude [-180..180]
+    const lat = parseFloat(latitudeStr);
+    const lng = parseFloat(longitudeStr);
+    if (isNaN(lat) || lat < -90 || lat > 90) {
+      return error("Invalid latitude: must be a number between -90 and 90");
+    }
+    if (isNaN(lng) || lng < -180 || lng > 180) {
+      return error("Invalid longitude: must be a number between -180 and 180");
+    }
+
+    // 4. Validate active LiveAllocation for this user and channel
+    ensureLiveAllocationsSheet();
+    const activeAllocations = getActiveAllocationsForUser(userId);
+    const hasAllocation = activeAllocations.some(function(a) {
+      return String(a.YouTubeChannelID || "").trim() === channelId;
+    });
+    if (!hasAllocation) {
+      return error("User " + userId + " is not actively allocated to broadcast on channel " + channelId);
+    }
+
+    // 5. Validate LiveChannels row exists, Status is Active, and OAuthStatus is Active
+    ensureLiveChannelsSheet();
+    const channel = findLiveChannelById(channelId);
+    if (!channel) {
+      return error("YouTube channel " + channelId + " not found in LiveChannels registry");
+    }
+    const channelStatus = String(channel.Status || "").toLowerCase();
+    const oauthStatus = String(channel.OAuthStatus || "").toLowerCase();
+    if (channelStatus !== "active" || oauthStatus !== "active") {
+      return error("Cannot start live: Channel status is " + channel.Status + " (OAuth: " + channel.OAuthStatus + ")");
+    }
+
+    // 6. Prevent duplicate active session for this broadcaster
+    ensureLiveSessionsSheet();
+    const existingSessions = getAllLiveSessions();
+    const hasActiveSession = existingSessions.some(function(s) {
+      const sUserId = String(s.CameraPersonID || "").trim();
+      const sStatus = String(s.Status || "").toLowerCase();
+      return sUserId === userId && (sStatus === "starting" || sStatus === "active");
+    });
+    if (hasActiveSession) {
+      return error("A live session is already starting or active for your account. Please end it before starting a new one.");
+    }
+
+    // 7. Acquire / refresh YouTube access token server-side
+    const tokenRes = getOrRefreshYouTubeAccessToken(channelId);
+    if (!tokenRes.success) {
+      return error("YouTube authorization error: " + tokenRes.error);
+    }
+    const accessToken = tokenRes.accessToken;
+
+    // 8. Generate authoritative LiveSessionID
+    const nowIso = new Date().toISOString();
+    const liveSessionId = "LS_" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMddHHmmss") + "_" + Math.floor(1000 + Math.random() * 9000);
+
+    // 9. Call YouTube API: Create broadcast
+    const broadcast = createYouTubeLiveBroadcast(accessToken, title, description);
+    const broadcastId = broadcast.id;
+
+    // 10. Call YouTube API: Create dedicated non-reusable stream
+    const stream = createYouTubeLiveStream(accessToken, title, liveSessionId);
+    const streamId = stream.id;
+
+    // 11. Call YouTube API: Bind broadcast to stream
+    bindYouTubeBroadcastToStream(accessToken, broadcastId, streamId);
+
+    // 12. Resolve camera person display name
+    let cameraPersonName = userId;
+    try {
+      const user = getRowById(CONFIG.SHEETS.USERS, "UserID", userId);
+      if (user) cameraPersonName = String(user.FullName || user.Name || userId).trim();
+    } catch (uErr) {}
+
+    const watchUrl = "https://www.youtube.com/watch?v=" + broadcastId;
+    const embedUrl = "https://www.youtube.com/embed/" + broadcastId;
+
+    // 13. Persist LiveSession row in Starting/prepared state (never persisting stream key)
+    const sessionRow = {
+      LiveSessionID: liveSessionId,
+      CameraPersonID: userId,
+      CameraPersonName: cameraPersonName,
+      YouTubeChannelID: channelId,
+      YouTubeBroadcastID: broadcastId,
+      YouTubeVideoID: broadcastId,
+      YouTubeStreamID: streamId,
+      Latitude: lat,
+      Longitude: lng,
+      LocationEventID: locationEventId,
+      LocationEventName: locationEventName,
+      IsLocationOffset: "No",
+      OffsetDistanceKm: 0,
+      Title: title,
+      Description: description,
+      Status: "Starting",
+      StartedAt: "",
+      EndedAt: "",
+      DurationSeconds: 0,
+      CurrentViewers: 0,
+      EkkaSampledPeak: 0,
+      EkkaSampledAverage: 0,
+      EkkaSampleSum: 0,
+      EkkaSampleCount: 0,
+      TotalViews: 0,
+      WatchUrl: watchUrl,
+      EmbedUrl: embedUrl,
+      TerminationReason: "",
+      CreatedAt: nowIso,
+      UpdatedAt: nowIso
+    };
+    createLiveSessionRow(sessionRow);
+
+    // 14. Return only minimum ephemeral ingestion info over HTTPS
+    return success({
+      liveSessionId: liveSessionId,
+      channelId: channelId,
+      channelTitle: channel.ChannelTitle || "Ekka1Km LiveNews",
+      broadcastId: broadcastId,
+      videoId: broadcastId,
+      streamId: streamId,
+      rtmpsIngestionUrl: stream.ingestionAddress,
+      streamKey: stream.streamName, // Ephemeral credential: RAM only
+      watchUrl: watchUrl,
+      embedUrl: embedUrl,
+      status: "Starting"
+    }, "Live broadcast and dedicated stream prepared successfully");
+
+  } catch (err) {
+    return exception(err);
+  } finally {
+    if (lock) {
+      lock.releaseLock();
+    }
+  }
+}
+
+/**
+ * ============================================================
+ * ROUTE: ACTIVATE LIVE SESSION
+ * ?action=activatelivesession&session=TOKEN&liveSessionId=LS_...
+ * Transitions session from 'Starting' to 'Active' when Android streaming
+ * connection is genuinely established.
+ * ============================================================
+ */
+function activateLiveSession(e) {
+  try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+
+    const userId = String(auth.userId).trim();
+    const liveSessionId = String((e && e.parameter && e.parameter.liveSessionId) || "").trim();
+    if (!liveSessionId) return error("liveSessionId parameter is required");
+
+    ensureLiveSessionsSheet();
+    const session = findLiveSessionById(liveSessionId);
+    if (!session) return error("LiveSession not found: " + liveSessionId);
+
+    // Verify caller owns session or is admin
+    const sessionOwner = String(session.CameraPersonID || "").trim();
+    if (sessionOwner !== userId) {
+      const adminCheck = (typeof requireAdminSession === "function") ? requireAdminSession(e) : { valid: false };
+      if (!adminCheck.valid) {
+        return error("Forbidden: You are not authorized to activate this session");
+      }
+    }
+
+    const currentStatus = String(session.Status || "").toLowerCase();
+    if (currentStatus === "ended") {
+      return error("Cannot activate a session that has already ended");
+    }
+
+    const nowIso = new Date().toISOString();
+    const startedAt = session.StartedAt || nowIso;
+
+    updateLiveSession(liveSessionId, {
+      Status: "Active",
+      StartedAt: startedAt,
+      UpdatedAt: nowIso
+    });
+
+    return success({
+      liveSessionId: liveSessionId,
+      status: "Active",
+      startedAt: startedAt
+    }, "Live session marked Active");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * ROUTE: END LIVE SESSION
+ * ?action=endlivesession&session=TOKEN&liveSessionId=LS_...&terminationReason=...
+ * Ends YouTube broadcast, updates LiveSessions row with EndedAt,
+ * duration, and termination reason.
+ * ============================================================
+ */
+function endLiveSession(e) {
+  try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+
+    const userId = String(auth.userId).trim();
+    const p = (e && e.parameter) || {};
+    const liveSessionId = String(p.liveSessionId || "").trim();
+    const terminationReason = String(p.terminationReason || "Broadcaster ended").trim();
+
+    if (!liveSessionId) return error("liveSessionId parameter is required");
+
+    ensureLiveSessionsSheet();
+    const session = findLiveSessionById(liveSessionId);
+    if (!session) return error("LiveSession not found: " + liveSessionId);
+
+    // Verify caller owns session or is admin
+    const sessionOwner = String(session.CameraPersonID || "").trim();
+    if (sessionOwner !== userId) {
+      const adminCheck = (typeof requireAdminSession === "function") ? requireAdminSession(e) : { valid: false };
+      if (!adminCheck.valid) {
+        return error("Forbidden: You are not authorized to end this session");
+      }
+    }
+
+    // If already ended, return graceful success
+    if (String(session.Status || "").toLowerCase() === "ended") {
+      return success({
+        liveSessionId: liveSessionId,
+        status: "Ended",
+        startedAt: session.StartedAt || "",
+        endedAt: session.EndedAt || "",
+        durationSeconds: Number(session.DurationSeconds || 0),
+        terminationReason: session.TerminationReason || terminationReason,
+        alreadyEnded: true
+      }, "Live session was already finalized");
+    }
+
+    // Call YouTube API to complete broadcast
+    const channelId = String(session.YouTubeChannelID || "").trim();
+    const broadcastId = String(session.YouTubeBroadcastID || "").trim();
+    if (channelId && broadcastId) {
+      try {
+        const tokenRes = getOrRefreshYouTubeAccessToken(channelId);
+        if (tokenRes && tokenRes.success) {
+          endYouTubeLiveBroadcast(tokenRes.accessToken, broadcastId);
+        }
+      } catch (ytErr) {
+        Logger.log("Notice: YouTube broadcast completion notice: " + ytErr.message);
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+    const startIso = session.StartedAt || session.CreatedAt || nowIso;
+    const startMs = new Date(startIso).getTime();
+    const endMs = new Date(nowIso).getTime();
+    const durationSeconds = Math.max(0, Math.floor((endMs - startMs) / 1000));
+
+    updateLiveSession(liveSessionId, {
+      Status: "Ended",
+      EndedAt: nowIso,
+      DurationSeconds: durationSeconds,
+      TerminationReason: terminationReason,
+      UpdatedAt: nowIso
+    });
+
+    return success({
+      liveSessionId: liveSessionId,
+      status: "Ended",
+      startedAt: startIso,
+      endedAt: nowIso,
+      durationSeconds: durationSeconds,
+      terminationReason: terminationReason
+    }, "Live session ended successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * ROUTE: GET MY LIVE SESSION
+ * ?action=getmylivesession&session=TOKEN
+ * Queries active or starting session for authenticated camera person.
+ * Returns sanitized metadata without secrets or stream keys.
+ * ============================================================
+ */
+function getMyLiveSession(e) {
+  try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+
+    const userId = String(auth.userId).trim();
+    ensureLiveSessionsSheet();
+    const all = getAllLiveSessions();
+
+    const activeSession = all.find(function(s) {
+      const sUser = String(s.CameraPersonID || "").trim();
+      const sStatus = String(s.Status || "").toLowerCase();
+      return sUser === userId && (sStatus === "starting" || sStatus === "active");
+    });
+
+    if (!activeSession) {
+      return success({
+        hasActiveSession: false,
+        session: null
+      }, "No active live session found");
+    }
+
+    return success({
+      hasActiveSession: true,
+      session: {
+        liveSessionId: String(activeSession.LiveSessionID || ""),
+        channelId: String(activeSession.YouTubeChannelID || ""),
+        broadcastId: String(activeSession.YouTubeBroadcastID || ""),
+        videoId: String(activeSession.YouTubeVideoID || activeSession.YouTubeBroadcastID || ""),
+        streamId: String(activeSession.YouTubeStreamID || ""),
+        title: String(activeSession.Title || ""),
+        description: String(activeSession.Description || ""),
+        status: String(activeSession.Status || ""),
+        startedAt: String(activeSession.StartedAt || ""),
+        createdAt: String(activeSession.CreatedAt || ""),
+        latitude: activeSession.Latitude,
+        longitude: activeSession.Longitude,
+        watchUrl: String(activeSession.WatchUrl || ""),
+        embedUrl: String(activeSession.EmbedUrl || "")
+      }
+    }, "Active live session retrieved");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
 
 

@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:keepScreenOn="true">
+
+    <!-- Camera Preview via RootEncoder OpenGlView -->
+    <com.pedro.library.view.OpenGlView
+        android:id="@+id/openGlView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Top Overlay Bar -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:background="#B3000000"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- Channel Title -->
+            <TextView
+                android:id="@+id/tvChannelTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Ekka1Km LiveNews"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:ellipsize="end"
+                android:singleLine="true" />
+
+            <!-- Live State Badge / Pill -->
+            <TextView
+                android:id="@+id/tvStreamState"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="READY"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:background="#475569"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp"
+                android:layout_marginEnd="8dp" />
+
+            <!-- Duration Timer -->
+            <TextView
+                android:id="@+id/tvDuration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="00:00:00"
+                android:textColor="#E2E8F0"
+                android:textSize="13sp"
+                android:fontFamily="monospace"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical">
+
+            <!-- Stream Diagnostics (Resolution, FPS, Bitrate) -->
+            <TextView
+                android:id="@+id/tvDiagnostics"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="720p30 | IDLE"
+                android:textColor="#94A3B8"
+                android:textSize="11sp" />
+
+            <!-- Reconnect status or extra info -->
+            <TextView
+                android:id="@+id/tvStatusDetail"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="#F59E0B"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Center Card: Pre-broadcast status (hidden once streaming) -->
+    <LinearLayout
+        android:id="@+id/cardPreBroadcast"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:background="#D90F172A"
+        android:orientation="vertical"
+        android:padding="20dp"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/tvBroadcastTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Live Broadcast"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textAlignment="center"
+            android:gravity="center"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tvGpsInfo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="GPS: Acquiring..."
+            android:textColor="#10B981"
+            android:textSize="12sp"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnStartLive"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="START LIVE STREAM"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#059669" />
+
+        <Button
+            android:id="@+id/btnCancelPreBroadcast"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:text="Cancel"
+            android:textSize="13sp"
+            android:textColor="#94A3B8"
+            android:backgroundTint="#334155"
+            android:layout_marginTop="8dp" />
+    </LinearLayout>
+
+    <!-- Bottom Controls Overlay -->
+    <LinearLayout
+        android:id="@+id/bottomControls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:background="#CC0B0F19"
+        android:orientation="horizontal"
+        android:padding="14dp"
+        android:gravity="center_vertical">
+
+        <!-- Switch Camera Button -->
+        <Button
+            android:id="@+id/btnSwitchCamera"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:text="FLIP CAM"
+            android:textSize="12sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#334155"
+            android:layout_marginEnd="8dp" />
+
+        <!-- Mute / Unmute Mic Button -->
+        <Button
+            android:id="@+id/btnToggleMic"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:text="MIC ON"
+            android:textSize="12sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#2563EB"
+            android:layout_marginEnd="8dp" />
+
+        <!-- End Live Button -->
+        <Button
+            android:id="@+id/btnEndLive"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:text="END LIVE"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#DC2626" />
+    </LinearLayout>
+
+</RelativeLayout>
+

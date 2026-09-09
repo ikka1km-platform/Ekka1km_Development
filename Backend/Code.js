@@ -27,6 +27,9 @@ function doGet(e) {
       createproduct: true, createbusiness: true, createproperty: true,
       createnews: true, createpasspurchase: true, mypurchasedpasses: true,
       myauthorizedchannels: true
+      myauthorizedchannels: true,
+      startlivesession: true, activatelivesession: true,
+      endlivesession: true, getmylivesession: true
     };
     if (userProtectedActions[action]) {
       const auth = requireAuthenticatedUser(e);
@@ -471,6 +474,19 @@ case "notification_sent":
       // Live - Stage 3F Authorized Channel Discovery (Broadcaster)
       case "myauthorizedchannels":
         return getMyAuthorizedLiveChannels(e);
+
+      // Live - Stage 4 Camera Person Live Engine
+      case "startlivesession":
+        return startLiveSession(e);
+
+      case "activatelivesession":
+        return activateLiveSession(e);
+
+      case "endlivesession":
+        return endLiveSession(e);
+
+      case "getmylivesession":
+        return getMyLiveSession(e);
 
       case "adminlivestreams":
         return getAdminLiveStreams(e);

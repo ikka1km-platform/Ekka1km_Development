@@ -1491,6 +1491,106 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   <div id="draftsList"></div>
 </div>
 
+<!-- ===================================================== -->
+<!-- GO LIVE - CAMERA PERSON STUDIO (STAGE 4) -->
+<!-- ===================================================== -->
+
+<div id="golive" class="page">
+
+  <div class="sectionTitle">
+    Camera Person Live Studio
+  </div>
+
+  <!-- Authorized Channel Card -->
+  <div class="card" style="margin-bottom:14px;border-left:4px solid #059669;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <span style="font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Authorized YouTube Channel</span>
+      <span id="goLiveChannelStatusBadge" style="font-size:11px;font-weight:700;color:#fff;background:#10b981;padding:3px 8px;border-radius:12px;">Authorized & Active</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="width:48px;height:48px;border-radius:50%;background:#fee2e2;color:#ef4444;display:flex;align-items:center;justify-content:center;font-size:24px;">
+        <i class="material-icons">live_tv</i>
+      </div>
+      <div>
+        <div id="goLiveChannelTitle" style="font-size:16px;font-weight:700;color:#0f172a;">Ekka1Km LiveNews</div>
+        <div id="goLiveChannelHandle" style="font-size:13px;color:#64748b;">@ekka1kmlivenews</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Broadcast Details Form Card -->
+  <div class="card" style="margin-bottom:14px;">
+    <div style="font-size:14px;font-weight:600;color:#0f172a;margin-bottom:12px;">Broadcast Details</div>
+
+    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Live Title *</label>
+    <input
+      id="goLiveTitleInput"
+      type="text"
+      placeholder="e.g. Mangalwar Mangla Seva Darshan - Live"
+      maxlength="100"
+      style="margin-bottom:12px;">
+
+    <label style="font-size:12px;font-weight:600;color:#475569;display:block;margin-bottom:4px;">Description (Optional)</label>
+    <textarea
+      id="goLiveDescInput"
+      placeholder="Details about this live event..."
+      rows="3"
+      style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-family:inherit;font-size:14px;resize:vertical;margin-bottom:12px;"></textarea>
+  </div>
+
+  <!-- Authoritative GPS & Readiness Indicator Card -->
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div style="font-size:14px;font-weight:600;color:#0f172a;">Hardware & GPS Readiness</div>
+      <button onclick="acquireAuthoritativeGps()" style="font-size:11px;padding:4px 8px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;">Refresh GPS</button>
+    </div>
+
+    <!-- GPS status row -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <i class="material-icons" style="color:#059669;font-size:20px;">my_location</i>
+        <div>
+          <div id="goLiveGpsStatus" style="font-size:13px;font-weight:600;color:#0f172a;">GPS Acquiring...</div>
+          <div id="goLiveGpsCoords" style="font-size:11px;color:#64748b;">Locking coordinates</div>
+        </div>
+      </div>
+      <span id="goLiveGpsBadge" style="font-size:11px;font-weight:700;color:#fff;background:#f59e0b;padding:3px 8px;border-radius:12px;">Acquiring</span>
+    </div>
+
+    <!-- Hardware permissions status row -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <i class="material-icons" style="color:#2563eb;font-size:20px;">videocam</i>
+        <div style="font-size:13px;font-weight:600;color:#0f172a;">Camera & Microphone</div>
+      </div>
+      <div style="display:flex;gap:4px;">
+        <span id="goLiveCamBadge" style="font-size:10px;font-weight:700;color:#fff;background:#10b981;padding:2px 6px;border-radius:10px;">Camera Ready</span>
+        <span id="goLiveMicBadge" style="font-size:10px;font-weight:700;color:#fff;background:#10b981;padding:2px 6px;border-radius:10px;">Mic Ready</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Launch Error / Alert message -->
+  <div id="goLiveErrorMsg" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;line-height:1.4;"></div>
+
+  <!-- Action Launch Button -->
+  <button
+    id="btnLaunchBroadcaster"
+    onclick="launchLiveBroadcaster()"
+    style="width:100%;height:50px;font-size:16px;font-weight:700;background:linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);color:#fff;border:none;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 12px rgba(220,38,38,0.25);">
+    <i class="material-icons">videocam</i>
+    <span>Launch Live Studio</span>
+  </button>
+
+  <button
+    class="btn-gray"
+    onclick="openPage('home')"
+    style="margin-top:10px;width:100%;">
+    Cancel
+  </button>
+
+</div>
+
 <!-- SIDE DRAWER (moved outside main so it stays fixed overlay) -->
 
 <div id="sideDrawer" class="sideDrawer">
@@ -1714,6 +1814,19 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
         <i class="material-icons">verified_user</i>
         <span>Official Announcer</span>
       </div>
+
+      <div
+        class="sideDrawer-item"
+        id="drawerGoLiveItem"
+        data-page="golive"
+        role="menuitem"
+        tabindex="0"
+        onclick="navigateFromDrawer('golive')"
+        style="display:none;">
+        <i class="material-icons" style="color:#ef4444;">videocam</i>
+        <span>Go Live</span>
+        <span class="liveBadge-pill" style="background:#ef4444;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:auto;">LIVE</span>
+      </div>
     </div>
 
     <div class="sideDrawer-divider"></div>
@@ -1826,6 +1939,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 <script src="SearchLocation.js"></script>
 <script src="OTP.js"></script>
 <script src="Live.js"></script>
+<script src="GoLive.js"></script>
 <script src="App.js"></script>
 <script src="Auth.js"></script>
 <script src="Products.js"></script>

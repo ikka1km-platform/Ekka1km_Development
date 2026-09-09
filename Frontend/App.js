@@ -46,7 +46,38 @@ let CURRENT_LNG =
     }
 })();
 
+/* ============================================================
+   NATIVE ANDROID LIVE BROADCASTER BRIDGE
+   ============================================================
+   Registers the EkkaLiveBroadcaster Capacitor plugin when running
+   inside the Android APK.
+   ============================================================ */
 
+(function initLiveBroadcasterBridge() {
+    try {
+        if (
+            window.Capacitor &&
+            window.Capacitor.isNativePlatform &&
+            window.Capacitor.isNativePlatform()
+        ) {
+            window.EkkaLiveBroadcaster = window.Capacitor.registerPlugin(
+                "EkkaLiveBroadcaster",
+                {
+                    web: () => ({
+                        launchBroadcaster: () =>
+                            Promise.reject(
+                                new Error("NATIVE_BRIDGE_UNAVAILABLE")
+                            )
+                    })
+                }
+            );
+        } else {
+            window.EkkaLiveBroadcaster = null;
+        }
+    } catch (e) {
+        window.EkkaLiveBroadcaster = null;
+    }
+})();
 
 /*
 ============================================================
@@ -80,6 +111,10 @@ function refreshLoginUI() {
           ? "none"
           : "block";
     });
+
+  if (typeof checkBroadcasterAllocation === "function") {
+    checkBroadcasterAllocation();
+  }
 }
 
 
@@ -101,6 +136,9 @@ function openSideDrawer() {
   // Keep active state in sync whenever drawer opens
   updateDrawerActiveState(getCurrentPageId());
   updateDrawerNotificationBadge();
+  if (typeof checkBroadcasterAllocation === "function") {
+    checkBroadcasterAllocation();
+  }
 }
 
 function closeSideDrawer() {
@@ -615,6 +653,12 @@ const NavigationManager = (() => {
       var userId = typeof getUserId === "function" ? getUserId() : "";
       if (typeof loadAnnouncerStatus === "function") {
         loadAnnouncerStatus(userId);
+      }
+    }
+
+    if (pageId === "golive") {
+      if (typeof initGoLiveStudio === "function") {
+        initGoLiveStudio();
       }
     }
 
