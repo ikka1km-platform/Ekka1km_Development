@@ -26,7 +26,6 @@ function doGet(e) {
       deleteproperty: true, addnews: true, updatenews: true, deletenews: true,
       createproduct: true, createbusiness: true, createproperty: true,
       createnews: true, createpasspurchase: true, mypurchasedpasses: true,
-      myauthorizedchannels: true
       myauthorizedchannels: true,
       startlivesession: true, activatelivesession: true,
       endlivesession: true, getmylivesession: true
