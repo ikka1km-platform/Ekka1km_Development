@@ -13,71 +13,80 @@ let CURRENT_LNG =
   CONFIG.DEFAULT_LONGITUDE;
 
 /* ============================================================
-   NATIVE ANDROID LOCATION BRIDGE
+   NATIVE ANDROID PLUGIN RESOLVERS & BRIDGES
    ============================================================
-   Registers the EkkaNativeLocation Capacitor plugin when running
-   inside the Android APK. On web/Chrome, window.EkkaNativeLocation
-   remains null and the existing browser geolocation is used.
+   In Capacitor Android with remote server URL, native plugins are
+   exported directly to window.Capacitor.Plugins[pluginName].
+   We provide robust resolvers and define dynamic getters on window
+   so window.EkkaNativeLocation and window.EkkaLiveBroadcaster
+   reliably resolve the native plugin instance inside the APK,
+   while returning null on web/Chrome.
    ============================================================ */
 
-(function initNativeLocationBridge() {
-    try {
-        if (
-            window.Capacitor &&
-            window.Capacitor.isNativePlatform &&
-            window.Capacitor.isNativePlatform()
-        ) {
-            window.EkkaNativeLocation = window.Capacitor.registerPlugin(
-                "EkkaNativeLocation",
-                {
-                    web: () => ({
-                        getCurrentLocation: () =>
-                            Promise.reject(
-                                new Error("NATIVE_BRIDGE_UNAVAILABLE")
-                            )
-                    })
-                }
-            );
-        } else {
-            window.EkkaNativeLocation = null;
-        }
-    } catch (e) {
-        window.EkkaNativeLocation = null;
+function isNativeAndroidApp() {
+  try {
+    if (window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()) {
+      return true;
     }
-})();
-
-/* ============================================================
-   NATIVE ANDROID LIVE BROADCASTER BRIDGE
-   ============================================================
-   Registers the EkkaLiveBroadcaster Capacitor plugin when running
-   inside the Android APK.
-   ============================================================ */
-
-(function initLiveBroadcasterBridge() {
-    try {
-        if (
-            window.Capacitor &&
-            window.Capacitor.isNativePlatform &&
-            window.Capacitor.isNativePlatform()
-        ) {
-            window.EkkaLiveBroadcaster = window.Capacitor.registerPlugin(
-                "EkkaLiveBroadcaster",
-                {
-                    web: () => ({
-                        launchBroadcaster: () =>
-                            Promise.reject(
-                                new Error("NATIVE_BRIDGE_UNAVAILABLE")
-                            )
-                    })
-                }
-            );
-        } else {
-            window.EkkaLiveBroadcaster = null;
-        }
-    } catch (e) {
-        window.EkkaLiveBroadcaster = null;
+    if (window.Capacitor && typeof window.Capacitor.getPlatform === "function" && window.Capacitor.getPlatform() === "android") {
+      return true;
     }
-})();
+    if (window.androidBridge) {
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+function getEkkaNativeLocation() {
+  if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.EkkaNativeLocation) {
+    return window.Capacitor.Plugins.EkkaNativeLocation;
+  }
+  if (window.__ekkaNativeLocationInstance) {
+    return window.__ekkaNativeLocationInstance;
+  }
+  if (window.Capacitor && typeof window.Capacitor.registerPlugin === "function") {
+    try {
+      window.__ekkaNativeLocationInstance = window.Capacitor.registerPlugin("EkkaNativeLocation");
+      return window.__ekkaNativeLocationInstance;
+    } catch (e) {}
+  }
+  return null;
+}
+
+function getEkkaLiveBroadcaster() {
+  if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.EkkaLiveBroadcaster) {
+    return window.Capacitor.Plugins.EkkaLiveBroadcaster;
+  }
+  if (window.__ekkaLiveBroadcasterInstance) {
+    return window.__ekkaLiveBroadcasterInstance;
+  }
+  if (window.Capacitor && typeof window.Capacitor.registerPlugin === "function") {
+    try {
+      window.__ekkaLiveBroadcasterInstance = window.Capacitor.registerPlugin("EkkaLiveBroadcaster");
+      return window.__ekkaLiveBroadcasterInstance;
+    } catch (e) {}
+  }
+  return null;
+}
+
+try {
+  Object.defineProperty(window, "EkkaNativeLocation", {
+    get: getEkkaNativeLocation,
+    configurable: true
+  });
+} catch (e) {
+  window.EkkaNativeLocation = getEkkaNativeLocation();
+}
+
+try {
+  Object.defineProperty(window, "EkkaLiveBroadcaster", {
+    get: getEkkaLiveBroadcaster,
+    configurable: true
+  });
+} catch (e) {
+  window.EkkaLiveBroadcaster = getEkkaLiveBroadcaster();
+}
 
 /*
 ============================================================

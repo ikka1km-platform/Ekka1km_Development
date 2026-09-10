@@ -1542,7 +1542,7 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   <div class="card" style="margin-bottom:16px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <div style="font-size:14px;font-weight:600;color:#0f172a;">Hardware & GPS Readiness</div>
-      <button onclick="acquireAuthoritativeGps()" style="font-size:11px;padding:4px 8px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;">Refresh GPS</button>
+      <button id="btnRefreshGps" onclick="acquireAuthoritativeGps()" style="font-size:11px;padding:4px 8px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;">Refresh GPS</button>
     </div>
 
     <!-- GPS status row -->
@@ -1564,8 +1564,8 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
         <div style="font-size:13px;font-weight:600;color:#0f172a;">Camera & Microphone</div>
       </div>
       <div style="display:flex;gap:4px;">
-        <span id="goLiveCamBadge" style="font-size:10px;font-weight:700;color:#fff;background:#10b981;padding:2px 6px;border-radius:10px;">Camera Ready</span>
-        <span id="goLiveMicBadge" style="font-size:10px;font-weight:700;color:#fff;background:#10b981;padding:2px 6px;border-radius:10px;">Mic Ready</span>
+        <span id="goLiveCamBadge" onclick="requestHardwarePermissions()" style="font-size:10px;font-weight:700;color:#fff;background:#10b981;padding:2px 6px;border-radius:10px;cursor:pointer;">Camera Ready</span>
+        <span id="goLiveMicBadge" onclick="requestHardwarePermissions()" style="font-size:10px;font-weight:700;color:#fff;background:#10b981;padding:2px 6px;border-radius:10px;cursor:pointer;">Mic Ready</span>
       </div>
     </div>
   </div>

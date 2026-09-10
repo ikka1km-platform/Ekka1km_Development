@@ -1,20 +1,78 @@
 package com.ekka1km.app.live;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+
+import androidx.core.content.ContextCompat;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 /**
  * Capacitor Plugin that bridges the web frontend to the production
  * native Android LiveBroadcasterActivity.
  */
-@CapacitorPlugin(name = "EkkaLiveBroadcaster")
+@CapacitorPlugin(
+    name = "EkkaLiveBroadcaster",
+    permissions = {
+        @Permission(
+            alias = "camera",
+            strings = { Manifest.permission.CAMERA }
+        ),
+        @Permission(
+            alias = "microphone",
+            strings = { Manifest.permission.RECORD_AUDIO }
+        )
+    }
+)
 public class EkkaLiveBroadcasterPlugin extends Plugin {
+
+    @PluginMethod
+    public void checkMediaPermissions(PluginCall call) {
+        try {
+            Context context = getContext();
+            boolean cameraGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+            boolean micGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+
+            JSObject result = new JSObject();
+            result.put("camera", cameraGranted ? "granted" : "prompt");
+            result.put("microphone", micGranted ? "granted" : "prompt");
+            result.put("allGranted", cameraGranted && micGranted);
+            call.resolve(result);
+        } catch (Exception e) {
+            call.reject("Failed to check media permissions: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void requestMediaPermissions(PluginCall call) {
+        try {
+            Context context = getContext();
+            boolean cameraGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+            boolean micGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+
+            if (cameraGranted && micGranted) {
+                checkMediaPermissions(call);
+                return;
+            }
+
+            requestPermissionForAliases(new String[]{"camera", "microphone"}, call, "onMediaPermissionsResult");
+        } catch (Exception e) {
+            call.reject("Failed to request media permissions: " + e.getMessage(), e);
+        }
+    }
+
+    @PermissionCallback
+    private void onMediaPermissionsResult(PluginCall call) {
+        checkMediaPermissions(call);
+    }
 
     @PluginMethod
     public void launchBroadcaster(PluginCall call) {

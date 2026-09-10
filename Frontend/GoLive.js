@@ -104,6 +104,30 @@ function renderGoLiveChannelInfo() {
   }
 }
 
+function getLiveBroadcasterPlugin() {
+  if (typeof getEkkaLiveBroadcaster === "function") {
+    const p = getEkkaLiveBroadcaster();
+    if (p) return p;
+  }
+  return (
+    window.EkkaLiveBroadcaster ||
+    (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.EkkaLiveBroadcaster) ||
+    null
+  );
+}
+
+function getNativeLocationPluginInstance() {
+  if (typeof getEkkaNativeLocation === "function") {
+    const p = getEkkaNativeLocation();
+    if (p) return p;
+  }
+  return (
+    window.EkkaNativeLocation ||
+    (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.EkkaNativeLocation) ||
+    null
+  );
+}
+
 /**
  * ============================================================
  * ACQUIRE AUTHORITATIVE GPS
@@ -115,23 +139,31 @@ function acquireAuthoritativeGps() {
   const gpsStatusEl = document.getElementById("goLiveGpsStatus");
   const gpsCoordsEl = document.getElementById("goLiveGpsCoords");
   const gpsBadgeEl = document.getElementById("goLiveGpsBadge");
+  const refreshBtn = document.getElementById("btnRefreshGps");
 
+  if (refreshBtn) {
+    refreshBtn.textContent = "Acquiring...";
+    refreshBtn.disabled = true;
+  }
   if (gpsStatusEl) gpsStatusEl.textContent = "Acquiring authoritative GPS...";
+  if (gpsCoordsEl) gpsCoordsEl.textContent = "Contacting GPS satellites...";
   if (gpsBadgeEl) {
     gpsBadgeEl.textContent = "Acquiring";
     gpsBadgeEl.style.background = "#f59e0b";
   }
 
   IS_ACQUIRING_GPS = true;
+  LOCKED_GPS = null;
 
   // 1. Check if EkkaNativeLocation Capacitor plugin is available (Android app)
-  if (window.EkkaNativeLocation && typeof window.EkkaNativeLocation.getCurrentLocation === "function") {
-    window.EkkaNativeLocation.getCurrentLocation()
+  const nativeLocation = getNativeLocationPluginInstance();
+  if (nativeLocation && typeof nativeLocation.getCurrentLocation === "function") {
+    nativeLocation.getCurrentLocation()
       .then(function(loc) {
         handleGpsSuccess(loc.latitude, loc.longitude, loc.accuracy);
       })
       .catch(function(err) {
-        console.log("Native GPS acquisition fallback:", err);
+        console.warn("Native GPS acquisition fallback:", err);
         fallbackToBrowserGps();
       });
   } else {
@@ -148,15 +180,25 @@ function fallbackToBrowserGps() {
       function(err) {
         handleGpsError(err.message || "Location access denied");
       },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
   } else {
     handleGpsError("Geolocation is not supported by this device");
   }
 }
 
+function resetGpsButton() {
+  const refreshBtn = document.getElementById("btnRefreshGps");
+  if (refreshBtn) {
+    refreshBtn.textContent = "Refresh GPS";
+    refreshBtn.disabled = false;
+  }
+}
+
 function handleGpsSuccess(lat, lng, accuracy) {
   IS_ACQUIRING_GPS = false;
+  resetGpsButton();
+
   const numLat = parseFloat(lat);
   const numLng = parseFloat(lng);
 
@@ -191,6 +233,7 @@ function handleGpsSuccess(lat, lng, accuracy) {
 
 function handleGpsError(errMsg) {
   IS_ACQUIRING_GPS = false;
+  resetGpsButton();
   LOCKED_GPS = null;
 
   const gpsStatusEl = document.getElementById("goLiveGpsStatus");
@@ -206,35 +249,123 @@ function handleGpsError(errMsg) {
 }
 
 /**
- * Checks Camera & Microphone permissions status.
+ * Updates UI badges for Camera & Microphone permissions.
  */
-function checkHardwarePermissionsStatus() {
+function updateMediaBadgeUI(cameraGranted, micGranted) {
   const camBadge = document.getElementById("goLiveCamBadge");
   const micBadge = document.getElementById("goLiveMicBadge");
+  const hintEl = document.getElementById("goLivePermHint");
 
+  if (camBadge) {
+    if (cameraGranted) {
+      camBadge.textContent = "Camera Ready";
+      camBadge.style.background = "#10b981";
+      camBadge.title = "Camera permission granted";
+    } else {
+      camBadge.textContent = "Permission Needed";
+      camBadge.style.background = "#f59e0b";
+      camBadge.title = "Tap to grant Camera permission";
+    }
+  }
+
+  if (micBadge) {
+    if (micGranted) {
+      micBadge.textContent = "Mic Ready";
+      micBadge.style.background = "#10b981";
+      micBadge.title = "Microphone permission granted";
+    } else {
+      micBadge.textContent = "Permission Needed";
+      micBadge.style.background = "#f59e0b";
+      micBadge.title = "Tap to grant Microphone permission";
+    }
+  }
+
+  if (hintEl) {
+    if (cameraGranted && micGranted) {
+      hintEl.textContent = "Hardware Ready";
+      hintEl.style.color = "#059669";
+    } else {
+      hintEl.textContent = "Tap badges to grant permission";
+      hintEl.style.color = "#d97706";
+    }
+  }
+}
+
+/**
+ * Checks Camera & Microphone permissions status.
+ * On Android, authoritatively queries native OS permissions via Capacitor plugin.
+ * On Web, checks navigator.permissions or getUserMedia.
+ */
+function checkHardwarePermissionsStatus() {
+  const broadcaster = getLiveBroadcasterPlugin();
+
+  // 1. Native Android check
+  if (broadcaster && typeof broadcaster.checkMediaPermissions === "function") {
+    broadcaster.checkMediaPermissions()
+      .then(function(res) {
+        const camGranted = res && (res.camera === "granted" || res.allGranted === true);
+        const micGranted = res && (res.microphone === "granted" || res.allGranted === true);
+        updateMediaBadgeUI(camGranted, micGranted);
+      })
+      .catch(function(err) {
+        console.warn("Native media permission check notice:", err);
+        checkBrowserMediaPermissions();
+      });
+    return;
+  }
+
+  // 2. Web fallback
+  checkBrowserMediaPermissions();
+}
+
+function checkBrowserMediaPermissions() {
+  if (navigator.permissions && navigator.permissions.query) {
+    Promise.all([
+      navigator.permissions.query({ name: "camera" }).catch(function() { return { state: "prompt" }; }),
+      navigator.permissions.query({ name: "microphone" }).catch(function() { return { state: "prompt" }; })
+    ]).then(function(results) {
+      const camOk = results[0] && results[0].state === "granted";
+      const micOk = results[1] && results[1].state === "granted";
+      updateMediaBadgeUI(camOk, micOk);
+    }).catch(function() {
+      updateMediaBadgeUI(false, false);
+    });
+  } else {
+    updateMediaBadgeUI(false, false);
+  }
+}
+
+/**
+ * Requests Camera & Microphone permissions interactively.
+ * Tapping on badges calls this method.
+ */
+function requestHardwarePermissions() {
+  const broadcaster = getLiveBroadcasterPlugin();
+
+  // 1. Native Android request
+  if (broadcaster && typeof broadcaster.requestMediaPermissions === "function") {
+    broadcaster.requestMediaPermissions()
+      .then(function(res) {
+        const camGranted = res && (res.camera === "granted" || res.allGranted === true);
+        const micGranted = res && (res.microphone === "granted" || res.allGranted === true);
+        updateMediaBadgeUI(camGranted, micGranted);
+      })
+      .catch(function(err) {
+        console.warn("Native media permission request notice:", err);
+        checkHardwarePermissionsStatus();
+      });
+    return;
+  }
+
+  // 2. Browser request
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then(function(stream) {
-        if (camBadge) {
-          camBadge.textContent = "Camera Ready";
-          camBadge.style.background = "#10b981";
-        }
-        if (micBadge) {
-          micBadge.textContent = "Microphone Ready";
-          micBadge.style.background = "#10b981";
-        }
-        // Stop the test stream immediately
+        updateMediaBadgeUI(true, true);
         stream.getTracks().forEach(function(t) { t.stop(); });
       })
       .catch(function() {
-        if (camBadge) {
-          camBadge.textContent = "Permission Needed";
-          camBadge.style.background = "#f59e0b";
-        }
-        if (micBadge) {
-          micBadge.textContent = "Permission Needed";
-          micBadge.style.background = "#f59e0b";
-        }
+        updateMediaBadgeUI(false, false);
       });
   }
 }
@@ -284,14 +415,15 @@ function launchLiveBroadcaster() {
   }
 
   // 5. Invoke Capacitor Native Bridge
-  if (window.EkkaLiveBroadcaster && typeof window.EkkaLiveBroadcaster.launchBroadcaster === "function") {
+  const broadcaster = getLiveBroadcasterPlugin();
+  if (broadcaster && typeof broadcaster.launchBroadcaster === "function") {
     const btn = document.getElementById("btnLaunchBroadcaster");
     if (btn) {
       btn.disabled = true;
       btn.textContent = "Opening Live Studio...";
     }
 
-    window.EkkaLiveBroadcaster.launchBroadcaster({
+    broadcaster.launchBroadcaster({
       apiUrl: getApiUrl(),
       sessionToken: session,
       channelId: CURRENT_AUTHORIZED_CHANNEL.channelId,
