@@ -285,8 +285,8 @@ public class LiveBroadcasterActivity extends AppCompatActivity implements Connec
 
                 HttpURLConnection conn = (HttpURLConnection) new URL(requestUrl).openConnection();
                 conn.setRequestMethod("GET");
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(15000);
+                conn.setConnectTimeout(30000);
+                conn.setReadTimeout(45000);
 
                 int responseCode = conn.getResponseCode();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(

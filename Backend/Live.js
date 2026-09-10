@@ -1546,14 +1546,62 @@ function startLiveSession(e) {
       return error("Cannot start live: Channel status is " + channel.Status + " (OAuth: " + channel.OAuthStatus + ")");
     }
 
-    // 6. Prevent duplicate active session for this broadcaster
+    // 6. Prevent duplicate active session for this broadcaster, protecting against stale starting sessions
     ensureLiveSessionsSheet();
     const existingSessions = getAllLiveSessions();
+    const STALE_STARTING_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes
+    const nowMs = Date.now();
+
     const hasActiveSession = existingSessions.some(function(s) {
       const sUserId = String(s.CameraPersonID || "").trim();
+      if (sUserId !== userId) return false;
+
       const sStatus = String(s.Status || "").toLowerCase();
-      return sUserId === userId && (sStatus === "starting" || sStatus === "active");
+      if (sStatus === "active") {
+        return true;
+      }
+      if (sStatus === "starting") {
+        let createdMs = 0;
+        if (s.CreatedAt instanceof Date) {
+          createdMs = s.CreatedAt.getTime();
+        } else if (s.CreatedAt) {
+          const parsed = new Date(s.CreatedAt).getTime();
+          if (!isNaN(parsed)) createdMs = parsed;
+        }
+
+        // Check if starting session is older than 3 minutes (orphaned from client/network timeout)
+        const isStale = createdMs > 0 && (nowMs - createdMs) > STALE_STARTING_THRESHOLD_MS;
+        if (isStale) {
+          const orphanSessionId = String(s.LiveSessionID || "").trim();
+          if (orphanSessionId) {
+            try {
+              const nowIso = new Date().toISOString();
+              updateLiveSession(orphanSessionId, {
+                Status: "Ended",
+                EndedAt: nowIso,
+                TerminationReason: "ClientTimeoutAbandoned",
+                UpdatedAt: nowIso
+              });
+              // Attempt graceful completion of YouTube broadcast if still open
+              const orphanChannelId = String(s.YouTubeChannelID || "").trim();
+              const orphanBroadcastId = String(s.YouTubeBroadcastID || "").trim();
+              if (orphanChannelId && orphanBroadcastId && typeof endYouTubeLiveBroadcast === "function") {
+                try {
+                  const tRes = getOrRefreshYouTubeAccessToken(orphanChannelId);
+                  if (tRes && tRes.success) {
+                    endYouTubeLiveBroadcast(tRes.accessToken, orphanBroadcastId);
+                  }
+                } catch (ytEndErr) {}
+              }
+            } catch (cleanupErr) {}
+          }
+          return false; // Stale starting session does not block new session
+        }
+        return true; // Still within 3-minute starting window
+      }
+      return false;
     });
+
     if (hasActiveSession) {
       return error("A live session is already starting or active for your account. Please end it before starting a new one.");
     }
@@ -1808,11 +1856,26 @@ function getMyLiveSession(e) {
     const userId = String(auth.userId).trim();
     ensureLiveSessionsSheet();
     const all = getAllLiveSessions();
+    const STALE_STARTING_THRESHOLD_MS = 3 * 60 * 1000;
+    const nowMs = Date.now();
 
     const activeSession = all.find(function(s) {
       const sUser = String(s.CameraPersonID || "").trim();
+      if (sUser !== userId) return false;
+
       const sStatus = String(s.Status || "").toLowerCase();
-      return sUser === userId && (sStatus === "starting" || sStatus === "active");
+      if (sStatus === "active") return true;
+      if (sStatus === "starting") {
+        let createdMs = 0;
+        if (s.CreatedAt instanceof Date) {
+          createdMs = s.CreatedAt.getTime();
+        } else if (s.CreatedAt) {
+          const parsed = new Date(s.CreatedAt).getTime();
+          if (!isNaN(parsed)) createdMs = parsed;
+        }
+        return (createdMs === 0 || (nowMs - createdMs) <= STALE_STARTING_THRESHOLD_MS);
+      }
+      return false;
     });
 
     if (!activeSession) {
