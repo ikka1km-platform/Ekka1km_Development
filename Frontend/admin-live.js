@@ -30,6 +30,7 @@ moderator management, and stream lifecycle controls
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#x27;" }[c];
     });
   }
+  const escapeHtml = typeof window.escapeHtml === "function" ? window.escapeHtml : _esc;
 
   function renderLiveNavTabs(activeTab) {
     let tabs = "";
@@ -76,7 +77,7 @@ moderator management, and stream lifecycle controls
     async function loadAndRender() {
       const session = AdminAuth.getSession();
       if (!session) {
-        container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired</h3><p>Please login again.</p></div>';
+        container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired</h3><p>Please login again.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
         return;
       }
 
@@ -88,6 +89,13 @@ moderator management, and stream lifecycle controls
         const json = await response.json();
 
         if (!json || !json.success) {
+          if (json && (json.status === "UNAUTHORIZED" || json.message === "Unauthorized access.")) {
+            if (typeof AdminAuth !== "undefined" && typeof AdminAuth.clearSession === "function") {
+              AdminAuth.clearSession();
+            }
+            container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired or Unauthorized</h3><p>Your admin session has expired or is invalid. Please log in again to access the Live Moderation Center.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
+            return;
+          }
           container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Failed to Load Live Streams</h3><p>' + escapeHtml(json && json.message || "Unknown error") + '</p><button class="module-btn module-btn-primary" onclick="window._refreshLiveMonitoring()">🔄 Retry</button></div>';
           return;
         }
@@ -792,7 +800,7 @@ moderator management, and stream lifecycle controls
       _stopLiveTimer();
       const session = AdminAuth.getSession();
       if (!session) {
-        container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired</h3><p>Please login again.</p></div>';
+        container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired</h3><p>Please login again.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
         return;
       }
 
@@ -804,6 +812,13 @@ moderator management, and stream lifecycle controls
         const json = await response.json();
 
         if (!json || !json.success) {
+          if (json && (json.status === "UNAUTHORIZED" || json.message === "Unauthorized access.")) {
+            if (typeof AdminAuth !== "undefined" && typeof AdminAuth.clearSession === "function") {
+              AdminAuth.clearSession();
+            }
+            container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired or Unauthorized</h3><p>Your admin session has expired or is invalid. Please log in again to access YouTube Channels.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
+            return;
+          }
           container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Failed to Load Channels</h3><p>' + _esc(json && json.message || "Unknown error") + '</p><button class="module-btn module-btn-primary" onclick="window._refreshChannelsTab()">🔄 Retry</button></div>';
           return;
         }
@@ -961,7 +976,7 @@ moderator management, and stream lifecycle controls
       _stopLiveTimer();
       const session = AdminAuth.getSession();
       if (!session) {
-        container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired</h3><p>Please login again.</p></div>';
+        container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired</h3><p>Please login again.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
         return;
       }
 
@@ -973,6 +988,13 @@ moderator management, and stream lifecycle controls
         const json = await response.json();
 
         if (!json || !json.success) {
+          if (json && (json.status === "UNAUTHORIZED" || json.message === "Unauthorized access.")) {
+            if (typeof AdminAuth !== "undefined" && typeof AdminAuth.clearSession === "function") {
+              AdminAuth.clearSession();
+            }
+            container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired or Unauthorized</h3><p>Your admin session has expired or is invalid. Please log in again to access Broadcaster Allocations.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
+            return;
+          }
           container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Failed to Load Allocations</h3><p>' + _esc(json && json.message || "Unknown error") + '</p><button class="module-btn module-btn-primary" onclick="window._refreshAllocationsTab()">🔄 Retry</button></div>';
           return;
         }

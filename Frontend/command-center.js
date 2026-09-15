@@ -331,6 +331,11 @@ const CommandCenter = {
           console.log("Command Center data loaded", json.data);
           return json.data;
         } else {
+          if (json && (json.status === "UNAUTHORIZED" || json.message === "Unauthorized access.")) {
+            if (typeof AdminAuth !== "undefined" && typeof AdminAuth.clearSession === "function") {
+              AdminAuth.clearSession();
+            }
+          }
           console.warn("Command Center data load failed:", json ? json.message : "Unknown error");
           return null;
         }
