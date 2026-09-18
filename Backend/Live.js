@@ -578,8 +578,11 @@ function getLiveAnalytics(e) {
 
 /**
  * ============================================================
- * GET ADMIN LIVE STREAMS (Phase 5.8 - Live Monitoring)
- * ?action=adminlivestreams&session=TOKEN
+ * GET ADMIN LIVE STREAMS (Stage 6 — CCTV Monitor & Admin Hero GPS)
+ * ?action=adminlivestreams&session=TOKEN&lat=...&lng=...&radius=...
+ * Authoritative source: LiveSessions (Status === 'Active')
+ * Filters by Admin Hero GPS coordinates & radius using Haversine.
+ * Sanitizes output: NEVER leaks stream keys, tokens or secrets.
  * ============================================================
  */
 function getAdminLiveStreams(e) {
@@ -587,125 +590,104 @@ function getAdminLiveStreams(e) {
     const admin = requireAdminSession(e);
     if (!admin.valid) return admin.response;
 
-    const streams = getSheetData(CONFIG.SHEETS.LIVE) || [];
-    const viewersData = getSheetData(CONFIG.SHEETS.LIVE_VIEWERS) || [];
-    const likesData = getSheetData(CONFIG.SHEETS.LIVE_LIKES) || [];
-    const sharesData = getSheetData(CONFIG.SHEETS.LIVE_SHARES) || [];
-    const chatData = getSheetData(CONFIG.SHEETS.LIVE_CHAT) || [];
-    const modData = getSheetData(CONFIG.SHEETS.LIVE_MODERATORS) || [];
-    const subData = getSheetData(CONFIG.SHEETS.LIVE_SUBSCRIBERS) || [];
+    ensureLiveSessionsSheet();
+    const allSessions = getAllLiveSessions() || [];
 
-    // Build metric lookup maps
-    const activeViewersMap = {};
-    viewersData.forEach(function(v) {
-      if (v.LiveID && v.Active === true) {
-        activeViewersMap[v.LiveID] = (activeViewersMap[v.LiveID] || 0) + 1;
-      }
+    // Filter strictly for active broadcasts
+    const activeSessions = allSessions.filter(function (s) {
+      const status = String(s.Status || "").trim().toLowerCase();
+      return status === "active";
     });
 
-    const likesMap = {};
-    likesData.forEach(function(l) {
-      if (l.LiveID && String(l.Type || "LIKE").toUpperCase() === "LIKE") {
-        likesMap[l.LiveID] = (likesMap[l.LiveID] || 0) + 1;
-      }
-    });
+    // Location context from Admin Hero GPS
+    const adminLat = e && e.parameter && e.parameter.lat ? Number(e.parameter.lat) : 0;
+    const adminLng = e && e.parameter && e.parameter.lng ? Number(e.parameter.lng) : 0;
+    const radiusParam = e && e.parameter && e.parameter.radius ? String(e.parameter.radius).trim() : "";
 
-    const sharesMap = {};
-    sharesData.forEach(function(s) {
-      if (s.LiveID) {
-        sharesMap[s.LiveID] = (sharesMap[s.LiveID] || 0) + 1;
-      }
-    });
-
-    const chatMap = {};
-    chatData.forEach(function(c) {
-      if (c.LiveID) {
-        chatMap[c.LiveID] = (chatMap[c.LiveID] || 0) + 1;
-      }
-    });
-
-    const modMap = {};
-    modData.forEach(function(m) {
-      if (m.LiveID) {
-        modMap[m.LiveID] = (modMap[m.LiveID] || 0) + 1;
-      }
-    });
-
-    const subMap = {};
-    subData.forEach(function(sb) {
-      if (sb.LiveID) {
-        subMap[sb.LiveID] = (subMap[sb.LiveID] || 0) + 1;
-      }
-    });
-
-    let totalActiveStreams = 0;
+    const filtered = [];
     let totalConcurrentViewers = 0;
-    let totalLikes = 0;
-    let totalShares = 0;
-    let totalChatMessages = chatData.length;
-    let totalModerators = modData.length;
 
-    const enrichedStreams = streams.map(function(s) {
-      const liveId = String(s.LiveID || "");
-      const isLive = String(s.IsLive || "").toLowerCase() === "yes";
-      const status = String(s.Status || "Active");
-      const viewers = activeViewersMap[liveId] || Number(s.ViewerCount || 0);
-      const likes = likesMap[liveId] || 0;
-      const shares = sharesMap[liveId] || 0;
-      const chatCount = chatMap[liveId] || 0;
-      const modCount = modMap[liveId] || 0;
-      const subCount = subMap[liveId] || 0;
+    activeSessions.forEach(function (s) {
+      const sessionLat = Number(s.Latitude || s.latitude);
+      const sessionLng = Number(s.Longitude || s.longitude);
 
-      if (isLive && status.toLowerCase() !== "deleted") {
-        totalActiveStreams++;
-        totalConcurrentViewers += viewers;
+      let distance = null;
+      if (adminLat && adminLng && sessionLat && sessionLng) {
+        if (typeof calculateDistance === "function") {
+          distance = calculateDistance(adminLat, adminLng, sessionLat, sessionLng);
+          distance = Number(distance.toFixed(2));
+        }
       }
-      totalLikes += likes;
-      totalShares += shares;
 
-      return {
-        LiveID: liveId,
-        Title: s.Title || "Live Stream",
-        Description: s.Description || "",
-        Streamer: s.Streamer || s.Announcer || s.UserID || "Streamer",
-        UserID: s.UserID || "",
-        Category: s.Category || "General",
-        City: s.City || "",
-        State: s.State || "",
-        StreamURL: s.StreamURL || s.VideoURL || s.HLSUrl || "",
-        ImageURL: s.ImageURL || s.Thumbnail || "",
-        IsLive: isLive ? "Yes" : "No",
-        IsFeatured: String(s.IsFeatured || "").toLowerCase() === "yes" ? "Yes" : "No",
-        AllowPIP: String(s.AllowPIP || "").toLowerCase() === "yes" ? "Yes" : "No",
-        Status: status,
-        ViewerCount: viewers,
-        LikeCount: likes,
-        ShareCount: shares,
-        ChatCount: chatCount,
-        ModeratorCount: modCount,
-        SubscriberCount: subCount,
-        CreatedDate: s.CreatedDate || s.StartDate || ""
-      };
+      // Check radius filter if radius is specified and not "all" or "all india"
+      const isAll = !radiusParam || radiusParam.toLowerCase() === "all" || radiusParam.toLowerCase() === "all india";
+      if (!isAll && radiusParam) {
+        const radNum = Number(radiusParam);
+        if (!isNaN(radNum) && distance !== null && distance > radNum) {
+          return; // Outside Admin monitoring radius
+        }
+      }
+
+      const viewers = Number(s.CurrentViewers || 0);
+      totalConcurrentViewers += viewers;
+
+      const videoId = String(s.YouTubeVideoID || s.YouTubeBroadcastID || "").trim();
+      let embedUrl = String(s.EmbedUrl || "").trim();
+      if (!embedUrl && videoId) {
+        embedUrl = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(videoId) + "?autoplay=1&mute=1&enablejsapi=1&playsinline=1&modestbranding=1&rel=0";
+      } else if (embedUrl && embedUrl.indexOf("enablejsapi=") === -1) {
+        const sep = embedUrl.indexOf("?") === -1 ? "?" : "&";
+        embedUrl += sep + "mute=1&enablejsapi=1&playsinline=1&modestbranding=1&rel=0";
+      }
+
+      // Construct enriched CCTV feed object (NEVER leak YouTubeStreamID or tokens)
+      filtered.push({
+        LiveSessionID: String(s.LiveSessionID || ""),
+        LiveID: String(s.LiveSessionID || ""), // backward compatibility alias
+        Title: String(s.Title || "Live Broadcast"),
+        Description: String(s.Description || ""),
+        CameraPersonID: String(s.CameraPersonID || ""),
+        CameraPersonName: String(s.CameraPersonName || "Broadcaster"),
+        Streamer: String(s.CameraPersonName || "Broadcaster"), // alias
+        LocationEventID: String(s.LocationEventID || ""),
+        LocationEventName: String(s.LocationEventName || ""),
+        City: String(s.LocationEventName || ""), // alias
+        Latitude: sessionLat || 0,
+        Longitude: sessionLng || 0,
+        DistanceKm: distance,
+        YouTubeChannelID: String(s.YouTubeChannelID || ""),
+        YouTubeBroadcastID: String(s.YouTubeBroadcastID || ""),
+        YouTubeVideoID: videoId,
+        StartedAt: s.StartedAt || "",
+        CurrentViewers: viewers,
+        ViewerCount: viewers, // alias
+        WatchUrl: String(s.WatchUrl || ""),
+        EmbedUrl: embedUrl,
+        Status: "Active",
+        IsLive: "Yes",
+        CreatedDate: s.CreatedAt || s.StartedAt || ""
+      });
     });
 
-    // Sort: Live streams first, then newest
-    enrichedStreams.sort(function(a, b) {
-      if (a.IsLive === "Yes" && b.IsLive !== "Yes") return -1;
-      if (a.IsLive !== "Yes" && b.IsLive === "Yes") return 1;
-      return new Date(b.CreatedDate || 0) - new Date(a.CreatedDate || 0);
-    });
+    // Sort by nearest distance if Admin coordinates are available
+    if (adminLat && adminLng) {
+      filtered.sort(function (a, b) {
+        if (a.DistanceKm === null) return 1;
+        if (b.DistanceKm === null) return -1;
+        return a.DistanceKm - b.DistanceKm;
+      });
+    }
 
     return success({
       summary: {
-        totalStreams: streams.length,
-        activeLiveStreams: totalActiveStreams,
+        totalStreams: allSessions.length,
+        activeLiveStreams: filtered.length,
         totalConcurrentViewers: totalConcurrentViewers,
-        totalLikes: totalLikes,
-        totalShares: totalShares,
-        totalChatMessages: totalChatMessages,
-        totalModerators: totalModerators
+        adminLat: adminLat,
+        adminLng: adminLng,
+        adminRadius: radiusParam
       },
-      data: enrichedStreams
+      data: filtered
     }, "Admin live streams loaded successfully");
 
   } catch (err) {

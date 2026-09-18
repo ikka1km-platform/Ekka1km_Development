@@ -12,7 +12,7 @@ moderator management, and stream lifecycle controls
 
   let _liveAutoRefreshTimer = null;
   let _liveAutoRefreshEnabled = false;
-  let _currentLiveTab = "streams"; // 'streams' | 'channels' | 'allocations'
+  let _currentLiveTab = "cctv"; // 'cctv' | 'streams' | 'channels' | 'allocations'
   let _currentLiveStreams = [];
   let _currentChannels = [];
   let _currentAllocations = [];
@@ -23,6 +23,76 @@ moderator management, and stream lifecycle controls
   let _activeLiveIdInModal = null;
   let _activeChatTab = "chat"; // 'chat' or 'moderators'
   let _oauthListenerBound = false;
+  let _activeAudibleSessionId = null;
+
+  // Admin Hero GPS & Radius Storage helpers (Admin Monitoring ONLY - isolated from Broadcaster & Viewer)
+  function _getAdminLocation() {
+    try {
+      const raw = localStorage.getItem("ekka_admin_cctv_location");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.lat === "number" && typeof parsed.lng === "number") {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return { lat: 20.9374, lng: 77.7796, name: "Amravati (Default)" };
+  }
+
+  function _saveAdminLocation(loc) {
+    try {
+      localStorage.setItem("ekka_admin_cctv_location", JSON.stringify(loc));
+    } catch (e) {}
+  }
+
+  function _getAdminRadius() {
+    try {
+      const raw = localStorage.getItem("ekka_admin_cctv_radius");
+      if (raw !== null && raw !== undefined) {
+        const val = parseInt(raw, 10);
+        if (!isNaN(val) && val > 0) return val;
+      }
+    } catch (e) {}
+    return 50;
+  }
+
+  function _saveAdminRadius(radius) {
+    try {
+      localStorage.setItem("ekka_admin_cctv_radius", String(radius));
+    } catch (e) {}
+  }
+
+  function _sendIframeCommand(iframe, func, args) {
+    if (!iframe || !iframe.contentWindow) return;
+    try {
+      iframe.contentWindow.postMessage(JSON.stringify({
+        event: "command",
+        func: func,
+        args: args || []
+      }), "*");
+    } catch (e) {
+      console.warn("Error sending postMessage to iframe:", e);
+    }
+  }
+
+  function _stopAllCctvFeeds() {
+    _activeAudibleSessionId = null;
+    const iframes = document.querySelectorAll("iframe.cctv-iframe");
+    iframes.forEach(function (iframe) {
+      try {
+        iframe.src = "about:blank";
+      } catch (e) {}
+    });
+    const cards = document.querySelectorAll(".cctv-card.cctv-audio-active");
+    cards.forEach(function (card) {
+      card.classList.remove("cctv-audio-active");
+    });
+    const btns = document.querySelectorAll(".cctv-audio-btn");
+    btns.forEach(function (btn) {
+      btn.innerHTML = "🔇 Audio Off";
+      btn.classList.remove("active");
+    });
+  }
 
   function _esc(str) {
     if (str === null || str === undefined) return "";
@@ -35,6 +105,7 @@ moderator management, and stream lifecycle controls
   function renderLiveNavTabs(activeTab) {
     let tabs = "";
     tabs += '<div class="live-nav-tabs" style="display:flex;gap:10px;border-bottom:2px solid #e2e8f0;margin-bottom:20px;padding-bottom:8px;">';
+    tabs += '  <button class="module-btn ' + (activeTab === "cctv" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'cctv\')">📹 CCTV Monitor</button>';
     tabs += '  <button class="module-btn ' + (activeTab === "streams" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'streams\')">🔴 Live Streams</button>';
     tabs += '  <button class="module-btn ' + (activeTab === "channels" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'channels\')">📺 YouTube Channels</button>';
     tabs += '  <button class="module-btn ' + (activeTab === "allocations" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'allocations\')">👥 Broadcaster Allocations</button>';
@@ -53,6 +124,7 @@ moderator management, and stream lifecycle controls
   if (typeof AdminModules !== "undefined" && typeof AdminModules.registerCleanup === "function") {
     AdminModules.registerCleanup("live", function () {
       _stopLiveTimer();
+      _stopAllCctvFeeds();
     });
   }
 
@@ -77,6 +149,7 @@ moderator management, and stream lifecycle controls
     async function loadAndRender() {
       const session = AdminAuth.getSession();
       if (!session) {
+        _stopAllCctvFeeds();
         container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired</h3><p>Please login again.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
         return;
       }
@@ -84,11 +157,19 @@ moderator management, and stream lifecycle controls
       container.innerHTML = '<div class="module-loading"><div class="loader"></div><p>Loading Live Monitoring Center...</p></div>';
 
       try {
-        const url = getApiUrl() + "?action=adminlivestreams&session=" + encodeURIComponent(session);
+        const adminLoc = _getAdminLocation();
+        const adminRadius = _getAdminRadius();
+
+        let url = getApiUrl() + "?action=adminlivestreams&session=" + encodeURIComponent(session);
+        if (_currentLiveTab === "cctv") {
+          url += "&lat=" + encodeURIComponent(adminLoc.lat) + "&lng=" + encodeURIComponent(adminLoc.lng) + "&radius=" + encodeURIComponent(adminRadius);
+        }
+
         const response = await fetch(url);
         const json = await response.json();
 
         if (!json || !json.success) {
+          _stopAllCctvFeeds();
           if (json && (json.status === "UNAUTHORIZED" || json.message === "Unauthorized access.")) {
             if (typeof AdminAuth !== "undefined" && typeof AdminAuth.clearSession === "function") {
               AdminAuth.clearSession();
@@ -112,7 +193,11 @@ moderator management, and stream lifecycle controls
 
         _currentLiveStreams = json.data && json.data.data || [];
 
-        renderMonitoringCenter(container, summary, _currentLiveStreams);
+        if (_currentLiveTab === "cctv") {
+          renderCctvMonitoringCenter(container, summary, _currentLiveStreams, adminLoc, adminRadius);
+        } else {
+          renderMonitoringCenter(container, summary, _currentLiveStreams);
+        }
 
         // Resume timer if previously enabled by user
         if (_liveAutoRefreshEnabled) {
@@ -120,9 +205,139 @@ moderator management, and stream lifecycle controls
         }
 
       } catch (err) {
+        _stopAllCctvFeeds();
         console.error("Live monitoring load error:", err);
         container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Error Loading Live Monitoring</h3><p>' + escapeHtml(err.message || String(err)) + '</p><button class="module-btn module-btn-primary" onclick="window._refreshLiveMonitoring()">🔄 Retry</button></div>';
       }
+    }
+
+    function renderCctvMonitoringCenter(parent, summary, streams, adminLoc, adminRadius) {
+      let html = "";
+
+      // Header
+      html += '<div class="module-header">';
+      html += '  <div class="module-header-left">';
+      html += '    <h2 class="module-title">📹 Admin Live Center — CCTV Monitor</h2>';
+      html += '    <span class="module-count">' + streams.length + ' feeds online</span>';
+      html += '  </div>';
+      html += '  <div class="module-header-right" style="display:flex;gap:8px;align-items:center;">';
+      html += '    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;background:#f1f5f9;padding:6px 10px;border-radius:6px;">';
+      html += '      <input type="checkbox" id="cctvAutoRefreshCheck" ' + (_liveAutoRefreshEnabled ? 'checked' : '') + ' onchange="window._toggleLiveAutoRefresh(this.checked)" /> Auto-Refresh (20s)';
+      html += '    </label>';
+      html += '    <button class="module-btn module-btn-primary" onclick="window._refreshLiveMonitoring()">🔄 Refresh Feeds</button>';
+      html += '    <button class="module-btn module-btn-secondary" onclick="window._stopAllCctvFeeds()">⏹️ Stop All Feeds</button>';
+      html += '    <button class="module-btn module-btn-secondary" onclick="AdminModules.open(\'dashboard\')">← Dashboard</button>';
+      html += '  </div>';
+      html += '</div>';
+
+      // Sub-tabs navigation
+      html += renderLiveNavTabs("cctv");
+
+      // Hero GPS & Surveillance Radius Bar
+      const radiusOptions = [5, 10, 25, 50, 100, 9999];
+      html += '<div class="cctv-hero-bar">';
+      html += '  <div class="cctv-hero-top">';
+      html += '    <div class="cctv-location-display">';
+      html += '      <span class="cctv-location-icon">📍</span>';
+      html += '      <div class="cctv-location-details">';
+      html += '        <div class="cctv-location-name">' + escapeHtml(adminLoc.name || "Amravati (Default)") + '</div>';
+      html += '        <div class="cctv-coords-badge">LAT: ' + Number(adminLoc.lat).toFixed(4) + ' • LNG: ' + Number(adminLoc.lng).toFixed(4) + '</div>';
+      html += '      </div>';
+      html += '    </div>';
+      html += '    <div class="cctv-hero-actions">';
+      html += '      <button class="module-btn cctv-btn-gps" onclick="window._useAdminCurrentGps()">🎯 Use My GPS</button>';
+      html += '      <button class="module-btn cctv-btn-change-loc" onclick="window._openAdminLocationModal()">✏️ Change Location</button>';
+      html += '    </div>';
+      html += '  </div>';
+
+      html += '  <div class="cctv-radius-row">';
+      html += '    <span class="cctv-radius-label">SURVEILLANCE RADIUS:</span>';
+      html += '    <div class="cctv-radius-chips">';
+      radiusOptions.forEach(function (r) {
+        const isSelected = (adminRadius === r) || (r === 9999 && adminRadius >= 9000);
+        const label = r === 9999 ? "🌐 All (Global)" : (r + " km");
+        html += '      <button class="cctv-radius-chip' + (isSelected ? ' active' : '') + '" onclick="window._setAdminRadius(' + r + ')">' + label + '</button>';
+      });
+      html += '    </div>';
+      html += '    <div class="cctv-hero-count">' + streams.length + ' camera feed' + (streams.length === 1 ? '' : 's') + ' in range</div>';
+      html += '  </div>';
+      html += '</div>';
+
+      // CCTV Video Grid / Empty State
+      if (!streams || streams.length === 0) {
+        html += '<div class="cctv-empty-container">';
+        html += '  <div class="cctv-empty-icon">📡</div>';
+        html += '  <div class="cctv-empty-title">NO ACTIVE CAMERAS IN RANGE</div>';
+        html += '  <p class="cctv-empty-desc">No live broadcasts detected within ' + (adminRadius >= 9000 ? 'global range' : (adminRadius + ' km of ' + escapeHtml(adminLoc.name || 'monitoring center'))) + '.</p>';
+        html += '  <div class="cctv-empty-actions">';
+        html += '    <button class="module-btn module-btn-primary" onclick="window._setAdminRadius(9999)">🌐 Expand to Global</button>';
+        html += '    <button class="module-btn module-btn-secondary" onclick="window._refreshLiveMonitoring()">🔄 Refresh Feeds</button>';
+        html += '  </div>';
+        html += '</div>';
+      } else {
+        html += '<div class="cctv-grid">';
+        streams.forEach(function (s, idx) {
+          const camIndex = idx + 1;
+          const camTag = "CAM " + (camIndex < 10 ? "0" + camIndex : camIndex);
+          const videoId = s.YouTubeLiveVideoId || s.StreamID;
+          const isAudible = (_activeAudibleSessionId === s.LiveID);
+
+          // YouTube embed URL with autoplay=1&mute=1&enablejsapi=1
+          const embedUrl = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(videoId) + '?autoplay=1&mute=1&enablejsapi=1&playsinline=1&modestbranding=1&rel=0';
+
+          html += '  <div class="cctv-card' + (isAudible ? ' cctv-audio-active' : '') + '" id="cctv-card-' + escapeHtml(s.LiveID) + '">';
+
+          // Card header
+          html += '    <div class="cctv-card-header">';
+          html += '      <div class="cctv-card-header-left">';
+          html += '        <span class="cctv-cam-tag">' + camTag + '</span>';
+          html += '        <span class="cctv-live-pulse-badge">● LIVE</span>';
+          html += '      </div>';
+          html += '      <div class="cctv-card-header-right">';
+          html += '        <span class="cctv-viewers-count">👥 ' + Number(s.ViewerCount || s.ConcurrentViewers || 0).toLocaleString() + '</span>';
+          html += '      </div>';
+          html += '    </div>';
+
+          // Video wrap with iframe
+          html += '    <div class="cctv-video-wrap">';
+          html += '      <iframe class="cctv-iframe" id="cctv-iframe-' + escapeHtml(s.LiveID) + '" src="' + embedUrl + '" title="' + escapeHtml(s.Title) + '" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
+          html += '    </div>';
+
+          // Info area
+          html += '    <div class="cctv-card-info">';
+          html += '      <div class="cctv-card-title" title="' + escapeHtml(s.Title) + '">' + escapeHtml(s.Title) + '</div>';
+          html += '      <div class="cctv-card-meta">';
+          html += '        <span>📹 ' + escapeHtml(s.Streamer || s.CameraPersonName || 'Broadcaster') + '</span>';
+          if (s.ChannelTitle) {
+            html += '        <span> • 📺 ' + escapeHtml(s.ChannelTitle) + '</span>';
+          }
+          html += '      </div>';
+          html += '      <div class="cctv-card-meta">';
+          html += '        <span>📍 ' + escapeHtml(s.City || s.LocationName || 'Location') + '</span>';
+          if (s.DistanceKm !== undefined && s.DistanceKm !== null) {
+            html += '        <span style="font-weight:700;color:var(--text-main);"> • 📏 ' + s.DistanceKm + ' km</span>';
+          }
+          html += '      </div>';
+          html += '      <div class="cctv-card-meta" style="font-size:11px;color:#94a3b8;">';
+          html += '        <span>⏱️ ' + (s.StartTime ? escapeHtml(s.StartTime.replace("T", " ").substring(11, 16)) : 'Active') + '</span>';
+          html += '        <span> • ID: <code>' + escapeHtml(s.LiveID) + '</code></span>';
+          html += '      </div>';
+          html += '    </div>';
+
+          // Action buttons: Audio toggle, Moderate modal
+          html += '    <div class="cctv-card-actions">';
+          html += '      <button class="cctv-audio-btn' + (isAudible ? ' active' : '') + '" id="cctv-audio-btn-' + escapeHtml(s.LiveID) + '" onclick="window._toggleCctvAudio(\'' + escapeHtml(s.LiveID) + '\')">';
+          html +=          (isAudible ? '🔊 Listening' : '🔇 Audio Off');
+          html += '      </button>';
+          html += '      <button class="module-btn module-btn-sm module-btn-primary" onclick="window._openLiveDetailModal(\'' + escapeHtml(s.LiveID) + '\')" title="Inspect Chat & Moderate">🛡️ Mod</button>';
+          html += '    </div>';
+
+          html += '  </div>';
+        });
+        html += '</div>';
+      }
+
+      parent.innerHTML = html;
     }
 
     function renderMonitoringCenter(parent, summary, streams) {
@@ -1129,8 +1344,9 @@ moderator management, and stream lifecycle controls
     // ============================================================
 
     window._switchLiveMainTab = function (tab) {
-      _currentLiveTab = tab || "streams";
-      if (_currentLiveTab === "streams") {
+      _stopAllCctvFeeds();
+      _currentLiveTab = tab || "cctv";
+      if (_currentLiveTab === "cctv" || _currentLiveTab === "streams") {
         loadAndRender();
       } else if (_currentLiveTab === "channels") {
         loadAndRenderChannels();
@@ -1138,6 +1354,171 @@ moderator management, and stream lifecycle controls
         loadAndRenderAllocations();
       }
     };
+
+    window._toggleCctvAudio = function (liveId) {
+      const targetCard = document.getElementById("cctv-card-" + liveId);
+      const targetIframe = document.getElementById("cctv-iframe-" + liveId);
+      const targetBtn = document.getElementById("cctv-audio-btn-" + liveId);
+      if (!targetIframe) return;
+
+      if (_activeAudibleSessionId === liveId) {
+        // Already active -> mute it
+        _sendIframeCommand(targetIframe, "mute");
+        _activeAudibleSessionId = null;
+        if (targetCard) targetCard.classList.remove("cctv-audio-active");
+        if (targetBtn) {
+          targetBtn.innerHTML = "🔇 Audio Off";
+          targetBtn.classList.remove("active");
+        }
+      } else {
+        // Mute previous audible feed if any (Single-Audio Enforcement)
+        if (_activeAudibleSessionId) {
+          const prevIframe = document.getElementById("cctv-iframe-" + _activeAudibleSessionId);
+          const prevCard = document.getElementById("cctv-card-" + _activeAudibleSessionId);
+          const prevBtn = document.getElementById("cctv-audio-btn-" + _activeAudibleSessionId);
+          if (prevIframe) _sendIframeCommand(prevIframe, "mute");
+          if (prevCard) prevCard.classList.remove("cctv-audio-active");
+          if (prevBtn) {
+            prevBtn.innerHTML = "🔇 Audio Off";
+            prevBtn.classList.remove("active");
+          }
+        }
+
+        // Unmute new feed
+        _activeAudibleSessionId = liveId;
+        _sendIframeCommand(targetIframe, "unMute");
+        _sendIframeCommand(targetIframe, "setVolume", [100]);
+        if (targetCard) targetCard.classList.add("cctv-audio-active");
+        if (targetBtn) {
+          targetBtn.innerHTML = "🔊 Listening";
+          targetBtn.classList.add("active");
+        }
+      }
+    };
+
+    window._openAdminLocationModal = function () {
+      closeModal();
+      const currentLoc = _getAdminLocation();
+
+      let mhtml = '<div class="modal-overlay" onclick="closeModal(event)">';
+      mhtml += '  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:500px;">';
+      mhtml += '    <div class="modal-header">';
+      mhtml += '      <h3>📍 Change Admin Monitoring Location</h3>';
+      mhtml += '      <button class="modal-close" onclick="closeModal()">✕</button>';
+      mhtml += '    </div>';
+      mhtml += '    <div class="modal-body" style="padding:16px;">';
+      mhtml += '      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Select a preset city or enter custom coordinates for the Admin CCTV Surveillance Center. (This only filters admin monitoring feeds and does not alter broadcaster or viewer coordinates).</p>';
+
+      mhtml += '      <div style="font-weight:700;font-size:12px;margin-bottom:8px;">Quick Preset Cities:</div>';
+      mhtml += '      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px;">';
+      const presets = [
+        { name: "Amravati", lat: 20.9374, lng: 77.7796 },
+        { name: "Nagpur", lat: 21.1458, lng: 79.0882 },
+        { name: "Pune", lat: 18.5204, lng: 73.8567 },
+        { name: "Mumbai", lat: 19.0760, lng: 72.8777 },
+        { name: "Akola", lat: 20.7002, lng: 77.0082 },
+        { name: "Wardha", lat: 20.7453, lng: 78.6022 },
+        { name: "Yavatmal", lat: 20.3888, lng: 78.1204 }
+      ];
+      presets.forEach(function (p) {
+        mhtml += '        <button class="module-btn module-btn-secondary module-btn-sm" style="text-align:left;font-size:11px;padding:6px 8px;" onclick="window._selectAdminPresetCity(\'' + p.name + '\', ' + p.lat + ', ' + p.lng + ')">🏛️ ' + p.name + '</button>';
+      });
+      mhtml += '      </div>';
+
+      mhtml += '      <hr style="border:0;border-top:1px solid #e2e8f0;margin:12px 0;" />';
+
+      mhtml += '      <div style="font-weight:700;font-size:12px;margin-bottom:8px;">Custom Location Coordinates:</div>';
+      mhtml += '      <div style="margin-bottom:10px;">';
+      mhtml += '        <label style="display:block;font-size:11px;font-weight:600;margin-bottom:4px;">Location Name / Label</label>';
+      mhtml += '        <input type="text" id="adminCustomLocName" class="module-input" placeholder="e.g. Headquarters" value="' + escapeHtml(currentLoc.name || '') + '" style="width:100%;" />';
+      mhtml += '      </div>';
+      mhtml += '      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">';
+      mhtml += '        <div>';
+      mhtml += '          <label style="display:block;font-size:11px;font-weight:600;margin-bottom:4px;">Latitude</label>';
+      mhtml += '          <input type="number" step="any" id="adminCustomLocLat" class="module-input" placeholder="e.g. 20.9374" value="' + (currentLoc.lat !== undefined ? currentLoc.lat : '') + '" style="width:100%;" />';
+      mhtml += '        </div>';
+      mhtml += '        <div>';
+      mhtml += '          <label style="display:block;font-size:11px;font-weight:600;margin-bottom:4px;">Longitude</label>';
+      mhtml += '          <input type="number" step="any" id="adminCustomLocLng" class="module-input" placeholder="e.g. 77.7796" value="' + (currentLoc.lng !== undefined ? currentLoc.lng : '') + '" style="width:100%;" />';
+      mhtml += '        </div>';
+      mhtml += '      </div>';
+      mhtml += '      <div id="adminLocModalError" style="display:none;color:#b91c1c;font-size:12px;margin-top:6px;padding:6px;background:#fee2e2;border-radius:4px;"></div>';
+      mhtml += '    </div>';
+      mhtml += '    <div class="modal-footer">';
+      mhtml += '      <button class="module-btn module-btn-primary" onclick="window._submitCustomAdminLocation()">Save Location</button>';
+      mhtml += '      <button class="module-btn module-btn-secondary" onclick="closeModal()">Cancel</button>';
+      mhtml += '    </div>';
+      mhtml += '  </div>';
+      mhtml += '</div>';
+
+      document.body.insertAdjacentHTML("beforeend", mhtml);
+    };
+
+    window._selectAdminPresetCity = function (name, lat, lng) {
+      _saveAdminLocation({ name: name, lat: Number(lat), lng: Number(lng) });
+      closeModal();
+      if (typeof showToast === "function") showToast("Admin location set to " + name, "success");
+      loadAndRender();
+    };
+
+    window._submitCustomAdminLocation = function () {
+      const nameInput = document.getElementById("adminCustomLocName");
+      const latInput = document.getElementById("adminCustomLocLat");
+      const lngInput = document.getElementById("adminCustomLocLng");
+      const errBox = document.getElementById("adminLocModalError");
+
+      const name = nameInput ? nameInput.value.trim() : "";
+      const lat = latInput ? parseFloat(latInput.value) : NaN;
+      const lng = lngInput ? parseFloat(lngInput.value) : NaN;
+
+      if (isNaN(lat) || lat < -90 || lat > 90) {
+        if (errBox) { errBox.textContent = "Please enter a valid Latitude (-90 to +90)."; errBox.style.display = "block"; }
+        return;
+      }
+      if (isNaN(lng) || lng < -180 || lng > 180) {
+        if (errBox) { errBox.textContent = "Please enter a valid Longitude (-180 to +180)."; errBox.style.display = "block"; }
+        return;
+      }
+
+      _saveAdminLocation({ name: name || "Custom Coordinates", lat: Math.round(lat * 10000) / 10000, lng: Math.round(lng * 10000) / 10000 });
+      closeModal();
+      if (typeof showToast === "function") showToast("Admin location updated", "success");
+      loadAndRender();
+    };
+
+    window._useAdminCurrentGps = function () {
+      if (!navigator.geolocation) {
+        if (typeof showToast === "function") showToast("Geolocation not supported by this browser", "error");
+        else alert("Geolocation not supported by this browser");
+        return;
+      }
+      if (typeof showToast === "function") showToast("Acquiring GPS fix...", "info");
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          const loc = {
+            lat: Math.round(pos.coords.latitude * 10000) / 10000,
+            lng: Math.round(pos.coords.longitude * 10000) / 10000,
+            name: "Admin GPS Location"
+          };
+          _saveAdminLocation(loc);
+          if (typeof showToast === "function") showToast("Admin GPS updated: " + loc.lat + ", " + loc.lng, "success");
+          loadAndRender();
+        },
+        function (err) {
+          console.warn("Admin GPS error:", err);
+          if (typeof showToast === "function") showToast("Failed to acquire GPS: " + err.message, "error");
+          else alert("Failed to acquire GPS: " + err.message);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+    };
+
+    window._setAdminRadius = function (r) {
+      _saveAdminRadius(r);
+      loadAndRender();
+    };
+
+    window._stopAllCctvFeeds = _stopAllCctvFeeds;
 
     window._refreshChannelsTab = function () {
       loadAndRenderChannels();
