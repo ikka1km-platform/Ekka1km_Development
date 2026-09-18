@@ -459,9 +459,10 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
       <div
         class="catItem"
+        id="homeLiveCatItem"
         onclick="openPage('live')">
 
-        <div class="catItem-icon">
+        <div class="catItem-icon" id="homeLiveCatIcon">
           <span class="material-icons">videocam</span>
         </div>
 
@@ -564,10 +565,10 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   </div>
 
   <!-- ===================================================== -->
-  <!-- HOME — LIVE AROUND YOU -->
+  <!-- HOME — LIVE AROUND YOU (Stage 5 — Shown only when active) -->
   <!-- ===================================================== -->
 
-  <div class="homeSection" id="homeLiveAroundYou">
+  <div class="homeSection" id="homeLiveAroundYou" style="display:none;">
 
     <div class="homeSection-header">
       <h3 class="homeSection-title">Live Around You</h3>
@@ -624,13 +625,17 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
   <div id="newsList"></div>
 </div>
 
-<!-- LIVE -->
+<!-- LIVE NOW -->
 
 <div id="live" class="page">
-  <div class="sectionTitle">Live TV</div>
+  <div class="sectionTitle">LIVE NOW</div>
+  <div id="liveGpsContextBar" style="margin: -6px 0 14px; padding: 6px 12px; background: rgba(15,157,88,0.08); border-radius: 8px; font-size: 12px; color: #374151; display: flex; align-items: center; justify-content: space-between;">
+    <span id="liveGpsContextText"><i class="material-icons" style="font-size:14px;vertical-align:middle;color:#0f9d58;">location_on</i> Loading location...</span>
+    <span id="liveActiveCountBadge" class="liveBadge-pill" style="display:none;background:#ef4444;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:700;">0 LIVE</span>
+  </div>
   <div id="liveList">
-    <div class="card">
-      Live module ready.
+    <div class="card" style="text-align:center;padding:24px;">
+      Loading live broadcasts...
     </div>
   </div>
 </div>
@@ -1817,6 +1822,18 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
       <div
         class="sideDrawer-item"
+        id="drawerLiveItem"
+        data-page="live"
+        role="menuitem"
+        tabindex="0"
+        onclick="navigateFromDrawer('live')">
+        <i class="material-icons" id="drawerLiveIcon">live_tv</i>
+        <span>Live Streams</span>
+        <span class="liveBadge-pill" id="drawerLiveBadge" style="display:none;background:#ef4444;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-left:auto;">LIVE</span>
+      </div>
+
+      <div
+        class="sideDrawer-item"
         id="drawerGoLiveItem"
         data-page="golive"
         role="menuitem"
@@ -1931,8 +1948,43 @@ href="https://dummyimage.com/32x32/0f9d58/ffffff.png&text=E">
 
     <span>Wallet</span>
 
-  </div>
+</div>
 
+<!-- ===================================================== -->
+<!-- PERSISTENT FLOATING PIP PLAYER (Stage 5) -->
+<!-- ===================================================== -->
+<div id="persistentLivePipContainer" class="live-pip-container" style="display:none;">
+  <div class="live-pip-card" id="livePipCard">
+    <div class="live-pip-header">
+      <div class="live-pip-title-wrap">
+        <span class="live-pip-badge">LIVE</span>
+        <span class="live-pip-title" id="livePipTitle" title="Live Stream">Live Stream</span>
+      </div>
+      <div class="live-pip-controls">
+        <button type="button" class="live-pip-btn" id="livePipMinBtn" onclick="toggleMinimizeLivePip()" title="Minimize / Expand">
+          <i class="material-icons" id="livePipMinIcon">unfold_less</i>
+        </button>
+        <button type="button" class="live-pip-btn live-pip-close-btn" onclick="closeLivePip()" title="Close Stream">
+          <i class="material-icons">close</i>
+        </button>
+      </div>
+    </div>
+    <div class="live-pip-body" id="livePipBody">
+      <div class="live-pip-iframe-wrap" id="livePipIframeWrap">
+        <!-- iframe mounted dynamically on stream start -->
+      </div>
+      <div class="live-pip-footer" id="livePipFooter">
+        <div class="live-pip-meta-left">
+          <i class="material-icons" style="font-size:13px;vertical-align:middle;color:#0f9d58;">videocam</i>
+          <span id="livePipBroadcaster" class="live-pip-broadcaster">Broadcaster</span>
+        </div>
+        <div class="live-pip-meta-right">
+          <i class="material-icons" style="font-size:13px;vertical-align:middle;color:#ef4444;">place</i>
+          <span id="livePipDistance" class="live-pip-distance">0 km</span>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="Config.js"></script>

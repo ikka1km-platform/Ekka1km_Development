@@ -11613,3 +11613,310 @@ select:focus {
   .pcc-duo-row { flex-direction: column; align-items: stretch; gap: 12px; }
   .pcc-duo-row .promo-wizard-field { flex: none !important; width: 100%; }
 }
+
+/* ==========================================================
+   STAGE 5: VIEWER LIVE & PERSISTENT PIP PLAYER
+   ========================================================== */
+
+/* Live pulsing icon indicator */
+@keyframes livePulseGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    color: #ef4444;
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+    color: #dc2626;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    color: #ef4444;
+  }
+}
+
+@keyframes liveBadgePulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.85; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.live-icon-pulsing {
+  position: relative;
+  animation: livePulseGlow 1.8s infinite ease-in-out !important;
+  border-radius: 50%;
+  color: #ef4444 !important;
+}
+
+.live-badge-pulsing {
+  animation: liveBadgePulse 1.4s infinite ease-in-out !important;
+  background: #ef4444 !important;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+}
+
+/* LIVE NOW Grid & Cards */
+.liveNow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.liveNow-card {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  border: 1px solid rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.liveNow-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+}
+
+.liveNow-media {
+  position: relative;
+  width: 100%;
+  height: 150px;
+  background: #18181b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.liveNow-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.liveNow-viewers {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.liveNow-body {
+  padding: 12px 14px 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.liveNow-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 6px;
+  line-height: 1.35;
+}
+
+.liveNow-metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.liveNow-metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.liveNow-btnWatch {
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px;
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.liveNow-btnWatch:hover {
+  background: #dc2626;
+}
+
+.liveNow-btnWatch:active {
+  transform: scale(0.98);
+}
+
+/* PERSISTENT FLOATING PIP PLAYER */
+.live-pip-container {
+  position: fixed;
+  bottom: 74px;
+  right: 14px;
+  width: 330px;
+  max-width: calc(100vw - 28px);
+  z-index: 99999;
+  font-family: inherit;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.live-pip-card {
+  background: #18181b;
+  color: #f3f4f6;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.live-pip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: #27272a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 8px;
+  user-select: none;
+}
+
+.live-pip-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.live-pip-badge {
+  background: #ef4444;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.live-pip-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f9fafb;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-pip-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.live-pip-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.live-pip-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.live-pip-close-btn:hover {
+  color: #ef4444;
+}
+
+.live-pip-body {
+  display: flex;
+  flex-direction: column;
+  transition: all 0.25s ease;
+}
+
+.live-pip-iframe-wrap {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%; /* 16:9 Aspect Ratio */
+  background: #000;
+  overflow: hidden;
+}
+
+.live-pip-iframe-wrap iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.live-pip-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #9ca3af;
+  background: #1f1f23;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.live-pip-meta-left, .live-pip-meta-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Minimized mode: collapse video container to a sleek audio/status bar */
+.live-pip-container.live-pip-minimized {
+  width: 240px;
+}
+
+.live-pip-container.live-pip-minimized .live-pip-body {
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.live-pip-container.live-pip-minimized .live-pip-header {
+  border-bottom: none;
+}

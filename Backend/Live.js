@@ -9,25 +9,90 @@
 
 /**
  * ============================================================
- * GET ALL LIVE CHANNELS
+ * GET ALL LIVE SESSIONS (Stage 5 — Viewer GPS Filtering)
+ * ?action=live&lat=...&lng=...&radius=...
+ * Authoritative source: LiveSessions (Status === 'Active')
+ * Filters by Haversine distance vs viewer Hero GPS & radius.
+ * Sanitizes output: NEVER leaks stream keys, tokens or secrets.
  * ============================================================
  */
 function getLive(e) {
   try {
+    ensureLiveSessionsSheet();
+    const allSessions = getAllLiveSessions() || [];
 
-    const data = getSheetData("Live");
-
-    const result = data.filter(function (r) {
-      return (
-        String(r.IsLive).toLowerCase() === "yes" &&
-        String(r.Status || "Active")
-          .toLowerCase() !== "deleted"
-      );
+    // Filter strictly for active broadcasts
+    const activeSessions = allSessions.filter(function (s) {
+      const status = String(s.Status || "").trim().toLowerCase();
+      return status === "active";
     });
 
+    // Location context from viewer
+    const userLat = e && e.parameter && e.parameter.lat ? Number(e.parameter.lat) : 0;
+    const userLng = e && e.parameter && e.parameter.lng ? Number(e.parameter.lng) : 0;
+    const radiusParam = e && e.parameter && e.parameter.radius ? String(e.parameter.radius).trim() : "";
+
+    const filtered = [];
+
+    activeSessions.forEach(function (item) {
+      const sessionLat = Number(item.Latitude || item.latitude);
+      const sessionLng = Number(item.Longitude || item.longitude);
+
+      let distance = null;
+      if (userLat && userLng && sessionLat && sessionLng) {
+        if (typeof calculateDistance === "function") {
+          distance = calculateDistance(userLat, userLng, sessionLat, sessionLng);
+          distance = Number(distance.toFixed(2));
+        }
+      }
+
+      // Check radius filter if radius is specified and not "all" or "all india"
+      const isAll = !radiusParam || radiusParam.toLowerCase() === "all" || radiusParam.toLowerCase() === "all india";
+      if (!isAll && radiusParam) {
+        const radNum = Number(radiusParam);
+        if (!isNaN(radNum) && distance !== null && distance > radNum) {
+          return; // Outside radius
+        }
+      }
+
+      // Viewer-safe embed URL
+      let embedUrl = String(item.EmbedUrl || "").trim();
+      const videoId = String(item.YouTubeVideoID || item.YouTubeBroadcastID || "").trim();
+      if (!embedUrl && videoId) {
+        embedUrl = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(videoId) + "?autoplay=1&playsinline=1";
+      }
+
+      // Sanitize: Return only viewer-safe fields (NO stream keys, NO OAuth tokens, NO secrets!)
+      filtered.push({
+        LiveSessionID: String(item.LiveSessionID || ""),
+        CameraPersonName: String(item.CameraPersonName || ""),
+        LocationEventName: String(item.LocationEventName || ""),
+        Title: String(item.Title || "Live Broadcast"),
+        Description: String(item.Description || ""),
+        Status: "Active",
+        StartedAt: item.StartedAt || "",
+        CurrentViewers: Number(item.CurrentViewers || 0),
+        Latitude: sessionLat || 0,
+        Longitude: sessionLng || 0,
+        DistanceKm: distance,
+        WatchUrl: String(item.WatchUrl || ""),
+        EmbedUrl: embedUrl,
+        YouTubeVideoID: videoId
+      });
+    });
+
+    // Sort by nearest distance if coordinates are available
+    if (userLat && userLng) {
+      filtered.sort(function (a, b) {
+        if (a.DistanceKm === null) return 1;
+        if (b.DistanceKm === null) return -1;
+        return a.DistanceKm - b.DistanceKm;
+      });
+    }
+
     return success({
-      count: result.length,
-      data: result
+      count: filtered.length,
+      data: filtered
     });
 
   } catch (err) {

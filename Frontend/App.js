@@ -671,6 +671,12 @@ const NavigationManager = (() => {
       }
     }
 
+    if (pageId === "live") {
+      if (typeof loadLive === "function") {
+        loadLive();
+      }
+    }
+
     window.scrollTo(0, 0);
   }
 
