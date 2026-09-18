@@ -12,10 +12,20 @@ moderator management, and stream lifecycle controls
 
   let _liveAutoRefreshTimer = null;
   let _liveAutoRefreshEnabled = false;
-  let _currentLiveTab = "cctv"; // 'cctv' | 'streams' | 'channels' | 'allocations'
+  let _currentLiveTab = "cctv"; // 'cctv' | 'streams' | 'channels' | 'allocations' | 'history' | 'locations' | 'events'
   let _currentLiveStreams = [];
   let _currentChannels = [];
   let _currentAllocations = [];
+  let _currentHistorySessions = [];
+  let _historySearchQuery = "";
+  let _historyStatusFilter = "";
+  let _historyDateFilter = "";
+  let _historyPage = 1;
+  let _historyPagination = { page: 1, limit: 25, totalCount: 0, totalPages: 1 };
+  let _currentLiveLocations = [];
+  let _locationSearchQuery = "";
+  let _currentLiveEvents = [];
+  let _eventSearchQuery = "";
   let _liveSearchQuery = "";
   let _liveStatusFilter = "";
   let _channelSearchQuery = "";
@@ -94,6 +104,15 @@ moderator management, and stream lifecycle controls
     });
   }
 
+  function closeModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    const modals = document.querySelectorAll(".modal-overlay");
+    modals.forEach(function (m) { m.remove(); });
+  }
+  if (typeof window.closeModal !== "function") {
+    window.closeModal = closeModal;
+  }
+
   function _esc(str) {
     if (str === null || str === undefined) return "";
     return String(str).replace(/[&<>"']/g, function (c) {
@@ -102,13 +121,27 @@ moderator management, and stream lifecycle controls
   }
   const escapeHtml = typeof window.escapeHtml === "function" ? window.escapeHtml : _esc;
 
+  function formatDuration(sec) {
+    const s = Math.max(0, parseInt(sec, 10) || 0);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const remS = s % 60;
+    if (h > 0) {
+      return h + "h " + (m < 10 ? "0" : "") + m + "m " + (remS < 10 ? "0" : "") + remS + "s";
+    }
+    return m + "m " + (remS < 10 ? "0" : "") + remS + "s";
+  }
+
   function renderLiveNavTabs(activeTab) {
     let tabs = "";
-    tabs += '<div class="live-nav-tabs" style="display:flex;gap:10px;border-bottom:2px solid #e2e8f0;margin-bottom:20px;padding-bottom:8px;">';
+    tabs += '<div class="live-nav-tabs" style="display:flex;gap:8px;border-bottom:2px solid #e2e8f0;margin-bottom:20px;padding-bottom:8px;overflow-x:auto;white-space:nowrap;">';
     tabs += '  <button class="module-btn ' + (activeTab === "cctv" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'cctv\')">📹 CCTV Monitor</button>';
     tabs += '  <button class="module-btn ' + (activeTab === "streams" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'streams\')">🔴 Live Streams</button>';
     tabs += '  <button class="module-btn ' + (activeTab === "channels" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'channels\')">📺 YouTube Channels</button>';
     tabs += '  <button class="module-btn ' + (activeTab === "allocations" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'allocations\')">👥 Broadcaster Allocations</button>';
+    tabs += '  <button class="module-btn ' + (activeTab === "history" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'history\')">📜 Live History</button>';
+    tabs += '  <button class="module-btn ' + (activeTab === "locations" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'locations\')">📍 Locations</button>';
+    tabs += '  <button class="module-btn ' + (activeTab === "events" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'events\')">🎪 Events</button>';
     tabs += '</div>';
     return tabs;
   }
@@ -1340,11 +1373,544 @@ moderator management, and stream lifecycle controls
     }
 
     // ============================================================
-    // GLOBAL HANDLERS FOR CHANNELS & ALLOCATIONS TABS
+    // STAGE 7A: LIVE HISTORY TAB CONTROLLERS & RENDERING
+    // ============================================================
+
+    async function loadAndRenderHistory() {
+      _stopLiveTimer();
+      const session = AdminAuth.getSession();
+      if (!session) {
+        container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired</h3><p>Please login again.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
+        return;
+      }
+
+      container.innerHTML = '<div class="module-loading"><div class="loader"></div><p>Loading Live Session History...</p></div>';
+
+      try {
+        let url = getApiUrl() + "?action=adminlivehistory&session=" + encodeURIComponent(session) +
+          "&page=" + encodeURIComponent(_historyPage) +
+          "&limit=" + encodeURIComponent((_historyPagination && _historyPagination.limit) || 25);
+
+        if (_historyStatusFilter) {
+          url += "&status=" + encodeURIComponent(_historyStatusFilter);
+        }
+        if (_historyDateFilter) {
+          url += "&date=" + encodeURIComponent(_historyDateFilter);
+        }
+        if (_historySearchQuery) {
+          url += "&q=" + encodeURIComponent(_historySearchQuery);
+        }
+
+        const response = await fetch(url);
+        const json = await response.json();
+
+        if (!json || !json.success) {
+          if (json && (json.status === "UNAUTHORIZED" || json.message === "Unauthorized access.")) {
+            if (typeof AdminAuth !== "undefined" && typeof AdminAuth.clearSession === "function") {
+              AdminAuth.clearSession();
+            }
+            container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired or Unauthorized</h3><p>Your admin session has expired or is invalid. Please log in again to access Live History.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
+            return;
+          }
+          container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Failed to Load Live History</h3><p>' + _esc(json && json.message || "Unknown error") + '</p><button class="module-btn module-btn-primary" onclick="window._refreshHistoryTab()">🔄 Retry</button></div>';
+          return;
+        }
+
+        _currentHistorySessions = (json.data && (json.data.sessions || json.data.history)) || [];
+        const summary = (json.data && json.data.summary) || {
+          totalHistoricalStreams: _currentHistorySessions.length,
+          totalHistoricalSeconds: 0,
+          endedNormally: 0,
+          endedTerminated: 0
+        };
+        _historyPagination = (json.data && json.data.pagination) || {
+          page: _historyPage,
+          limit: 25,
+          totalCount: _currentHistorySessions.length,
+          totalPages: 1
+        };
+
+        renderHistoryCenter(container, summary, _currentHistorySessions, _historyPagination);
+      } catch (err) {
+        console.error("Live history load error:", err);
+        container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Error Loading Live History</h3><p>' + _esc(err.message || String(err)) + '</p><button class="module-btn module-btn-primary" onclick="window._refreshHistoryTab()">🔄 Retry</button></div>';
+      }
+    }
+
+    function renderHistoryCenter(parent, summary, sessions, pagination) {
+      let html = "";
+
+      // Header
+      html += '<div class="module-header">';
+      html += '  <div class="module-header-left">';
+      html += '    <h2 class="module-title">📜 Live Broadcast History</h2>';
+      html += '    <span class="module-count">' + (pagination.totalCount || 0) + ' completed broadcasts recorded</span>';
+      html += '  </div>';
+      html += '  <div class="module-header-right" style="display:flex;gap:8px;align-items:center;">';
+      html += '    <button class="module-btn module-btn-primary" onclick="window._refreshHistoryTab()">🔄 Refresh</button>';
+      html += '    <button class="module-btn module-btn-secondary" onclick="AdminModules.open(\'dashboard\')">← Dashboard</button>';
+      html += '  </div>';
+      html += '</div>';
+
+      // Sub-tabs navigation
+      html += renderLiveNavTabs("history");
+
+      // KPI Summary Grid
+      html += '<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 20px;">';
+      html += '  <div class="stat-card">';
+      html += '    <div class="stat-card-header"><span class="stat-card-label">Total Past Broadcasts</span><div class="stat-card-icon blue">📜</div></div>';
+      html += '    <div class="stat-card-value">' + (summary.totalHistoricalStreams || 0) + '</div>';
+      html += '  </div>';
+      html += '  <div class="stat-card">';
+      html += '    <div class="stat-card-header"><span class="stat-card-label">Total Air Time</span><div class="stat-card-icon purple">⏱️</div></div>';
+      html += '    <div class="stat-card-value" style="font-size:18px;">' + formatDuration(summary.totalHistoricalSeconds || summary.totalDurationSeconds || 0) + '</div>';
+      html += '  </div>';
+      html += '  <div class="stat-card">';
+      html += '    <div class="stat-card-header"><span class="stat-card-label">Ended Normally</span><div class="stat-card-icon green">✅</div></div>';
+      html += '    <div class="stat-card-value" style="color:#15803d;">' + (summary.endedNormally || 0) + '</div>';
+      html += '  </div>';
+      html += '  <div class="stat-card">';
+      html += '    <div class="stat-card-header"><span class="stat-card-label">Terminated / Stopped</span><div class="stat-card-icon orange">⏹️</div></div>';
+      html += '    <div class="stat-card-value" style="color:#d97706;">' + (summary.endedTerminated || 0) + '</div>';
+      html += '  </div>';
+      html += '</div>';
+
+      // Filter Toolbar
+      html += '<div class="module-filters" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0;">';
+      html += '  <div style="flex:1;min-width:200px;">';
+      html += '    <input type="text" id="historySearchInput" class="module-input" style="width:100%;" placeholder="Search ID, title, broadcaster, city, event..." value="' + _esc(_historySearchQuery) + '" onkeyup="if(event.key===\'Enter\'){ window._searchHistory(); }" />';
+      html += '  </div>';
+      html += '  <div>';
+      html += '    <select id="historyStatusSelect" class="module-input" style="padding:7px 10px;" onchange="window._filterHistoryStatus(this.value)">';
+      html += '      <option value="" ' + (_historyStatusFilter === "" ? "selected" : "") + '>All Statuses</option>';
+      html += '      <option value="Ended" ' + (_historyStatusFilter === "Ended" ? "selected" : "") + '>Ended</option>';
+      html += '      <option value="Terminated" ' + (_historyStatusFilter === "Terminated" ? "selected" : "") + '>Terminated</option>';
+      html += '      <option value="Expired" ' + (_historyStatusFilter === "Expired" ? "selected" : "") + '>Expired</option>';
+      html += '    </select>';
+      html += '  </div>';
+      html += '  <div>';
+      html += '    <input type="date" id="historyDateInput" class="module-input" style="padding:6px 10px;" value="' + _esc(_historyDateFilter) + '" onchange="window._filterHistoryDate(this.value)" title="Filter by broadcast date" />';
+      html += '  </div>';
+      html += '  <button class="module-btn module-btn-primary" onclick="window._searchHistory()">🔍 Search</button>';
+      if (_historySearchQuery || _historyStatusFilter || _historyDateFilter) {
+        html += '  <button class="module-btn module-btn-secondary" onclick="window._resetHistoryFilters()">✕ Clear</button>';
+      }
+      html += '</div>';
+
+      // History Sessions Table
+      html += '<div class="module-table-container">';
+      html += '  <table class="module-table">';
+      html += '    <thead><tr>';
+      html += '      <th>Session ID</th>';
+      html += '      <th>Title & Topic</th>';
+      html += '      <th>Broadcaster</th>';
+      html += '      <th>YouTube Channel</th>';
+      html += '      <th>Location / Event</th>';
+      html += '      <th>Timing</th>';
+      html += '      <th>Duration</th>';
+      html += '      <th>Status</th>';
+      html += '      <th>Actions</th>';
+      html += '    </tr></thead>';
+      html += '    <tbody>';
+
+      if (sessions.length === 0) {
+        html += '      <tr><td colspan="9" class="module-empty" style="text-align:center;padding:32px;">No historical live broadcasts found. Completed broadcasts will appear here automatically.</td></tr>';
+      } else {
+        sessions.forEach(function (s) {
+          const sid = s.liveId || s.LiveSessionID || "";
+          const sTitle = s.title || s.Title || "Untitled Live";
+          const sTopic = s.topic || s.Topic || "General";
+          const sBroadcaster = s.cameraPersonName || s.CameraPersonName || "Broadcaster";
+          const sUserId = s.userId || s.CameraPersonID || "";
+          const sChannel = s.channelTitle || s.ChannelTitle || "Corporate Channel";
+          const sChannelId = s.channelId || s.YouTubeChannelID || "";
+          const sLocName = s.locationDisplayName || s.LocationEventName || s.city || "—";
+          const sEvtName = s.eventName || "";
+          const sStarted = s.startedAt || s.StartedAt || "";
+          const sEnded = s.endedAt || s.EndedAt || "";
+          const sDur = Number(s.totalDurationSeconds || s.DurationSeconds || 0);
+          const sStatus = s.status || s.Status || "Ended";
+          const sReason = s.endReason || s.TerminationReason || "";
+          const sWatch = s.youtubeWatchUrl || s.WatchUrl || "";
+
+          const st = String(sStatus).toLowerCase();
+          let statusBadge = "";
+          if (st === "ended") {
+            statusBadge = '<span class="status-badge active" style="background:#dcfce7;color:#15803d;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;">Ended</span>';
+          } else if (st === "terminated") {
+            statusBadge = '<span class="status-badge" style="background:#fee2e2;color:#b91c1c;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;">Terminated</span>';
+          } else {
+            statusBadge = '<span class="status-badge" style="background:#f1f5f9;color:#64748b;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;">' + _esc(sStatus) + '</span>';
+          }
+
+          const startStr = sStarted ? _esc(sStarted.replace("T", " ").substring(0, 16)) : "—";
+          const endStr = sEnded ? _esc(sEnded.replace("T", " ").substring(0, 16)) : "—";
+
+          html += '      <tr>';
+          html += '        <td><code style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + _esc(sid) + '</code></td>';
+          html += '        <td>';
+          html += '          <div style="font-weight:700;color:var(--text-main);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _esc(sTitle) + '">' + _esc(sTitle) + '</div>';
+          html += '          <div style="font-size:11px;color:var(--text-muted);">' + _esc(sTopic) + '</div>';
+          html += '        </td>';
+          html += '        <td>';
+          html += '          <div style="font-weight:600;color:var(--text-main);">' + _esc(sBroadcaster) + '</div>';
+          html += '          <div style="font-size:11px;color:var(--text-muted);">' + _esc(sUserId) + '</div>';
+          html += '        </td>';
+          html += '        <td>';
+          html += '          <div style="font-weight:600;color:var(--text-main);">' + _esc(sChannel) + '</div>';
+          html += '          <div style="font-size:10px;color:var(--text-muted);"><code style="font-size:10px;">' + _esc(sChannelId) + '</code></div>';
+          html += '        </td>';
+          html += '        <td>';
+          html += '          <div style="font-size:12px;font-weight:600;color:var(--text-main);">📍 ' + _esc(sLocName) + '</div>';
+          if (sEvtName) {
+            html += '          <div style="font-size:11px;color:#2563eb;font-weight:600;">🎪 ' + _esc(sEvtName) + '</div>';
+          } else {
+            html += '          <div style="font-size:11px;color:#94a3b8;">No event linked</div>';
+          }
+          html += '        </td>';
+          html += '        <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">';
+          html += '          <div>Start: ' + startStr + '</div>';
+          html += '          <div>End: ' + endStr + '</div>';
+          html += '        </td>';
+          html += '        <td><span style="font-weight:700;font-size:12px;">' + formatDuration(sDur) + '</span></td>';
+          html += '        <td>' + statusBadge;
+          if (sReason) {
+            html += '          <div style="font-size:10px;color:#64748b;margin-top:2px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _esc(sReason) + '">' + _esc(sReason) + '</div>';
+          }
+          html += '        </td>';
+          html += '        <td style="white-space:nowrap;">';
+          html += '          <button class="module-btn module-btn-sm module-btn-primary" onclick="window._openHistoricalSessionModal(\'' + _esc(sid) + '\')" title="View Details">🔍 Details</button>';
+          html += '          <button class="module-btn module-btn-sm module-btn-secondary" style="margin-left:4px;" onclick="window._openAssociateSessionModal(\'' + _esc(sid) + '\', \'' + _esc(sTitle).replace(/'/g, "\\'") + '\')" title="Link Event">🎪 Link</button>';
+          if (sWatch) {
+            html += '          <a href="' + _esc(sWatch) + '" target="_blank" rel="noopener noreferrer" class="module-btn module-btn-sm module-btn-secondary" style="margin-left:4px;text-decoration:none;display:inline-block;" title="Watch on YouTube">▶ Watch</a>';
+          }
+          html += '        </td>';
+          html += '      </tr>';
+        });
+      }
+
+      html += '    </tbody>';
+      html += '  </table>';
+      html += '</div>';
+
+      // Pagination Toolbar
+      const totalPages = (pagination && pagination.totalPages) || 1;
+      const currentPage = (pagination && pagination.page) || 1;
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding:8px 12px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;">';
+      html += '  <div style="font-size:12px;color:var(--text-muted);">';
+      html += '    Page <strong>' + currentPage + '</strong> of <strong>' + totalPages + '</strong> (' + ((pagination && pagination.totalCount) || 0) + ' total sessions)';
+      html += '  </div>';
+      html += '  <div style="display:flex;gap:6px;">';
+      html += '    <button class="module-btn module-btn-sm module-btn-secondary" ' + (currentPage <= 1 ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '') + ' onclick="window._changeHistoryPage(' + (currentPage - 1) + ')">← Previous</button>';
+      html += '    <button class="module-btn module-btn-sm module-btn-secondary" ' + (currentPage >= totalPages ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '') + ' onclick="window._changeHistoryPage(' + (currentPage + 1) + ')">Next →</button>';
+      html += '  </div>';
+      html += '</div>';
+
+      parent.innerHTML = html;
+    }
+
+    // ============================================================
+    // STAGE 7B: LIVE LOCATIONS TAB CONTROLLERS & RENDERING
+    // ============================================================
+
+    async function loadAndRenderLocations() {
+      _stopLiveTimer();
+      const session = AdminAuth.getSession();
+      if (!session) {
+        container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired</h3><p>Please login again.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
+        return;
+      }
+
+      container.innerHTML = '<div class="module-loading"><div class="loader"></div><p>Loading Live Locations...</p></div>';
+
+      try {
+        const url = getApiUrl() + "?action=adminlivelocations&session=" + encodeURIComponent(session);
+        const response = await fetch(url);
+        const json = await response.json();
+
+        if (!json || !json.success) {
+          if (json && (json.status === "UNAUTHORIZED" || json.message === "Unauthorized access.")) {
+            if (typeof AdminAuth !== "undefined" && typeof AdminAuth.clearSession === "function") {
+              AdminAuth.clearSession();
+            }
+            container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired or Unauthorized</h3><p>Your admin session has expired or is invalid. Please log in again to access Live Locations.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
+            return;
+          }
+          container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Failed to Load Locations</h3><p>' + _esc(json && json.message || "Unknown error") + '</p><button class="module-btn module-btn-primary" onclick="window._refreshLocationsTab()">🔄 Retry</button></div>';
+          return;
+        }
+
+        _currentLiveLocations = (json.data && json.data.locations) || [];
+        renderLocationsCenter(container, _currentLiveLocations);
+      } catch (err) {
+        console.error("Live locations load error:", err);
+        container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Error Loading Locations</h3><p>' + _esc(err.message || String(err)) + '</p><button class="module-btn module-btn-primary" onclick="window._refreshLocationsTab()">🔄 Retry</button></div>';
+      }
+    }
+
+    function renderLocationsCenter(parent, locations) {
+      let filtered = locations.filter(function (loc) {
+        if (_locationSearchQuery) {
+          const q = _locationSearchQuery.toLowerCase();
+          const matchName = (loc.displayName || loc.DisplayName || "").toLowerCase().includes(q);
+          const matchCity = (loc.city || loc.City || "").toLowerCase().includes(q);
+          const matchState = (loc.state || loc.State || "").toLowerCase().includes(q);
+          const matchCat = (loc.category || loc.Category || "").toLowerCase().includes(q);
+          const matchId = (loc.locationEventId || loc.LocationEventID || "").toLowerCase().includes(q);
+          if (!matchName && !matchCity && !matchState && !matchCat && !matchId) return false;
+        }
+        return true;
+      });
+
+      let html = "";
+
+      // Header
+      html += '<div class="module-header">';
+      html += '  <div class="module-header-left">';
+      html += '    <h2 class="module-title">📍 Live Locations Management</h2>';
+      html += '    <span class="module-count">' + locations.length + ' reusable broadcast locations</span>';
+      html += '  </div>';
+      html += '  <div class="module-header-right" style="display:flex;gap:8px;align-items:center;">';
+      html += '    <button class="module-btn module-btn-primary" onclick="window._refreshLocationsTab()">🔄 Refresh</button>';
+      html += '    <button class="module-btn module-btn-success" style="background:#16a34a;color:#fff;" onclick="window._openLocationModal()">➕ Add Location</button>';
+      html += '    <button class="module-btn module-btn-secondary" onclick="AdminModules.open(\'dashboard\')">← Dashboard</button>';
+      html += '  </div>';
+      html += '</div>';
+
+      // Sub-tabs navigation
+      html += renderLiveNavTabs("locations");
+
+      // Filter Toolbar
+      html += '<div class="module-filters" style="margin-bottom:16px;">';
+      html += '  <div class="module-search">';
+      html += '    <input type="text" id="locationSearchInput" class="module-input" placeholder="Search by name, city, state, category, ID..." value="' + _esc(_locationSearchQuery) + '" onkeyup="if(event.key===\'Enter\'){ window._searchLocations(); }" />';
+      html += '    <button class="module-btn module-btn-primary" onclick="window._searchLocations()">🔍 Search</button>';
+      html += '  </div>';
+      html += '</div>';
+
+      // Locations Table
+      html += '<div class="module-table-container">';
+      html += '  <table class="module-table">';
+      html += '    <thead><tr>';
+      html += '      <th>Location ID</th>';
+      html += '      <th>Display Name</th>';
+      html += '      <th>City / State</th>';
+      html += '      <th>GPS Coordinates</th>';
+      html += '      <th>Category</th>';
+      html += '      <th>Sessions</th>';
+      html += '      <th>Air Time</th>';
+      html += '      <th>Status</th>';
+      html += '      <th>Actions</th>';
+      html += '    </tr></thead>';
+      html += '    <tbody>';
+
+      if (filtered.length === 0) {
+        html += '      <tr><td colspan="9" class="module-empty" style="text-align:center;padding:32px;">No live locations found. Click <strong>➕ Add Location</strong> to create reusable broadcast locations.</td></tr>';
+      } else {
+        filtered.forEach(function (loc) {
+          const locId = loc.locationEventId || loc.LocationEventID || "";
+          const locName = loc.displayName || loc.DisplayName || "";
+          const locCity = loc.city || loc.City || "";
+          const locState = loc.state || loc.State || "";
+          const locLat = loc.latitude !== undefined ? loc.latitude : loc.Latitude;
+          const locLng = loc.longitude !== undefined ? loc.longitude : loc.Longitude;
+          const locCat = loc.category || loc.Category || "General";
+          const locCount = loc.totalSessionsCount || loc.TotalSessionsCount || 0;
+          const locSecs = loc.totalLiveSeconds || loc.TotalLiveSeconds || 0;
+          const locStatus = loc.status || loc.Status || "Active";
+
+          const isActive = String(locStatus).toLowerCase() === "active";
+          const statusBadge = isActive
+            ? '<span class="status-badge active" style="background:#dcfce7;color:#15803d;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;">✓ Active</span>'
+            : '<span class="status-badge" style="background:#fee2e2;color:#b91c1c;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;">Inactive</span>';
+
+          const mapLink = (locLat && locLng)
+            ? '<a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(locLat + ',' + locLng) + '" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:#2563eb;text-decoration:none;display:inline-flex;align-items:center;gap:3px;" title="Open in Google Maps">🌐 ' + _esc(locLat) + ', ' + _esc(locLng) + '</a>'
+            : '<span style="color:#94a3b8;font-size:11px;">No GPS</span>';
+
+          html += '      <tr>';
+          html += '        <td><code style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + _esc(locId) + '</code></td>';
+          html += '        <td><div style="font-weight:700;color:var(--text-main);">' + _esc(locName) + '</div></td>';
+          html += '        <td>' + _esc(locCity || "—") + (locState ? ', ' + _esc(locState) : '') + '</td>';
+          html += '        <td>' + mapLink + '</td>';
+          html += '        <td><span style="font-size:12px;background:#f1f5f9;padding:2px 8px;border-radius:4px;">' + _esc(locCat) + '</span></td>';
+          html += '        <td style="font-weight:600;">' + locCount + '</td>';
+          html += '        <td style="font-size:12px;">' + formatDuration(locSecs) + '</td>';
+          html += '        <td>' + statusBadge + '</td>';
+          html += '        <td style="white-space:nowrap;">';
+          html += '          <button class="module-btn module-btn-sm module-btn-secondary" onclick="window._openLocationModal(\'' + _esc(locId) + '\')" title="Edit Location">✏️ Edit</button>';
+          html += '          <button class="module-btn module-btn-sm ' + (isActive ? "module-btn-danger" : "module-btn-primary") + '" style="margin-left:4px;" onclick="window._toggleLocationStatus(\'' + _esc(locId) + '\', \'' + _esc(locStatus) + '\')" title="' + (isActive ? "Deactivate" : "Activate") + '">' + (isActive ? "Disable" : "Enable") + '</button>';
+          html += '        </td>';
+          html += '      </tr>';
+        });
+      }
+
+      html += '    </tbody>';
+      html += '  </table>';
+      html += '</div>';
+
+      parent.innerHTML = html;
+    }
+
+    // ============================================================
+    // STAGE 7C: LIVE EVENTS TAB CONTROLLERS & RENDERING
+    // ============================================================
+
+    async function loadAndRenderEvents() {
+      _stopLiveTimer();
+      const session = AdminAuth.getSession();
+      if (!session) {
+        container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired</h3><p>Please login again.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
+        return;
+      }
+
+      container.innerHTML = '<div class="module-loading"><div class="loader"></div><p>Loading Live Events...</p></div>';
+
+      try {
+        const url = getApiUrl() + "?action=adminliveevents&session=" + encodeURIComponent(session);
+        const response = await fetch(url);
+        const json = await response.json();
+
+        if (!json || !json.success) {
+          if (json && (json.status === "UNAUTHORIZED" || json.message === "Unauthorized access.")) {
+            if (typeof AdminAuth !== "undefined" && typeof AdminAuth.clearSession === "function") {
+              AdminAuth.clearSession();
+            }
+            container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired or Unauthorized</h3><p>Your admin session has expired or is invalid. Please log in again to access Live Events.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
+            return;
+          }
+          container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Failed to Load Live Events</h3><p>' + _esc(json && json.message || "Unknown error") + '</p><button class="module-btn module-btn-primary" onclick="window._refreshEventsTab()">🔄 Retry</button></div>';
+          return;
+        }
+
+        _currentLiveEvents = (json.data && json.data.events) || [];
+        renderEventsCenter(container, _currentLiveEvents);
+      } catch (err) {
+        console.error("Live events load error:", err);
+        container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Error Loading Live Events</h3><p>' + _esc(err.message || String(err)) + '</p><button class="module-btn module-btn-primary" onclick="window._refreshEventsTab()">🔄 Retry</button></div>';
+      }
+    }
+
+    function renderEventsCenter(parent, events) {
+      let filtered = events.filter(function (ev) {
+        if (_eventSearchQuery) {
+          const q = _eventSearchQuery.toLowerCase();
+          const matchName = (ev.eventName || ev.EventName || "").toLowerCase().includes(q);
+          const matchDesc = (ev.description || ev.Description || "").toLowerCase().includes(q);
+          const matchLoc = (ev.locationName || ev.LocationName || "").toLowerCase().includes(q);
+          const matchCity = (ev.city || ev.City || "").toLowerCase().includes(q);
+          const matchId = (ev.eventId || ev.EventID || "").toLowerCase().includes(q);
+          if (!matchName && !matchDesc && !matchLoc && !matchCity && !matchId) return false;
+        }
+        return true;
+      });
+
+      let html = "";
+
+      // Header
+      html += '<div class="module-header">';
+      html += '  <div class="module-header-left">';
+      html += '    <h2 class="module-title">🎪 Live Events Management</h2>';
+      html += '    <span class="module-count">' + events.length + ' live events</span>';
+      html += '  </div>';
+      html += '  <div class="module-header-right" style="display:flex;gap:8px;align-items:center;">';
+      html += '    <button class="module-btn module-btn-primary" onclick="window._refreshEventsTab()">🔄 Refresh</button>';
+      html += '    <button class="module-btn module-btn-success" style="background:#16a34a;color:#fff;" onclick="window._openEventModal()">➕ Create Event</button>';
+      html += '    <button class="module-btn module-btn-secondary" onclick="AdminModules.open(\'dashboard\')">← Dashboard</button>';
+      html += '  </div>';
+      html += '</div>';
+
+      // Sub-tabs navigation
+      html += renderLiveNavTabs("events");
+
+      // Filter Toolbar
+      html += '<div class="module-filters" style="margin-bottom:16px;">';
+      html += '  <div class="module-search">';
+      html += '    <input type="text" id="eventSearchInput" class="module-input" placeholder="Search by event name, location, city, ID..." value="' + _esc(_eventSearchQuery) + '" onkeyup="if(event.key===\'Enter\'){ window._searchEvents(); }" />';
+      html += '    <button class="module-btn module-btn-primary" onclick="window._searchEvents()">🔍 Search</button>';
+      html += '  </div>';
+      html += '</div>';
+
+      // Events Table
+      html += '<div class="module-table-container">';
+      html += '  <table class="module-table">';
+      html += '    <thead><tr>';
+      html += '      <th>Event ID</th>';
+      html += '      <th>Event Name & Description</th>';
+      html += '      <th>Location</th>';
+      html += '      <th>Start Date</th>';
+      html += '      <th>End Date</th>';
+      html += '      <th>Sessions</th>';
+      html += '      <th>Status</th>';
+      html += '      <th>Actions</th>';
+      html += '    </tr></thead>';
+      html += '    <tbody>';
+
+      if (filtered.length === 0) {
+        html += '      <tr><td colspan="8" class="module-empty" style="text-align:center;padding:32px;">No live events found. Click <strong>➕ Create Event</strong> to organize broadcasts under events or festivals.</td></tr>';
+      } else {
+        filtered.forEach(function (ev) {
+          const eId = ev.eventId || ev.EventID || "";
+          const eName = ev.eventName || ev.EventName || "";
+          const eDesc = ev.description || ev.Description || "";
+          const eLocName = ev.locationName || ev.LocationName || "—";
+          const eCity = ev.city || ev.City || "";
+          const eStart = ev.startDate || ev.StartDate || "";
+          const eEnd = ev.endDate || ev.EndDate || "";
+          const eCount = ev.totalSessionsCount || ev.TotalSessionsCount || 0;
+          const eStatus = ev.status || ev.Status || "Upcoming";
+
+          const st = String(eStatus).toLowerCase();
+          let statusBadge = "";
+          if (st === "active") {
+            statusBadge = '<span class="status-badge active" style="background:#dcfce7;color:#15803d;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;">Active</span>';
+          } else if (st === "upcoming") {
+            statusBadge = '<span class="status-badge" style="background:#e0f2fe;color:#0369a1;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;">Upcoming</span>';
+          } else if (st === "completed") {
+            statusBadge = '<span class="status-badge" style="background:#f1f5f9;color:#64748b;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;">Completed</span>';
+          } else {
+            statusBadge = '<span class="status-badge" style="background:#fee2e2;color:#b91c1c;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;">' + _esc(eStatus) + '</span>';
+          }
+
+          html += '      <tr>';
+          html += '        <td><code style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + _esc(eId) + '</code></td>';
+          html += '        <td>';
+          html += '          <div style="font-weight:700;color:var(--text-main);">' + _esc(eName) + '</div>';
+          if (eDesc) {
+            html += '          <div style="font-size:11px;color:var(--text-muted);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + _esc(eDesc) + '">' + _esc(eDesc) + '</div>';
+          }
+          html += '        </td>';
+          html += '        <td>';
+          html += '          <div style="font-weight:600;font-size:12px;">' + _esc(eLocName) + '</div>';
+          if (eCity) {
+            html += '          <div style="font-size:11px;color:var(--text-muted);">' + _esc(eCity) + '</div>';
+          }
+          html += '        </td>';
+          html += '        <td style="font-size:11px;color:var(--text-muted);">' + (eStart ? _esc(eStart.replace("T", " ").substring(0, 16)) : "—") + '</td>';
+          html += '        <td style="font-size:11px;color:var(--text-muted);">' + (eEnd ? _esc(eEnd.replace("T", " ").substring(0, 16)) : "—") + '</td>';
+          html += '        <td style="font-weight:600;">' + eCount + '</td>';
+          html += '        <td>' + statusBadge + '</td>';
+          html += '        <td style="white-space:nowrap;">';
+          html += '          <button class="module-btn module-btn-sm module-btn-secondary" onclick="window._openEventModal(\'' + _esc(eId) + '\')" title="Edit Event">✏️ Edit</button>';
+          html += '        </td>';
+          html += '      </tr>';
+        });
+      }
+
+      html += '    </tbody>';
+      html += '  </table>';
+      html += '</div>';
+
+      parent.innerHTML = html;
+    }
+
+    // ============================================================
+    // GLOBAL HANDLERS FOR CHANNELS, ALLOCATIONS, HISTORY, LOCATIONS & EVENTS
     // ============================================================
 
     window._switchLiveMainTab = function (tab) {
       _stopAllCctvFeeds();
+      _stopLiveTimer();
       _currentLiveTab = tab || "cctv";
       if (_currentLiveTab === "cctv" || _currentLiveTab === "streams") {
         loadAndRender();
@@ -1352,6 +1918,12 @@ moderator management, and stream lifecycle controls
         loadAndRenderChannels();
       } else if (_currentLiveTab === "allocations") {
         loadAndRenderAllocations();
+      } else if (_currentLiveTab === "history") {
+        loadAndRenderHistory();
+      } else if (_currentLiveTab === "locations") {
+        loadAndRenderLocations();
+      } else if (_currentLiveTab === "events") {
+        loadAndRenderEvents();
       }
     };
 
@@ -1767,6 +2339,667 @@ moderator management, and stream lifecycle controls
       }
     };
 
+    // ============================================================
+    // STAGE 7: GLOBAL HANDLERS FOR HISTORY, LOCATIONS & EVENTS
+    // ============================================================
+
+    // --- History Handlers ---
+    window._refreshHistoryTab = function () {
+      loadAndRenderHistory();
+    };
+
+    window._searchHistory = function () {
+      const input = document.getElementById("historySearchInput");
+      _historySearchQuery = input ? input.value.trim() : "";
+      _historyPage = 1;
+      loadAndRenderHistory();
+    };
+
+    window._filterHistoryStatus = function (status) {
+      _historyStatusFilter = status || "";
+      _historyPage = 1;
+      loadAndRenderHistory();
+    };
+
+    window._filterHistoryDate = function (dateVal) {
+      _historyDateFilter = dateVal || "";
+      _historyPage = 1;
+      loadAndRenderHistory();
+    };
+
+    window._resetHistoryFilters = function () {
+      _historySearchQuery = "";
+      _historyStatusFilter = "";
+      _historyDateFilter = "";
+      _historyPage = 1;
+      loadAndRenderHistory();
+    };
+
+    window._changeHistoryPage = function (newPage) {
+      const maxPages = (_historyPagination && _historyPagination.totalPages) || 1;
+      if (newPage < 1 || newPage > maxPages) return;
+      _historyPage = newPage;
+      loadAndRenderHistory();
+    };
+
+    window._openHistoricalSessionModal = async function (liveId) {
+      const session = AdminAuth.getSession();
+      if (!session) return;
+
+      closeModal();
+
+      let mhtml = '<div class="modal-overlay" onclick="closeModal(event)">';
+      mhtml += '  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:680px;max-height:90vh;overflow-y:auto;">';
+      mhtml += '    <div class="modal-header">';
+      mhtml += '      <h3>📜 Historical Broadcast Details</h3>';
+      mhtml += '      <button class="modal-close" onclick="closeModal()">✕</button>';
+      mhtml += '    </div>';
+      mhtml += '    <div class="modal-body" id="historicalModalBody" style="padding:16px;">';
+      mhtml += '      <div style="text-align:center;padding:24px;color:var(--text-muted);"><div class="loader" style="margin:0 auto 10px;"></div>Loading broadcast session record...</div>';
+      mhtml += '    </div>';
+      mhtml += '    <div class="modal-footer" style="display:flex;justify-content:flex-end;">';
+      mhtml += '      <button class="module-btn module-btn-secondary" onclick="closeModal()">Close</button>';
+      mhtml += '    </div>';
+      mhtml += '  </div>';
+      mhtml += '</div>';
+
+      document.body.insertAdjacentHTML("beforeend", mhtml);
+
+      try {
+        const url = getApiUrl() + "?action=adminlivesessiondetails&liveId=" + encodeURIComponent(liveId) + "&session=" + encodeURIComponent(session);
+        const res = await fetch(url);
+        const json = await res.json();
+        const mBody = document.getElementById("historicalModalBody");
+        if (!mBody) return;
+
+        if (!json || !json.success || !json.data) {
+          mBody.innerHTML = '<div style="color:#b91c1c;padding:16px;background:#fee2e2;border-radius:6px;">⚠️ Failed to load session details: ' + _esc(json && json.message || "Unknown error") + '</div>';
+          return;
+        }
+
+        const s = json.data;
+        const durStr = formatDuration(s.totalDurationSeconds || s.DurationSeconds || 0);
+        const lat = s.latitude !== undefined && s.latitude !== null ? s.latitude : s.Latitude;
+        const lng = s.longitude !== undefined && s.longitude !== null ? s.longitude : s.Longitude;
+        const mapLink = (lat && lng)
+          ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(lat + ',' + lng)
+          : '';
+
+        let bhtml = '';
+        bhtml += '<div style="background:#f8fafc;border-left:4px solid #3b82f6;padding:10px 14px;border-radius:4px;margin-bottom:16px;font-size:12px;color:var(--text-muted);">';
+        bhtml += '  🔒 <strong>Read-Only Historical Record:</strong> This broadcast has concluded. Its recorded coordinates and telemetry are strictly preserved.';
+        bhtml += '</div>';
+
+        bhtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">';
+        bhtml += '  <div>';
+        bhtml += '    <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Session ID</label>';
+        bhtml += '    <div><code style="font-size:12px;background:#f1f5f9;padding:2px 6px;border-radius:4px;">' + _esc(s.liveId || s.LiveSessionID) + '</code></div>';
+        bhtml += '  </div>';
+        bhtml += '  <div>';
+        bhtml += '    <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Status & End Reason</label>';
+        bhtml += '    <div style="font-size:13px;font-weight:600;"><span class="status-badge" style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:10px;font-size:11px;">' + _esc(s.status || s.Status) + '</span> ' + (_esc(s.endReason || s.TerminationReason) ? '— ' + _esc(s.endReason || s.TerminationReason) : '') + '</div>';
+        bhtml += '  </div>';
+        bhtml += '</div>';
+
+        bhtml += '<div style="margin-bottom:14px;">';
+        bhtml += '  <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Broadcast Title & Topic</label>';
+        bhtml += '  <div style="font-size:15px;font-weight:700;color:var(--text-main);">' + _esc(s.title || s.Title || "Untitled Live") + '</div>';
+        bhtml += '  <div style="font-size:12px;color:var(--text-muted);">' + _esc(s.topic || s.Topic || "General") + ((s.description || s.Description) ? ' • ' + _esc(s.description || s.Description) : '') + '</div>';
+        bhtml += '</div>';
+
+        bhtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;background:#f8fafc;padding:12px;border-radius:6px;border:1px solid #e2e8f0;">';
+        bhtml += '  <div>';
+        bhtml += '    <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Broadcaster</label>';
+        bhtml += '    <div style="font-weight:700;color:var(--text-main);">' + _esc(s.cameraPersonName || s.CameraPersonName || "Camera Person") + '</div>';
+        bhtml += '    <div style="font-size:12px;color:var(--text-muted);">' + _esc(s.userId || s.CameraPersonID || "") + ((s.cameraPersonPhone || s.CameraPersonPhone) ? ' • ' + _esc(s.cameraPersonPhone || s.CameraPersonPhone) : '') + '</div>';
+        bhtml += '  </div>';
+        bhtml += '  <div>';
+        bhtml += '    <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">YouTube Channel</label>';
+        bhtml += '    <div style="font-weight:700;color:var(--text-main);">' + _esc(s.channelTitle || s.ChannelTitle || "Corporate Channel") + '</div>';
+        bhtml += '    <div style="font-size:11px;color:var(--text-muted);"><code style="font-size:11px;">' + _esc(s.channelId || s.YouTubeChannelID || "") + '</code></div>';
+        bhtml += '  </div>';
+        bhtml += '</div>';
+
+        bhtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">';
+        bhtml += '  <div>';
+        bhtml += '    <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Broadcast Location (Preserved)</label>';
+        bhtml += '    <div style="font-weight:600;font-size:13px;">📍 ' + _esc(s.locationDisplayName || s.LocationEventName || s.city || "—") + (s.state ? ', ' + _esc(s.state) : '') + '</div>';
+        if (lat && lng) {
+          bhtml += '    <div style="font-size:11px;margin-top:2px;"><a href="' + mapLink + '" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:none;">🌐 ' + _esc(lat) + ', ' + _esc(lng) + '</a></div>';
+        }
+        bhtml += '  </div>';
+        bhtml += '  <div>';
+        bhtml += '    <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Associated Event</label>';
+        if (s.eventName || s.LocationEventName) {
+          bhtml += '    <div style="font-weight:700;color:#2563eb;font-size:13px;">🎪 ' + _esc(s.eventName || s.LocationEventName) + '</div>';
+          bhtml += '    <div style="font-size:11px;color:var(--text-muted);"><code style="font-size:10px;">' + _esc(s.locationEventId || s.LocationEventID || "") + '</code></div>';
+        } else {
+          bhtml += '    <div style="font-size:12px;color:#94a3b8;margin-top:4px;">No event associated</div>';
+        }
+        bhtml += '  </div>';
+        bhtml += '</div>';
+
+        const peak = s.peakViewers !== undefined ? s.peakViewers : (s.EkkaSampledPeak || 0);
+        const likes = s.totalLikes !== undefined ? s.totalLikes : (s.TotalLikes || 0);
+        const viewerSecs = s.totalViewerSeconds !== undefined ? s.totalViewerSeconds : (s.TotalViewerSeconds || 0);
+
+        bhtml += '<div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;margin-bottom:16px;background:#f1f5f9;padding:12px;border-radius:6px;text-align:center;">';
+        bhtml += '  <div><div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:700;">Duration</div><div style="font-size:14px;font-weight:700;">' + durStr + '</div></div>';
+        bhtml += '  <div><div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:700;">Peak Viewers</div><div style="font-size:14px;font-weight:700;">' + peak + '</div></div>';
+        bhtml += '  <div><div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:700;">Total Likes</div><div style="font-size:14px;font-weight:700;">' + likes + '</div></div>';
+        bhtml += '  <div><div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:700;">Viewer Seconds</div><div style="font-size:14px;font-weight:700;">' + viewerSecs + 's</div></div>';
+        bhtml += '</div>';
+
+        const watch = s.youtubeWatchUrl || s.WatchUrl || "";
+        if (watch) {
+          bhtml += '<div style="text-align:center;padding:8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;">';
+          bhtml += '  <a href="' + _esc(watch) + '" target="_blank" rel="noopener noreferrer" class="module-btn module-btn-primary" style="text-decoration:none;display:inline-block;">▶ Watch Concluded Stream on YouTube</a>';
+          bhtml += '</div>';
+        }
+
+        mBody.innerHTML = bhtml;
+
+      } catch (e) {
+        const mBody = document.getElementById("historicalModalBody");
+        if (mBody) {
+          mBody.innerHTML = '<div style="color:#b91c1c;padding:16px;background:#fee2e2;border-radius:6px;">⚠️ Error loading session details: ' + _esc(e.message) + '</div>';
+        }
+      }
+    };
+
+    window._openAssociateSessionModal = async function (liveId, streamTitle) {
+      const session = AdminAuth.getSession();
+      if (!session) return;
+
+      closeModal();
+
+      let mhtml = '<div class="modal-overlay" onclick="closeModal(event)">';
+      mhtml += '  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:480px;">';
+      mhtml += '    <div class="modal-header">';
+      mhtml += '      <h3>🎪 Associate Stream with Event</h3>';
+      mhtml += '      <button class="modal-close" onclick="closeModal()">✕</button>';
+      mhtml += '    </div>';
+      mhtml += '    <div class="modal-body" style="padding:16px;">';
+      mhtml += '      <div style="margin-bottom:12px;">';
+      mhtml += '        <label style="display:block;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Stream Title</label>';
+      mhtml += '        <div style="font-weight:700;font-size:13px;color:var(--text-main);">' + _esc(streamTitle || liveId) + '</div>';
+      mhtml += '      </div>';
+      mhtml += '      <div style="margin-bottom:16px;">';
+      mhtml += '        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;">Select Live Event</label>';
+      mhtml += '        <select id="assocEventSelect" class="module-input" style="width:100%;">';
+      mhtml += '          <option value="">-- No Event / Disassociate --</option>';
+      if (_currentLiveEvents && _currentLiveEvents.length > 0) {
+        _currentLiveEvents.forEach(function (ev) {
+          const eId = ev.eventId || ev.EventID || "";
+          const eName = ev.eventName || ev.EventName || "";
+          mhtml += '          <option value="' + _esc(eId) + '">' + _esc(eName) + ' (' + _esc(eId) + ')' + '</option>';
+        });
+      }
+      mhtml += '        </select>';
+      mhtml += '        <small style="color:var(--text-muted);font-size:11px;display:block;margin-top:4px;">Associating an event organizes historical sessions without altering broadcast lifecycle.</small>';
+      mhtml += '      </div>';
+      mhtml += '      <div id="assocModalError" style="display:none;color:#b91c1c;font-size:12px;margin-bottom:10px;"></div>';
+      mhtml += '    </div>';
+      mhtml += '    <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;">';
+      mhtml += '      <button class="module-btn module-btn-secondary" onclick="closeModal()">Cancel</button>';
+      mhtml += '      <button class="module-btn module-btn-primary" id="btnSubmitAssoc" onclick="window._submitAssociateSession(\'' + _esc(liveId) + '\')">Save Association</button>';
+      mhtml += '    </div>';
+      mhtml += '  </div>';
+      mhtml += '</div>';
+
+      document.body.insertAdjacentHTML("beforeend", mhtml);
+
+      // If events weren't loaded yet, fetch in background and populate select
+      if (!_currentLiveEvents || _currentLiveEvents.length === 0) {
+        try {
+          const url = getApiUrl() + "?action=adminliveevents&session=" + encodeURIComponent(session);
+          const res = await fetch(url);
+          const json = await res.json();
+          if (json && json.success && json.data && json.data.events) {
+            _currentLiveEvents = json.data.events;
+            const sel = document.getElementById("assocEventSelect");
+            if (sel) {
+              let opts = '<option value="">-- No Event / Disassociate --</option>';
+              _currentLiveEvents.forEach(function (ev) {
+                const eId = ev.eventId || ev.EventID || "";
+                const eName = ev.eventName || ev.EventName || "";
+                opts += '<option value="' + _esc(eId) + '">' + _esc(eName) + ' (' + _esc(eId) + ')' + '</option>';
+              });
+              sel.innerHTML = opts;
+            }
+          }
+        } catch (e) {}
+      }
+    };
+
+    window._submitAssociateSession = async function (liveId) {
+      const select = document.getElementById("assocEventSelect");
+      const errBox = document.getElementById("assocModalError");
+      const btn = document.getElementById("btnSubmitAssoc");
+      const eventId = select ? select.value.trim() : "";
+
+      const session = AdminAuth.getSession();
+      if (!session) return;
+
+      if (btn) btn.disabled = true;
+      if (errBox) errBox.style.display = "none";
+
+      try {
+        const url = getApiUrl() + "?action=adminassociatesessionevent&session=" + encodeURIComponent(session) +
+          "&liveId=" + encodeURIComponent(liveId) +
+          "&eventId=" + encodeURIComponent(eventId);
+
+        const res = await fetch(url);
+        const json = await res.json();
+
+        if (json && json.success) {
+          if (typeof showToast === "function") showToast("Session event association updated!", "success");
+          else alert("Session event association updated!");
+          closeModal();
+          loadAndRenderHistory();
+        } else {
+          if (errBox) {
+            errBox.textContent = (json && json.message) || "Failed to update association";
+            errBox.style.display = "block";
+          } else {
+            alert((json && json.message) || "Failed to update association");
+          }
+        }
+      } catch (e) {
+        if (errBox) {
+          errBox.textContent = "Network error: " + e.message;
+          errBox.style.display = "block";
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    };
+
+    // --- Locations Handlers ---
+    window._refreshLocationsTab = function () {
+      loadAndRenderLocations();
+    };
+
+    window._searchLocations = function () {
+      const input = document.getElementById("locationSearchInput");
+      _locationSearchQuery = input ? input.value.trim() : "";
+      renderLocationsCenter(container, _currentLiveLocations);
+    };
+
+    window._openLocationModal = function (locationEventId) {
+      const isEdit = Boolean(locationEventId);
+      let existing = null;
+      if (isEdit && _currentLiveLocations) {
+        existing = _currentLiveLocations.find(function (l) {
+          return (l.locationEventId || l.LocationEventID) === locationEventId;
+        });
+      }
+
+      const generatedId = existing ? (existing.locationEventId || existing.LocationEventID) : ("LOC-" + Math.floor(1000 + Math.random() * 9000));
+
+      closeModal();
+
+      let mhtml = '<div class="modal-overlay" onclick="closeModal(event)">';
+      mhtml += '  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:540px;">';
+      mhtml += '    <div class="modal-header">';
+      mhtml += '      <h3>' + (isEdit ? "✏️ Edit Live Location" : "➕ Add Reusable Live Location") + '</h3>';
+      mhtml += '      <button class="modal-close" onclick="closeModal()">✕</button>';
+      mhtml += '    </div>';
+      mhtml += '    <div class="modal-body" style="padding:16px;">';
+      mhtml += '      <div style="background:#f8fafc;border-left:4px solid #3b82f6;padding:8px 12px;border-radius:4px;margin-bottom:14px;font-size:11px;color:var(--text-muted);">';
+      mhtml += '        ℹ️ Creating or updating reusable locations sets coordinate benchmarks for broadcasts. Existing historical session coordinates are strictly preserved.';
+      mhtml += '      </div>';
+      mhtml += '      <div style="margin-bottom:12px;">';
+      mhtml += '        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Location ID</label>';
+      mhtml += '        <input type="text" id="locIdInput" class="module-input" value="' + _esc(generatedId) + '" ' + (isEdit ? 'readonly style="background:#f1f5f9;"' : '') + ' style="width:100%;" />';
+      mhtml += '      </div>';
+      mhtml += '      <div style="margin-bottom:12px;">';
+      mhtml += '        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Display Name *</label>';
+      mhtml += '        <input type="text" id="locNameInput" class="module-input" placeholder="e.g. Rajwada Chowk Live Ground" value="' + _esc(existing && (existing.displayName || existing.DisplayName) || "") + '" style="width:100%;" />';
+      mhtml += '      </div>';
+      mhtml += '      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">';
+      mhtml += '        <div>';
+      const curLat = existing ? (existing.latitude !== undefined ? existing.latitude : existing.Latitude) : "";
+      const curLng = existing ? (existing.longitude !== undefined ? existing.longitude : existing.Longitude) : "";
+      mhtml += '          <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Latitude (GPS) *</label>';
+      mhtml += '          <input type="number" step="any" id="locLatInput" class="module-input" placeholder="e.g. 20.9374" value="' + _esc(curLat !== undefined ? curLat : "") + '" style="width:100%;" />';
+      mhtml += '        </div>';
+      mhtml += '        <div>';
+      mhtml += '          <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Longitude (GPS) *</label>';
+      mhtml += '          <input type="number" step="any" id="locLngInput" class="module-input" placeholder="e.g. 77.7796" value="' + _esc(curLng !== undefined ? curLng : "") + '" style="width:100%;" />';
+      mhtml += '        </div>';
+      mhtml += '      </div>';
+      mhtml += '      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">';
+      mhtml += '        <div>';
+      mhtml += '          <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">City</label>';
+      mhtml += '          <input type="text" id="locCityInput" class="module-input" placeholder="e.g. Amravati" value="' + _esc(existing && (existing.city || existing.City) || "") + '" style="width:100%;" />';
+      mhtml += '        </div>';
+      mhtml += '        <div>';
+      mhtml += '          <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">State</label>';
+      mhtml += '          <input type="text" id="locStateInput" class="module-input" placeholder="e.g. Maharashtra" value="' + _esc(existing && (existing.state || existing.State) || "") + '" style="width:100%;" />';
+      mhtml += '        </div>';
+      mhtml += '      </div>';
+      mhtml += '      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">';
+      mhtml += '        <div>';
+      mhtml += '          <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Category</label>';
+      mhtml += '          <select id="locCatInput" class="module-input" style="width:100%;">';
+      const cats = ["General", "Market", "Temple", "Festival", "Sports", "News", "Public Square", "Campus", "Other"];
+      const curCat = (existing && (existing.category || existing.Category)) || "General";
+      cats.forEach(function (c) {
+        mhtml += '<option value="' + c + '" ' + (curCat === c ? 'selected' : '') + '>' + c + '</option>';
+      });
+      mhtml += '          </select>';
+      mhtml += '        </div>';
+      mhtml += '        <div>';
+      mhtml += '          <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Status</label>';
+      const curStatus = (existing && (existing.status || existing.Status)) || "Active";
+      mhtml += '          <select id="locStatusInput" class="module-input" style="width:100%;">';
+      mhtml += '            <option value="Active" ' + (curStatus === "Active" ? 'selected' : '') + '>Active</option>';
+      mhtml += '            <option value="Inactive" ' + (curStatus === "Inactive" ? 'selected' : '') + '>Inactive</option>';
+      mhtml += '          </select>';
+      mhtml += '        </div>';
+      mhtml += '      </div>';
+      mhtml += '      <div id="locModalError" style="display:none;color:#b91c1c;font-size:12px;margin-bottom:10px;"></div>';
+      mhtml += '    </div>';
+      mhtml += '    <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;">';
+      mhtml += '      <button class="module-btn module-btn-secondary" onclick="closeModal()">Cancel</button>';
+      mhtml += '      <button class="module-btn module-btn-primary" id="btnSubmitLocation" onclick="window._submitSaveLocation(' + (isEdit ? 'true' : 'false') + ')">' + (isEdit ? "Update Location" : "Save Location") + '</button>';
+      mhtml += '    </div>';
+      mhtml += '  </div>';
+      mhtml += '</div>';
+
+      document.body.insertAdjacentHTML("beforeend", mhtml);
+    };
+
+    window._submitSaveLocation = async function (isEdit) {
+      const idInput = document.getElementById("locIdInput");
+      const nameInput = document.getElementById("locNameInput");
+      const latInput = document.getElementById("locLatInput");
+      const lngInput = document.getElementById("locLngInput");
+      const cityInput = document.getElementById("locCityInput");
+      const stateInput = document.getElementById("locStateInput");
+      const catInput = document.getElementById("locCatInput");
+      const statusInput = document.getElementById("locStatusInput");
+      const errBox = document.getElementById("locModalError");
+      const btn = document.getElementById("btnSubmitLocation");
+
+      const locId = idInput ? idInput.value.trim() : "";
+      const displayName = nameInput ? nameInput.value.trim() : "";
+      const lat = latInput ? latInput.value.trim() : "";
+      const lng = lngInput ? lngInput.value.trim() : "";
+      const city = cityInput ? cityInput.value.trim() : "";
+      const state = stateInput ? stateInput.value.trim() : "";
+      const category = catInput ? catInput.value.trim() : "General";
+      const status = statusInput ? statusInput.value.trim() : "Active";
+
+      if (!displayName) {
+        if (errBox) { errBox.textContent = "Please enter a display name."; errBox.style.display = "block"; }
+        return;
+      }
+      if (!lat || isNaN(parseFloat(lat))) {
+        if (errBox) { errBox.textContent = "Please enter a valid GPS Latitude."; errBox.style.display = "block"; }
+        return;
+      }
+      if (!lng || isNaN(parseFloat(lng))) {
+        if (errBox) { errBox.textContent = "Please enter a valid GPS Longitude."; errBox.style.display = "block"; }
+        return;
+      }
+
+      const session = AdminAuth.getSession();
+      if (!session) return;
+
+      if (btn) btn.disabled = true;
+      if (errBox) errBox.style.display = "none";
+
+      try {
+        const url = getApiUrl() + "?action=adminsavelivelocation&session=" + encodeURIComponent(session) +
+          "&locationEventId=" + encodeURIComponent(locId) +
+          "&displayName=" + encodeURIComponent(displayName) +
+          "&latitude=" + encodeURIComponent(lat) +
+          "&longitude=" + encodeURIComponent(lng) +
+          "&city=" + encodeURIComponent(city) +
+          "&state=" + encodeURIComponent(state) +
+          "&category=" + encodeURIComponent(category) +
+          "&status=" + encodeURIComponent(status);
+
+        const res = await fetch(url);
+        const json = await res.json();
+
+        if (json && json.success) {
+          if (typeof showToast === "function") showToast("Location saved successfully!", "success");
+          else alert("Location saved successfully!");
+          closeModal();
+          loadAndRenderLocations();
+        } else {
+          if (errBox) {
+            errBox.textContent = (json && json.message) || "Failed to save location";
+            errBox.style.display = "block";
+          } else {
+            alert((json && json.message) || "Failed to save location");
+          }
+        }
+      } catch (e) {
+        if (errBox) {
+          errBox.textContent = "Network error: " + e.message;
+          errBox.style.display = "block";
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    };
+
+    window._toggleLocationStatus = async function (locationEventId, currentStatus) {
+      const newStatus = String(currentStatus || "").toLowerCase() === "active" ? "Inactive" : "Active";
+      const session = AdminAuth.getSession();
+      if (!session) return;
+
+      try {
+        const url = getApiUrl() + "?action=admintogglelivelocationstatus&session=" + encodeURIComponent(session) +
+          "&locationEventId=" + encodeURIComponent(locationEventId) +
+          "&status=" + encodeURIComponent(newStatus);
+
+        const res = await fetch(url);
+        const json = await res.json();
+
+        if (json && json.success) {
+          if (typeof showToast === "function") showToast("Location status set to " + newStatus, "success");
+          else alert("Location status set to " + newStatus);
+          loadAndRenderLocations();
+        } else {
+          alert("Failed to update status: " + (json && json.message));
+        }
+      } catch (e) {
+        alert("Error updating location status: " + e.message);
+      }
+    };
+
+    // --- Events Handlers ---
+    window._refreshEventsTab = function () {
+      loadAndRenderEvents();
+    };
+
+    window._searchEvents = function () {
+      const input = document.getElementById("eventSearchInput");
+      _eventSearchQuery = input ? input.value.trim() : "";
+      renderEventsCenter(container, _currentLiveEvents);
+    };
+
+    window._openEventModal = async function (eventId) {
+      const isEdit = Boolean(eventId);
+      let existing = null;
+      if (isEdit && _currentLiveEvents) {
+        existing = _currentLiveEvents.find(function (e) {
+          return (e.eventId || e.EventID) === eventId;
+        });
+      }
+
+      const generatedId = existing ? (existing.eventId || existing.EventID) : ("EVT-" + Math.floor(1000 + Math.random() * 9000));
+
+      closeModal();
+
+      let mhtml = '<div class="modal-overlay" onclick="closeModal(event)">';
+      mhtml += '  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:540px;">';
+      mhtml += '    <div class="modal-header">';
+      mhtml += '      <h3>' + (isEdit ? "✏️ Edit Live Event" : "➕ Create Live Event") + '</h3>';
+      mhtml += '      <button class="modal-close" onclick="closeModal()">✕</button>';
+      mhtml += '    </div>';
+      mhtml += '    <div class="modal-body" style="padding:16px;">';
+      mhtml += '      <div style="background:#f8fafc;border-left:4px solid #3b82f6;padding:8px 12px;border-radius:4px;margin-bottom:14px;font-size:11px;color:var(--text-muted);">';
+      mhtml += '        ℹ️ Live sessions can exist with or without an event. Associating an event organizes sessions without modifying broadcaster lifecycle.';
+      mhtml += '      </div>';
+      mhtml += '      <div style="margin-bottom:12px;">';
+      mhtml += '        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Event ID</label>';
+      mhtml += '        <input type="text" id="evtIdInput" class="module-input" value="' + _esc(generatedId) + '" ' + (isEdit ? 'readonly style="background:#f1f5f9;"' : '') + ' style="width:100%;" />';
+      mhtml += '      </div>';
+      mhtml += '      <div style="margin-bottom:12px;">';
+      mhtml += '        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Event Name *</label>';
+      mhtml += '        <input type="text" id="evtNameInput" class="module-input" placeholder="e.g. Amravati Diwali Mela 2026" value="' + _esc(existing && (existing.eventName || existing.EventName) || "") + '" style="width:100%;" />';
+      mhtml += '      </div>';
+      mhtml += '      <div style="margin-bottom:12px;">';
+      mhtml += '        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Description</label>';
+      mhtml += '        <textarea id="evtDescInput" class="module-input" placeholder="Brief event description or theme..." style="width:100%;height:60px;resize:vertical;">' + _esc(existing && (existing.description || existing.Description) || "") + '</textarea>';
+      mhtml += '      </div>';
+      mhtml += '      <div style="margin-bottom:12px;">';
+      mhtml += '        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Linked Location (Optional)</label>';
+      mhtml += '        <select id="evtLocSelect" class="module-input" style="width:100%;">';
+      mhtml += '          <option value="">-- No specific location linked --</option>';
+      const curLocId = (existing && (existing.locationEventId || existing.LocationEventID)) || "";
+      if (_currentLiveLocations && _currentLiveLocations.length > 0) {
+        _currentLiveLocations.forEach(function (loc) {
+          const lId = loc.locationEventId || loc.LocationEventID || "";
+          const lName = loc.displayName || loc.DisplayName || "";
+          const lCity = loc.city || loc.City || "—";
+          mhtml += '<option value="' + _esc(lId) + '" ' + (curLocId === lId ? 'selected' : '') + '>' + _esc(lName) + ' (' + _esc(lCity) + ')</option>';
+        });
+      }
+      mhtml += '        </select>';
+      mhtml += '      </div>';
+      mhtml += '      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">';
+      mhtml += '        <div>';
+      const curStart = existing ? (existing.startDate || existing.StartDate || "") : "";
+      const curEnd = existing ? (existing.endDate || existing.EndDate || "") : "";
+      mhtml += '          <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Start Date</label>';
+      mhtml += '          <input type="datetime-local" id="evtStartDate" class="module-input" value="' + _esc(curStart ? curStart.substring(0, 16) : "") + '" style="width:100%;" />';
+      mhtml += '        </div>';
+      mhtml += '        <div>';
+      mhtml += '          <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">End Date</label>';
+      mhtml += '          <input type="datetime-local" id="evtEndDate" class="module-input" value="' + _esc(curEnd ? curEnd.substring(0, 16) : "") + '" style="width:100%;" />';
+      mhtml += '        </div>';
+      mhtml += '      </div>';
+      mhtml += '      <div style="margin-bottom:14px;">';
+      mhtml += '        <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px;">Status</label>';
+      const curEvtStatus = (existing && (existing.status || existing.Status)) || "Upcoming";
+      mhtml += '        <select id="evtStatusSelect" class="module-input" style="width:100%;">';
+      const evtStatuses = ["Upcoming", "Active", "Completed", "Cancelled"];
+      evtStatuses.forEach(function (st) {
+        mhtml += '<option value="' + st + '" ' + (curEvtStatus === st ? 'selected' : '') + '>' + st + '</option>';
+      });
+      mhtml += '        </select>';
+      mhtml += '      </div>';
+      mhtml += '      <div id="evtModalError" style="display:none;color:#b91c1c;font-size:12px;margin-bottom:10px;"></div>';
+      mhtml += '    </div>';
+      mhtml += '    <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;">';
+      mhtml += '      <button class="module-btn module-btn-secondary" onclick="closeModal()">Cancel</button>';
+      mhtml += '      <button class="module-btn module-btn-primary" id="btnSubmitEvent" onclick="window._submitSaveEvent(' + (isEdit ? 'true' : 'false') + ')">' + (isEdit ? "Update Event" : "Create Event") + '</button>';
+      mhtml += '    </div>';
+      mhtml += '  </div>';
+      mhtml += '</div>';
+
+      document.body.insertAdjacentHTML("beforeend", mhtml);
+
+      // If locations haven't been loaded yet, fetch in background and populate select
+      if (!_currentLiveLocations || _currentLiveLocations.length === 0) {
+        const session = AdminAuth.getSession();
+        if (session) {
+          try {
+            const url = getApiUrl() + "?action=adminlivelocations&session=" + encodeURIComponent(session);
+            const res = await fetch(url);
+            const json = await res.json();
+            if (json && json.success && json.data && json.data.locations) {
+              _currentLiveLocations = json.data.locations;
+              const sel = document.getElementById("evtLocSelect");
+              if (sel) {
+                let opts = '<option value="">-- No specific location linked --</option>';
+                _currentLiveLocations.forEach(function (loc) {
+                  const lId = loc.locationEventId || loc.LocationEventID || "";
+                  const lName = loc.displayName || loc.DisplayName || "";
+                  const lCity = loc.city || loc.City || "—";
+                  opts += '<option value="' + _esc(lId) + '" ' + (curLocId === lId ? 'selected' : '') + '>' + _esc(lName) + ' (' + _esc(lCity) + ')</option>';
+                });
+                sel.innerHTML = opts;
+              }
+            }
+          } catch (e) {}
+        }
+      }
+    };
+
+    window._submitSaveEvent = async function (isEdit) {
+      const idInput = document.getElementById("evtIdInput");
+      const nameInput = document.getElementById("evtNameInput");
+      const descInput = document.getElementById("evtDescInput");
+      const locSelect = document.getElementById("evtLocSelect");
+      const startInput = document.getElementById("evtStartDate");
+      const endInput = document.getElementById("evtEndDate");
+      const statusSelect = document.getElementById("evtStatusSelect");
+      const errBox = document.getElementById("evtModalError");
+      const btn = document.getElementById("btnSubmitEvent");
+
+      const eventId = idInput ? idInput.value.trim() : "";
+      const eventName = nameInput ? nameInput.value.trim() : "";
+      const description = descInput ? descInput.value.trim() : "";
+      const locationEventId = locSelect ? locSelect.value.trim() : "";
+      const startDate = startInput ? startInput.value.trim() : "";
+      const endDate = endInput ? endInput.value.trim() : "";
+      const status = statusSelect ? statusSelect.value.trim() : "Upcoming";
+
+      if (!eventName) {
+        if (errBox) { errBox.textContent = "Please enter an event name."; errBox.style.display = "block"; }
+        return;
+      }
+
+      const session = AdminAuth.getSession();
+      if (!session) return;
+
+      if (btn) btn.disabled = true;
+      if (errBox) errBox.style.display = "none";
+
+      try {
+        const url = getApiUrl() + "?action=adminsaveliveevent&session=" + encodeURIComponent(session) +
+          "&eventId=" + encodeURIComponent(eventId) +
+          "&eventName=" + encodeURIComponent(eventName) +
+          "&description=" + encodeURIComponent(description) +
+          "&locationEventId=" + encodeURIComponent(locationEventId) +
+          "&startDate=" + encodeURIComponent(startDate) +
+          "&endDate=" + encodeURIComponent(endDate) +
+          "&status=" + encodeURIComponent(status);
+
+        const res = await fetch(url);
+        const json = await res.json();
+
+        if (json && json.success) {
+          if (typeof showToast === "function") showToast("Event saved successfully!", "success");
+          else alert("Event saved successfully!");
+          closeModal();
+          loadAndRenderEvents();
+        } else {
+          if (errBox) {
+            errBox.textContent = (json && json.message) || "Failed to save event";
+            errBox.style.display = "block";
+          } else {
+            alert((json && json.message) || "Failed to save event");
+          }
+        }
+      } catch (e) {
+        if (errBox) {
+          errBox.textContent = "Network error: " + e.message;
+          errBox.style.display = "block";
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    };
+
     // Attach OAuth window message listener once
     if (!_oauthListenerBound) {
       window.addEventListener("message", function (event) {
@@ -1798,6 +3031,12 @@ moderator management, and stream lifecycle controls
       await loadAndRenderChannels();
     } else if (_currentLiveTab === "allocations") {
       await loadAndRenderAllocations();
+    } else if (_currentLiveTab === "history") {
+      await loadAndRenderHistory();
+    } else if (_currentLiveTab === "locations") {
+      await loadAndRenderLocations();
+    } else if (_currentLiveTab === "events") {
+      await loadAndRenderEvents();
     } else {
       await loadAndRender();
     }

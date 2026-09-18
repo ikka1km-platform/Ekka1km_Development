@@ -493,6 +493,31 @@ case "notification_sent":
       case "adminupdatelivestatus":
         return adminUpdateLiveStatus(e);
 
+      // Live - Stage 7 Live History, Locations & Events
+      case "adminlivehistory":
+        return getAdminLiveHistory(e);
+
+      case "adminlivesessiondetails":
+        return getAdminLiveSessionDetails(e);
+
+      case "adminlivelocations":
+        return getAdminLiveLocations(e);
+
+      case "adminsavelivelocation":
+        return adminSaveLiveLocation(e);
+
+      case "admintogglelivelocationstatus":
+        return adminToggleLiveLocationStatus(e);
+
+      case "adminliveevents":
+        return getAdminLiveEvents(e);
+
+      case "adminsaveliveevent":
+        return adminSaveLiveEvent(e);
+
+      case "adminassociatesessionevent":
+        return adminAssociateSessionEvent(e);
+
       case "addlive":
         return addLive(e);
 

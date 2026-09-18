@@ -937,6 +937,23 @@ function LIVE_LOCATIONS_HEADERS() {
   ];
 }
 
+function LIVE_EVENTS_HEADERS() {
+  return [
+    "EventID",
+    "EventName",
+    "Description",
+    "LocationEventID",
+    "LocationName",
+    "City",
+    "StartDate",
+    "EndDate",
+    "Status",
+    "TotalSessionsCount",
+    "CreatedAt",
+    "UpdatedAt"
+  ];
+}
+
 /**
  * Helper: Resolve or create sheet using existing utility or fallback
  */
@@ -1006,6 +1023,12 @@ function ensureLiveSessionsSheet() {
 function ensureLiveLocationsSheet() {
   const sheet = _getOrCreateLiveSheet(CONFIG.SHEETS.LIVE_LOCATIONS || "LiveLocations");
   _ensureLiveSheetHeaders(sheet, LIVE_LOCATIONS_HEADERS());
+  return sheet;
+}
+
+function ensureLiveEventsSheet() {
+  const sheet = _getOrCreateLiveSheet(CONFIG.SHEETS.LIVE_EVENTS || "LiveEvents");
+  _ensureLiveSheetHeaders(sheet, LIVE_EVENTS_HEADERS());
   return sheet;
 }
 
@@ -1114,7 +1137,8 @@ function initializeLiveDatabase(e) {
       { name: CONFIG.SHEETS.LIVE_CHANNELS || "LiveChannels", headers: LIVE_CHANNELS_HEADERS() },
       { name: CONFIG.SHEETS.LIVE_ALLOCATIONS || "LiveAllocations", headers: LIVE_ALLOCATIONS_HEADERS() },
       { name: CONFIG.SHEETS.LIVE_SESSIONS || "LiveSessions", headers: LIVE_SESSIONS_HEADERS() },
-      { name: CONFIG.SHEETS.LIVE_LOCATIONS || "LiveLocations", headers: LIVE_LOCATIONS_HEADERS() }
+      { name: CONFIG.SHEETS.LIVE_LOCATIONS || "LiveLocations", headers: LIVE_LOCATIONS_HEADERS() },
+      { name: CONFIG.SHEETS.LIVE_EVENTS || "LiveEvents", headers: LIVE_EVENTS_HEADERS() }
     ];
 
     definitions.forEach(function (def) {
@@ -1159,7 +1183,8 @@ function getLiveDatabaseStatus(e) {
       { key: "LIVE_CHANNELS", name: CONFIG.SHEETS.LIVE_CHANNELS || "LiveChannels", expectedHeaders: LIVE_CHANNELS_HEADERS() },
       { key: "LIVE_ALLOCATIONS", name: CONFIG.SHEETS.LIVE_ALLOCATIONS || "LiveAllocations", expectedHeaders: LIVE_ALLOCATIONS_HEADERS() },
       { key: "LIVE_SESSIONS", name: CONFIG.SHEETS.LIVE_SESSIONS || "LiveSessions", expectedHeaders: LIVE_SESSIONS_HEADERS() },
-      { key: "LIVE_LOCATIONS", name: CONFIG.SHEETS.LIVE_LOCATIONS || "LiveLocations", expectedHeaders: LIVE_LOCATIONS_HEADERS() }
+      { key: "LIVE_LOCATIONS", name: CONFIG.SHEETS.LIVE_LOCATIONS || "LiveLocations", expectedHeaders: LIVE_LOCATIONS_HEADERS() },
+      { key: "LIVE_EVENTS", name: CONFIG.SHEETS.LIVE_EVENTS || "LiveEvents", expectedHeaders: LIVE_EVENTS_HEADERS() }
     ];
 
     const status = sheets.map(function (item) {
@@ -1248,6 +1273,88 @@ function createLiveSessionRow(sessionData) {
  */
 function updateLiveSession(sessionId, updates) {
   return updateRow(CONFIG.SHEETS.LIVE_SESSIONS || "LiveSessions", "LiveSessionID", sessionId, updates);
+}
+
+/**
+ * LiveLocations data access helpers
+ */
+function findLiveLocationById(locationId) {
+  if (!locationId) return null;
+  return getRowById(CONFIG.SHEETS.LIVE_LOCATIONS || "LiveLocations", "LocationEventID", locationId);
+}
+
+function getAllLiveLocations() {
+  return getSheetData(CONFIG.SHEETS.LIVE_LOCATIONS || "LiveLocations");
+}
+
+function upsertLiveLocation(locData) {
+  const sheet = ensureLiveLocationsSheet();
+  const headers = LIVE_LOCATIONS_HEADERS();
+  const data = sheet.getDataRange().getValues();
+  const idCol = headers.indexOf("LocationEventID");
+
+  const locId = String(locData.LocationEventID || "").trim();
+  if (!locId) throw new Error("LocationEventID is required for location upsert");
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]).trim() === locId) {
+      for (const key in locData) {
+        const col = headers.indexOf(key);
+        if (col !== -1) {
+          sheet.getRange(i + 1, col + 1).setValue(locData[key]);
+        }
+      }
+      return { created: false, locationId: locId };
+    }
+  }
+
+  const newRow = [];
+  headers.forEach(function(h) {
+    newRow.push(locData[h] !== undefined ? locData[h] : "");
+  });
+  sheet.appendRow(newRow);
+  return { created: true, locationId: locId };
+}
+
+/**
+ * LiveEvents data access helpers
+ */
+function findLiveEventById(eventId) {
+  if (!eventId) return null;
+  return getRowById(CONFIG.SHEETS.LIVE_EVENTS || "LiveEvents", "EventID", eventId);
+}
+
+function getAllLiveEvents() {
+  return getSheetData(CONFIG.SHEETS.LIVE_EVENTS || "LiveEvents");
+}
+
+function upsertLiveEvent(evtData) {
+  const sheet = ensureLiveEventsSheet();
+  const headers = LIVE_EVENTS_HEADERS();
+  const data = sheet.getDataRange().getValues();
+  const idCol = headers.indexOf("EventID");
+
+  const evtId = String(evtData.EventID || "").trim();
+  if (!evtId) throw new Error("EventID is required for event upsert");
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][idCol]).trim() === evtId) {
+      for (const key in evtData) {
+        const col = headers.indexOf(key);
+        if (col !== -1) {
+          sheet.getRange(i + 1, col + 1).setValue(evtData[key]);
+        }
+      }
+      return { created: false, eventId: evtId };
+    }
+  }
+
+  const newRow = [];
+  headers.forEach(function(h) {
+    newRow.push(evtData[h] !== undefined ? evtData[h] : "");
+  });
+  sheet.appendRow(newRow);
+  return { created: true, eventId: evtId };
 }
 
 /**
@@ -1957,5 +2064,663 @@ function getMyLiveSession(e) {
   }
 }
 
+/**
+ * ============================================================
+ * GET ADMIN LIVE HISTORY (Stage 7)
+ * ?action=adminlivehistory&session=TOKEN&q=...&status=...&dateFilter=...&startDate=...&endDate=...&cameraPersonId=...&channelId=...&locationEventId=...&page=1&limit=25
+ * Queries authoritative completed/ended sessions from LiveSessions.
+ * Excludes active streams and System B videos.
+ * ============================================================
+ */
+function getAdminLiveHistory(e) {
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
 
+    ensureLiveSessionsSheet();
+    const allSessions = getAllLiveSessions() || [];
 
+    const p = (e && e.parameter) || {};
+    const q = String(p.q || "").trim().toLowerCase();
+    const statusFilter = String(p.status || "").trim().toLowerCase();
+    const dateFilter = String(p.dateFilter || "").trim().toLowerCase();
+    const startDate = p.startDate ? new Date(p.startDate).getTime() : 0;
+    const endDate = p.endDate ? new Date(p.endDate).getTime() : 0;
+    const cameraPersonId = String(p.cameraPersonId || "").trim();
+    const channelId = String(p.channelId || "").trim();
+    const locationEventId = String(p.locationEventId || "").trim();
+    const page = Math.max(1, parseInt(p.page || "1", 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(p.limit || "25", 10) || 25));
+
+    const now = Date.now();
+    let minTime = 0;
+    if (dateFilter === "today") {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      minTime = d.getTime();
+    } else if (dateFilter === "7days") {
+      minTime = now - (7 * 24 * 60 * 60 * 1000);
+    } else if (dateFilter === "30days") {
+      minTime = now - (30 * 24 * 60 * 60 * 1000);
+    } else if (startDate > 0) {
+      minTime = startDate;
+    }
+
+    // Filter strictly for historical/completed sessions (exclude active and starting)
+    const filtered = allSessions.filter(function (s) {
+      const sStatus = String(s.Status || "").trim().toLowerCase();
+      // Active and Starting sessions are strictly excluded from completed history
+      if (sStatus === "active" || sStatus === "starting") {
+        return false;
+      }
+
+      // Status filter
+      if (statusFilter && statusFilter !== "all") {
+        if (sStatus !== statusFilter) return false;
+      }
+
+      // Camera person filter
+      if (cameraPersonId && String(s.CameraPersonID || "").trim() !== cameraPersonId) {
+        return false;
+      }
+
+      // Channel filter
+      if (channelId && String(s.YouTubeChannelID || "").trim() !== channelId) {
+        return false;
+      }
+
+      // Location / Event filter
+      if (locationEventId && String(s.LocationEventID || "").trim() !== locationEventId) {
+        return false;
+      }
+
+      // Date filtering
+      const timeVal = s.StartedAt ? new Date(s.StartedAt).getTime() : (s.CreatedAt ? new Date(s.CreatedAt).getTime() : 0);
+      if (minTime > 0 && timeVal < minTime) {
+        return false;
+      }
+      if (endDate > 0 && timeVal > endDate) {
+        return false;
+      }
+
+      // Search query
+      if (q) {
+        const title = String(s.Title || "").toLowerCase();
+        const desc = String(s.Description || "").toLowerCase();
+        const sid = String(s.LiveSessionID || "").toLowerCase();
+        const cp = String(s.CameraPersonName || s.CameraPersonID || "").toLowerCase();
+        const loc = String(s.LocationEventName || s.LocationEventID || "").toLowerCase();
+        const ch = String(s.YouTubeChannelID || "").toLowerCase();
+        if (!title.includes(q) && !desc.includes(q) && !sid.includes(q) && !cp.includes(q) && !loc.includes(q) && !ch.includes(q)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    // Sort newest first
+    filtered.sort(function (a, b) {
+      const tA = a.StartedAt ? new Date(a.StartedAt).getTime() : (a.CreatedAt ? new Date(a.CreatedAt).getTime() : 0);
+      const tB = b.StartedAt ? new Date(b.StartedAt).getTime() : (b.CreatedAt ? new Date(b.CreatedAt).getTime() : 0);
+      return tB - tA;
+    });
+
+    // Compute summary metrics across filtered historical set
+    let totalDurationSeconds = 0;
+    let peakViewersRecorded = 0;
+    let endedNormally = 0;
+    let endedTerminated = 0;
+    const broadcasterSet = {};
+
+    filtered.forEach(function (s) {
+      const dur = Number(s.DurationSeconds || 0);
+      totalDurationSeconds += dur;
+      const peak = Number(s.EkkaSampledPeak || s.CurrentViewers || 0);
+      if (peak > peakViewersRecorded) peakViewersRecorded = peak;
+      if (s.CameraPersonID) broadcasterSet[String(s.CameraPersonID).trim()] = true;
+      const termReason = String(s.TerminationReason || "").toLowerCase();
+      if (termReason.includes("terminate") || termReason.includes("stop") || termReason.includes("kill") || termReason.includes("inactive")) {
+        endedTerminated++;
+      } else {
+        endedNormally++;
+      }
+    });
+
+    // Paginate
+    const totalCount = filtered.length;
+    const totalPages = Math.ceil(totalCount / limit) || 1;
+    const startIndex = (page - 1) * limit;
+    const pageRows = filtered.slice(startIndex, startIndex + limit);
+
+    // Build channel lookup map to show channel title
+    const channels = getAllLiveChannels() || [];
+    const channelMap = {};
+    channels.forEach(function (c) {
+      if (c.YouTubeChannelID) channelMap[String(c.YouTubeChannelID).trim()] = String(c.ChannelTitle || "").trim();
+    });
+
+    // Build location lookup map
+    const locations = getAllLiveLocations() || [];
+    const locationMap = {};
+    locations.forEach(function (l) {
+      if (l.LocationEventID) locationMap[String(l.LocationEventID).trim()] = l;
+    });
+
+    // Sanitize output (NEVER return stream keys, YouTubeStreamID, or tokens)
+    const sanitizedHistory = pageRows.map(function (s) {
+      const chId = String(s.YouTubeChannelID || "").trim();
+      const locId = String(s.LocationEventID || "").trim();
+      const loc = locationMap[locId];
+      const watchUrl = String(s.WatchUrl || (s.YouTubeBroadcastID ? ("https://www.youtube.com/watch?v=" + s.YouTubeBroadcastID) : ""));
+
+      return {
+        // Dual property support for Frontend & APIs (camelCase & PascalCase)
+        liveId: String(s.LiveSessionID || ""),
+        LiveSessionID: String(s.LiveSessionID || ""),
+        userId: String(s.CameraPersonID || ""),
+        CameraPersonID: String(s.CameraPersonID || ""),
+        cameraPersonName: String(s.CameraPersonName || "Broadcaster"),
+        CameraPersonName: String(s.CameraPersonName || "Broadcaster"),
+        channelId: chId,
+        YouTubeChannelID: chId,
+        channelTitle: channelMap[chId] || chId || "YouTube Channel",
+        ChannelTitle: channelMap[chId] || chId || "YouTube Channel",
+        YouTubeBroadcastID: String(s.YouTubeBroadcastID || ""),
+        YouTubeVideoID: String(s.YouTubeVideoID || s.YouTubeBroadcastID || ""),
+        title: String(s.Title || "Live Broadcast"),
+        Title: String(s.Title || "Live Broadcast"),
+        topic: String(s.Topic || "General"),
+        Topic: String(s.Topic || "General"),
+        description: String(s.Description || ""),
+        Description: String(s.Description || ""),
+        status: String(s.Status || "Ended"),
+        Status: String(s.Status || "Ended"),
+        startedAt: s.StartedAt || "",
+        StartedAt: s.StartedAt || "",
+        endedAt: s.EndedAt || "",
+        EndedAt: s.EndedAt || "",
+        totalDurationSeconds: Number(s.DurationSeconds || 0),
+        DurationSeconds: Number(s.DurationSeconds || 0),
+        currentViewers: Number(s.CurrentViewers || 0),
+        CurrentViewers: Number(s.CurrentViewers || 0),
+        totalViews: Number(s.TotalViews || 0),
+        TotalViews: Number(s.TotalViews || 0),
+        peakViewers: Number(s.EkkaSampledPeak || s.CurrentViewers || 0),
+        EkkaSampledPeak: Number(s.EkkaSampledPeak || s.CurrentViewers || 0),
+        endReason: String(s.TerminationReason || "Normal"),
+        TerminationReason: String(s.TerminationReason || "Normal"),
+        locationEventId: locId,
+        LocationEventID: locId,
+        locationDisplayName: String(s.LocationEventName || (loc ? loc.DisplayName : "")),
+        LocationEventName: String(s.LocationEventName || (loc ? loc.DisplayName : "")),
+        eventName: String(s.LocationEventName || ""),
+        city: loc ? String(loc.City || "") : "",
+        state: loc ? String(loc.State || "") : "",
+        latitude: s.Latitude !== undefined && s.Latitude !== null ? Number(s.Latitude) : null,
+        Latitude: s.Latitude !== undefined && s.Latitude !== null ? Number(s.Latitude) : null,
+        longitude: s.Longitude !== undefined && s.Longitude !== null ? Number(s.Longitude) : null,
+        Longitude: s.Longitude !== undefined && s.Longitude !== null ? Number(s.Longitude) : null,
+        youtubeWatchUrl: watchUrl,
+        WatchUrl: watchUrl,
+        embedUrl: String(s.EmbedUrl || ""),
+        EmbedUrl: String(s.EmbedUrl || ""),
+        createdAt: s.CreatedAt || "",
+        CreatedAt: s.CreatedAt || ""
+      };
+    });
+
+    return success({
+      summary: {
+        totalEndedSessions: totalCount,
+        totalHistoricalStreams: totalCount,
+        totalHoursStreamed: Math.round((totalDurationSeconds / 3600) * 10) / 10,
+        totalHistoricalSeconds: totalDurationSeconds,
+        totalDurationSeconds: totalDurationSeconds,
+        endedNormally: endedNormally,
+        endedTerminated: endedTerminated,
+        peakViewersRecorded: peakViewersRecorded,
+        distinctBroadcasters: Object.keys(broadcasterSet).length
+      },
+      sessions: sanitizedHistory,
+      history: sanitizedHistory,
+      pagination: {
+        page: page,
+        limit: limit,
+        totalCount: totalCount,
+        totalPages: totalPages
+      }
+    }, "Live history loaded successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * GET ADMIN LIVE SESSION DETAILS (Stage 7)
+ * ?action=adminlivesessiondetails&session=TOKEN&liveId=LS_...
+ * Returns safe metadata for a single session (Read-Only).
+ * ============================================================
+ */
+function getAdminLiveSessionDetails(e) {
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    const p = (e && e.parameter) || {};
+    const sessionId = String(p.liveId || p.sessionId || p.liveSessionId || "").trim();
+    if (!sessionId) return error("liveId is required");
+
+    ensureLiveSessionsSheet();
+    const session = findLiveSessionById(sessionId);
+    if (!session) return error("Live session not found: " + sessionId);
+
+    let channelTitle = "";
+    if (session.YouTubeChannelID) {
+      const ch = findLiveChannelById(session.YouTubeChannelID);
+      if (ch) channelTitle = ch.ChannelTitle || "";
+    }
+
+    let locationDetails = null;
+    if (session.LocationEventID) {
+      locationDetails = findLiveLocationById(session.LocationEventID);
+    }
+
+    const watchUrl = String(session.WatchUrl || (session.YouTubeBroadcastID ? ("https://www.youtube.com/watch?v=" + session.YouTubeBroadcastID) : ""));
+
+    const detailedObj = {
+      liveId: String(session.LiveSessionID || ""),
+      LiveSessionID: String(session.LiveSessionID || ""),
+      userId: String(session.CameraPersonID || ""),
+      CameraPersonID: String(session.CameraPersonID || ""),
+      cameraPersonName: String(session.CameraPersonName || "Broadcaster"),
+      CameraPersonName: String(session.CameraPersonName || "Broadcaster"),
+      cameraPersonPhone: String(session.CameraPersonPhone || ""),
+      CameraPersonPhone: String(session.CameraPersonPhone || ""),
+      channelId: String(session.YouTubeChannelID || ""),
+      YouTubeChannelID: String(session.YouTubeChannelID || ""),
+      channelTitle: channelTitle || "Corporate Channel",
+      ChannelTitle: channelTitle || "Corporate Channel",
+      YouTubeBroadcastID: String(session.YouTubeBroadcastID || ""),
+      YouTubeVideoID: String(session.YouTubeVideoID || session.YouTubeBroadcastID || ""),
+      title: String(session.Title || "Live Broadcast"),
+      Title: String(session.Title || "Live Broadcast"),
+      topic: String(session.Topic || "General"),
+      Topic: String(session.Topic || "General"),
+      description: String(session.Description || ""),
+      Description: String(session.Description || ""),
+      status: String(session.Status || ""),
+      Status: String(session.Status || ""),
+      startedAt: session.StartedAt || "",
+      StartedAt: session.StartedAt || "",
+      endedAt: session.EndedAt || "",
+      EndedAt: session.EndedAt || "",
+      totalDurationSeconds: Number(session.DurationSeconds || 0),
+      DurationSeconds: Number(session.DurationSeconds || 0),
+      currentViewers: Number(session.CurrentViewers || 0),
+      CurrentViewers: Number(session.CurrentViewers || 0),
+      totalViews: Number(session.TotalViews || 0),
+      TotalViews: Number(session.TotalViews || 0),
+      peakViewers: Number(session.EkkaSampledPeak || session.CurrentViewers || 0),
+      EkkaSampledPeak: Number(session.EkkaSampledPeak || session.CurrentViewers || 0),
+      totalLikes: Number(session.TotalLikes || 0),
+      TotalLikes: Number(session.TotalLikes || 0),
+      totalComments: Number(session.TotalComments || 0),
+      TotalComments: Number(session.TotalComments || 0),
+      totalViewerSeconds: Number(session.TotalViewerSeconds || 0),
+      recordedTotalViewerSeconds: Number(session.TotalViewerSeconds || 0),
+      endReason: String(session.TerminationReason || "Normal"),
+      TerminationReason: String(session.TerminationReason || "Normal"),
+      locationEventId: String(session.LocationEventID || ""),
+      LocationEventID: String(session.LocationEventID || ""),
+      locationDisplayName: String(session.LocationEventName || (locationDetails ? locationDetails.DisplayName : "")),
+      LocationEventName: String(session.LocationEventName || (locationDetails ? locationDetails.DisplayName : "")),
+      eventName: String(session.LocationEventName || ""),
+      city: locationDetails ? String(locationDetails.City || "") : "",
+      state: locationDetails ? String(locationDetails.State || "") : "",
+      latitude: session.Latitude !== undefined && session.Latitude !== null ? Number(session.Latitude) : null,
+      Latitude: session.Latitude !== undefined && session.Latitude !== null ? Number(session.Latitude) : null,
+      longitude: session.Longitude !== undefined && session.Longitude !== null ? Number(session.Longitude) : null,
+      Longitude: session.Longitude !== undefined && session.Longitude !== null ? Number(session.Longitude) : null,
+      youtubeWatchUrl: watchUrl,
+      WatchUrl: watchUrl,
+      embedUrl: String(session.EmbedUrl || ""),
+      EmbedUrl: String(session.EmbedUrl || ""),
+      createdAt: session.CreatedAt || "",
+      CreatedAt: session.CreatedAt || "",
+      locationDetails: locationDetails ? {
+        City: locationDetails.City || "",
+        State: locationDetails.State || "",
+        Category: locationDetails.Category || ""
+      } : null
+    };
+
+    // Safe sanitized detail object (never leak stream keys or tokens)
+    return success(detailedObj, "Live session details retrieved successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * GET ADMIN LIVE LOCATIONS (Stage 7)
+ * ?action=adminlivelocations&session=TOKEN
+ * ============================================================
+ */
+function getAdminLiveLocations(e) {
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    ensureLiveLocationsSheet();
+    const locations = getAllLiveLocations() || [];
+
+    // Count sessions per location dynamically from LiveSessions
+    ensureLiveSessionsSheet();
+    const allSessions = getAllLiveSessions() || [];
+    const sessionCountMap = {};
+    allSessions.forEach(function (s) {
+      const locId = String(s.LocationEventID || "").trim();
+      if (locId) sessionCountMap[locId] = (sessionCountMap[locId] || 0) + 1;
+    });
+
+    const enriched = locations.map(function (loc) {
+      const locId = String(loc.LocationEventID || "").trim();
+      return {
+        LocationEventID: locId,
+        DisplayName: String(loc.DisplayName || ""),
+        Latitude: loc.Latitude !== undefined && loc.Latitude !== null ? Number(loc.Latitude) : 0,
+        Longitude: loc.Longitude !== undefined && loc.Longitude !== null ? Number(loc.Longitude) : 0,
+        City: String(loc.City || ""),
+        State: String(loc.State || ""),
+        Category: String(loc.Category || "General"),
+        TotalSessionsCount: sessionCountMap[locId] !== undefined ? sessionCountMap[locId] : Number(loc.TotalSessionsCount || 0),
+        Status: String(loc.Status || "Active"),
+        CreatedAt: loc.CreatedAt || ""
+      };
+    });
+
+    return success({
+      locations: enriched,
+      totalLocations: enriched.length,
+      activeLocations: enriched.filter(l => String(l.Status).toLowerCase() === "active").length,
+      inactiveLocations: enriched.filter(l => String(l.Status).toLowerCase() !== "active").length
+    }, "Live locations loaded successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * ADMIN SAVE LIVE LOCATION (Stage 7)
+ * ?action=adminsavelivelocation&session=TOKEN&locationEventId=...&displayName=...&latitude=...&longitude=...&city=...&state=...&category=...&status=...
+ * Creates or updates a reusable LiveLocation.
+ * Does NOT alter past session-captured broadcaster coordinates.
+ * ============================================================
+ */
+function adminSaveLiveLocation(e) {
+  let lock;
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    const p = (e && e.parameter) || {};
+    let locationEventId = String(p.locationEventId || "").trim();
+    const displayName = String(p.displayName || "").trim();
+    const lat = parseFloat(p.latitude);
+    const lng = parseFloat(p.longitude);
+    const city = String(p.city || "").trim();
+    const state = String(p.state || "").trim();
+    const category = String(p.category || "General").trim();
+    const status = String(p.status || "Active").trim();
+
+    if (!displayName) return error("displayName is required");
+    if (isNaN(lat) || lat < -90 || lat > 90) return error("Invalid latitude: must be between -90 and 90");
+    if (isNaN(lng) || lng < -180 || lng > 180) return error("Invalid longitude: must be between -180 and 180");
+
+    lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+
+    ensureLiveLocationsSheet();
+
+    if (!locationEventId) {
+      locationEventId = "LOC_" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMddHHmmss") + "_" + Math.floor(100 + Math.random() * 900);
+    }
+
+    const locData = {
+      LocationEventID: locationEventId,
+      DisplayName: displayName,
+      Latitude: lat,
+      Longitude: lng,
+      City: city,
+      State: state,
+      Category: category,
+      Status: status,
+      UpdatedAt: new Date().toISOString()
+    };
+
+    const existing = findLiveLocationById(locationEventId);
+    if (!existing) {
+      locData.CreatedAt = new Date().toISOString();
+      locData.TotalSessionsCount = 0;
+      locData.TotalLiveSeconds = 0;
+    }
+
+    upsertLiveLocation(locData);
+
+    return success({
+      location: locData,
+      isNew: !existing
+    }, "Live location saved successfully");
+
+  } catch (err) {
+    return exception(err);
+  } finally {
+    if (lock) lock.releaseLock();
+  }
+}
+
+/**
+ * ============================================================
+ * ADMIN TOGGLE LIVE LOCATION STATUS (Stage 7)
+ * ?action=admintogglelivelocationstatus&session=TOKEN&locationEventId=...&status=...
+ * ============================================================
+ */
+function adminToggleLiveLocationStatus(e) {
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    const p = (e && e.parameter) || {};
+    const locationEventId = String(p.locationEventId || "").trim();
+    const newStatus = String(p.status || "Active").trim();
+
+    if (!locationEventId) return error("locationEventId is required");
+
+    ensureLiveLocationsSheet();
+    const loc = findLiveLocationById(locationEventId);
+    if (!loc) return error("Location not found: " + locationEventId);
+
+    updateRow(CONFIG.SHEETS.LIVE_LOCATIONS || "LiveLocations", "LocationEventID", locationEventId, {
+      Status: newStatus,
+      UpdatedAt: new Date().toISOString()
+    });
+
+    return success({
+      locationEventId: locationEventId,
+      status: newStatus
+    }, "Location status updated to " + newStatus);
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * GET ADMIN LIVE EVENTS (Stage 7)
+ * ?action=adminliveevents&session=TOKEN
+ * ============================================================
+ */
+function getAdminLiveEvents(e) {
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    ensureLiveEventsSheet();
+    const events = getAllLiveEvents() || [];
+
+    // Compute session count per event dynamically from LiveSessions
+    ensureLiveSessionsSheet();
+    const allSessions = getAllLiveSessions() || [];
+    const eventSessionCount = {};
+    allSessions.forEach(function (s) {
+      const evtId = String(s.LocationEventID || "").trim();
+      if (evtId) eventSessionCount[evtId] = (eventSessionCount[evtId] || 0) + 1;
+    });
+
+    const enriched = events.map(function (evt) {
+      const eId = String(evt.EventID || "").trim();
+      return {
+        EventID: eId,
+        EventName: String(evt.EventName || ""),
+        Description: String(evt.Description || ""),
+        LocationEventID: String(evt.LocationEventID || ""),
+        LocationName: String(evt.LocationName || ""),
+        City: String(evt.City || ""),
+        StartDate: evt.StartDate || "",
+        EndDate: evt.EndDate || "",
+        Status: String(evt.Status || "Upcoming"),
+        TotalSessionsCount: eventSessionCount[eId] !== undefined ? eventSessionCount[eId] : Number(evt.TotalSessionsCount || 0),
+        CreatedAt: evt.CreatedAt || ""
+      };
+    });
+
+    return success({
+      events: enriched,
+      totalEvents: enriched.length,
+      activeEvents: enriched.filter(ev => String(ev.Status).toLowerCase() === "active").length,
+      upcomingEvents: enriched.filter(ev => String(ev.Status).toLowerCase() === "upcoming").length
+    }, "Live events loaded successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * ADMIN SAVE LIVE EVENT (Stage 7)
+ * ?action=adminsaveliveevent&session=TOKEN&eventId=...&eventName=...&description=...&locationEventId=...&locationName=...&city=...&startDate=...&endDate=...&status=...
+ * ============================================================
+ */
+function adminSaveLiveEvent(e) {
+  let lock;
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    const p = (e && e.parameter) || {};
+    let eventId = String(p.eventId || "").trim();
+    const eventName = String(p.eventName || "").trim();
+    const description = String(p.description || "").trim();
+    const locationEventId = String(p.locationEventId || "").trim();
+    const locationName = String(p.locationName || "").trim();
+    const city = String(p.city || "").trim();
+    const startDate = String(p.startDate || "").trim();
+    const endDate = String(p.endDate || "").trim();
+    const status = String(p.status || "Upcoming").trim();
+
+    if (!eventName) return error("eventName is required");
+
+    lock = LockService.getScriptLock();
+    lock.waitLock(10000);
+
+    ensureLiveEventsSheet();
+
+    if (!eventId) {
+      eventId = "EVT_" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMddHHmmss") + "_" + Math.floor(100 + Math.random() * 900);
+    }
+
+    const evtData = {
+      EventID: eventId,
+      EventName: eventName,
+      Description: description,
+      LocationEventID: locationEventId,
+      LocationName: locationName,
+      City: city,
+      StartDate: startDate,
+      EndDate: endDate,
+      Status: status,
+      UpdatedAt: new Date().toISOString()
+    };
+
+    const existing = findLiveEventById(eventId);
+    if (!existing) {
+      evtData.CreatedAt = new Date().toISOString();
+      evtData.TotalSessionsCount = 0;
+    }
+
+    upsertLiveEvent(evtData);
+
+    return success({
+      event: evtData,
+      isNew: !existing
+    }, "Live event saved successfully");
+
+  } catch (err) {
+    return exception(err);
+  } finally {
+    if (lock) lock.releaseLock();
+  }
+}
+
+/**
+ * ============================================================
+ * ADMIN ASSOCIATE SESSION EVENT (Stage 7)
+ * ?action=adminassociatesessionevent&session=TOKEN&sessionId=LS_...&eventId=...&eventName=...
+ * Associates or disassociates a LiveSession with an Event.
+ * Does NOT alter broadcaster GPS coordinates, status, or timestamps.
+ * ============================================================
+ */
+function adminAssociateSessionEvent(e) {
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    const p = (e && e.parameter) || {};
+    const sessionId = String(p.sessionId || p.liveSessionId || "").trim();
+    const eventId = String(p.eventId || "").trim();
+    const eventName = String(p.eventName || "").trim();
+
+    if (!sessionId) return error("sessionId is required");
+
+    ensureLiveSessionsSheet();
+    const session = findLiveSessionById(sessionId);
+    if (!session) return error("Live session not found: " + sessionId);
+
+    // Only update organizational event linkage fields
+    const updates = {
+      LocationEventID: eventId,
+      LocationEventName: eventName,
+      UpdatedAt: new Date().toISOString()
+    };
+
+    updateLiveSession(sessionId, updates);
+
+    return success({
+      sessionId: sessionId,
+      eventId: eventId,
+      eventName: eventName
+    }, "Session event association updated successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}

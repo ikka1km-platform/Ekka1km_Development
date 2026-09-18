@@ -96,6 +96,8 @@ const CONFIG = {
 
     LIVE_LOCATIONS: "LiveLocations",
 
+    LIVE_EVENTS: "LiveEvents",
+
     LIVE: "Live",
 
     LIVE_SUBSCRIBERS: "LiveSubscribers",
