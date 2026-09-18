@@ -518,6 +518,19 @@ case "notification_sent":
       case "adminassociatesessionevent":
         return adminAssociateSessionEvent(e);
 
+      // Live - Stage 8 Server-Side Metrics & Analytics
+      case "adminliveanalytics":
+        return getAdminLiveAnalytics(e);
+
+      case "adminlivesessionmetrics":
+        return getAdminLiveSessionMetrics(e);
+
+      case "adminlivemetricsnapshots":
+        return getAdminLiveMetricSnapshots(e);
+
+      case "admincapturesnapshot":
+        return adminCaptureMetricSnapshot(e);
+
       case "addlive":
         return addLive(e);
 

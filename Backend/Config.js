@@ -98,6 +98,8 @@ const CONFIG = {
 
     LIVE_EVENTS: "LiveEvents",
 
+    LIVE_METRIC_SNAPSHOTS: "LiveMetricSnapshots",
+
     LIVE: "Live",
 
     LIVE_SUBSCRIBERS: "LiveSubscribers",

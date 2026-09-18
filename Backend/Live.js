@@ -954,6 +954,19 @@ function LIVE_EVENTS_HEADERS() {
   ];
 }
 
+function LIVE_METRIC_SNAPSHOTS_HEADERS() {
+  return [
+    "MetricSnapshotID",
+    "LiveSessionID",
+    "YouTubeVideoID",
+    "CapturedAt",
+    "CurrentViewers",
+    "TotalViews",
+    "Status",
+    "DurationSeconds"
+  ];
+}
+
 /**
  * Helper: Resolve or create sheet using existing utility or fallback
  */
@@ -1029,6 +1042,12 @@ function ensureLiveLocationsSheet() {
 function ensureLiveEventsSheet() {
   const sheet = _getOrCreateLiveSheet(CONFIG.SHEETS.LIVE_EVENTS || "LiveEvents");
   _ensureLiveSheetHeaders(sheet, LIVE_EVENTS_HEADERS());
+  return sheet;
+}
+
+function ensureLiveMetricSnapshotsSheet() {
+  const sheet = _getOrCreateLiveSheet(CONFIG.SHEETS.LIVE_METRIC_SNAPSHOTS || "LiveMetricSnapshots");
+  _ensureLiveSheetHeaders(sheet, LIVE_METRIC_SNAPSHOTS_HEADERS());
   return sheet;
 }
 
@@ -1138,7 +1157,8 @@ function initializeLiveDatabase(e) {
       { name: CONFIG.SHEETS.LIVE_ALLOCATIONS || "LiveAllocations", headers: LIVE_ALLOCATIONS_HEADERS() },
       { name: CONFIG.SHEETS.LIVE_SESSIONS || "LiveSessions", headers: LIVE_SESSIONS_HEADERS() },
       { name: CONFIG.SHEETS.LIVE_LOCATIONS || "LiveLocations", headers: LIVE_LOCATIONS_HEADERS() },
-      { name: CONFIG.SHEETS.LIVE_EVENTS || "LiveEvents", headers: LIVE_EVENTS_HEADERS() }
+      { name: CONFIG.SHEETS.LIVE_EVENTS || "LiveEvents", headers: LIVE_EVENTS_HEADERS() },
+      { name: CONFIG.SHEETS.LIVE_METRIC_SNAPSHOTS || "LiveMetricSnapshots", headers: LIVE_METRIC_SNAPSHOTS_HEADERS() }
     ];
 
     definitions.forEach(function (def) {
@@ -1184,7 +1204,8 @@ function getLiveDatabaseStatus(e) {
       { key: "LIVE_ALLOCATIONS", name: CONFIG.SHEETS.LIVE_ALLOCATIONS || "LiveAllocations", expectedHeaders: LIVE_ALLOCATIONS_HEADERS() },
       { key: "LIVE_SESSIONS", name: CONFIG.SHEETS.LIVE_SESSIONS || "LiveSessions", expectedHeaders: LIVE_SESSIONS_HEADERS() },
       { key: "LIVE_LOCATIONS", name: CONFIG.SHEETS.LIVE_LOCATIONS || "LiveLocations", expectedHeaders: LIVE_LOCATIONS_HEADERS() },
-      { key: "LIVE_EVENTS", name: CONFIG.SHEETS.LIVE_EVENTS || "LiveEvents", expectedHeaders: LIVE_EVENTS_HEADERS() }
+      { key: "LIVE_EVENTS", name: CONFIG.SHEETS.LIVE_EVENTS || "LiveEvents", expectedHeaders: LIVE_EVENTS_HEADERS() },
+      { key: "LIVE_METRIC_SNAPSHOTS", name: CONFIG.SHEETS.LIVE_METRIC_SNAPSHOTS || "LiveMetricSnapshots", expectedHeaders: LIVE_METRIC_SNAPSHOTS_HEADERS() }
     ];
 
     const status = sheets.map(function (item) {
@@ -1355,6 +1376,279 @@ function upsertLiveEvent(evtData) {
   });
   sheet.appendRow(newRow);
   return { created: true, eventId: evtId };
+}
+
+/**
+ * ============================================================
+ * STAGE 8: LIVE METRIC SNAPSHOTS & SERVER-SIDE METRICS HELPERS
+ * ============================================================
+ */
+
+/**
+ * Records an operational metric snapshot for a live session.
+ * Throttled to avoid high-frequency server loops.
+ */
+function recordLiveMetricSnapshot(snapshotData) {
+  if (!snapshotData || !snapshotData.LiveSessionID) return null;
+  const sheet = ensureLiveMetricSnapshotsSheet();
+  const headers = LIVE_METRIC_SNAPSHOTS_HEADERS();
+  const snapId = snapshotData.MetricSnapshotID || ("SNAP-" + Utilities.getUuid().substring(0, 10));
+  const rowObj = {
+    MetricSnapshotID: snapId,
+    LiveSessionID: String(snapshotData.LiveSessionID || "").trim(),
+    YouTubeVideoID: String(snapshotData.YouTubeVideoID || "").trim(),
+    CapturedAt: snapshotData.CapturedAt || new Date().toISOString(),
+    CurrentViewers: (snapshotData.CurrentViewers !== undefined && snapshotData.CurrentViewers !== null && snapshotData.CurrentViewers !== "") ? Number(snapshotData.CurrentViewers) : "",
+    TotalViews: (snapshotData.TotalViews !== undefined && snapshotData.TotalViews !== null && snapshotData.TotalViews !== "") ? Number(snapshotData.TotalViews) : "",
+    Status: String(snapshotData.Status || "Active"),
+    DurationSeconds: Number(snapshotData.DurationSeconds || 0)
+  };
+  const newRow = [];
+  headers.forEach(function(h) {
+    newRow.push(rowObj[h] !== undefined ? rowObj[h] : "");
+  });
+  sheet.appendRow(newRow);
+  return rowObj;
+}
+
+function getAllLiveMetricSnapshots(limit) {
+  const data = getSheetData(CONFIG.SHEETS.LIVE_METRIC_SNAPSHOTS || "LiveMetricSnapshots") || [];
+  if (limit && Number(limit) > 0) {
+    return data.slice(-Number(limit));
+  }
+  return data;
+}
+
+function getLiveMetricSnapshotsForSession(sessionId, limit) {
+  if (!sessionId) return [];
+  const all = getAllLiveMetricSnapshots() || [];
+  const sessionSnaps = all.filter(function(r) {
+    return String(r.LiveSessionID || "").trim() === String(sessionId).trim();
+  });
+  if (limit && Number(limit) > 0) {
+    return sessionSnaps.slice(-Number(limit));
+  }
+  return sessionSnaps;
+}
+
+/**
+ * Server-side operational metrics retrieval from YouTube Data API v3.
+ * Queries: GET https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails,statistics,snippet,status&id={videoId}
+ * Quota-conscious: 1 quota unit.
+ * Never fabricates numbers: returns null when metrics are unavailable.
+ */
+function fetchYouTubeVideoMetrics(videoId, channelId) {
+  if (!videoId) {
+    return { success: false, unavailable: true, concurrentViewers: null, viewCount: null, error: "videoId is required" };
+  }
+
+  let accessToken = "";
+  if (channelId) {
+    try {
+      const tokenRes = getOrRefreshYouTubeAccessToken(channelId);
+      if (tokenRes && tokenRes.success && tokenRes.accessToken) {
+        accessToken = tokenRes.accessToken;
+      }
+    } catch (e) {
+      Logger.log("Token resolution notice for channel " + channelId + ": " + e.message);
+    }
+  }
+
+  // Fallback to another authenticated channel token if this channel's token is not ready
+  if (!accessToken) {
+    try {
+      const channels = getAllLiveChannels() || [];
+      for (let i = 0; i < channels.length; i++) {
+        const c = channels[i];
+        if (c.YouTubeChannelID && c.Status === "Active") {
+          const tRes = getOrRefreshYouTubeAccessToken(c.YouTubeChannelID);
+          if (tRes && tRes.success && tRes.accessToken) {
+            accessToken = tRes.accessToken;
+            break;
+          }
+        }
+      }
+    } catch (fallbackErr) {}
+  }
+
+  let apiKey = "";
+  try {
+    apiKey = PropertiesService.getScriptProperties().getProperty("YOUTUBE_API_KEY") || "";
+  } catch (propErr) {}
+
+  if (!accessToken && !apiKey) {
+    return {
+      success: false,
+      unavailable: true,
+      concurrentViewers: null,
+      viewCount: null,
+      likeCount: null,
+      commentCount: null,
+      error: "No active YouTube OAuth token or API key available to fetch metrics"
+    };
+  }
+
+  let url = "https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails,statistics,snippet,status&id=" + encodeURIComponent(videoId);
+  if (!accessToken && apiKey) {
+    url += "&key=" + encodeURIComponent(apiKey);
+  }
+
+  const headers = {};
+  if (accessToken) {
+    headers["Authorization"] = "Bearer " + accessToken;
+  }
+
+  try {
+    const response = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: headers,
+      muteHttpExceptions: true
+    });
+
+    const statusCode = response.getResponseCode();
+    const responseBody = response.getContentText();
+    let json = {};
+    try {
+      json = JSON.parse(responseBody);
+    } catch (parseErr) {
+      return { success: false, unavailable: true, concurrentViewers: null, viewCount: null, error: "Non-JSON response from YouTube API" };
+    }
+
+    if (statusCode < 200 || statusCode >= 300) {
+      const errMsg = (json.error && json.error.message) || ("HTTP " + statusCode);
+      return { success: false, unavailable: true, concurrentViewers: null, viewCount: null, error: "YouTube API error: " + errMsg };
+    }
+
+    const items = json.items || [];
+    if (items.length === 0) {
+      return { success: false, unavailable: true, notFound: true, concurrentViewers: null, viewCount: null, error: "Video not found on YouTube" };
+    }
+
+    const item = items[0];
+    const lsd = item.liveStreamingDetails || {};
+    const stats = item.statistics || {};
+
+    const concurrentViewers = (lsd.concurrentViewers !== undefined && lsd.concurrentViewers !== null && lsd.concurrentViewers !== "")
+      ? Number(lsd.concurrentViewers)
+      : null;
+    const viewCount = (stats.viewCount !== undefined && stats.viewCount !== null && stats.viewCount !== "")
+      ? Number(stats.viewCount)
+      : null;
+    const likeCount = (stats.likeCount !== undefined && stats.likeCount !== null && stats.likeCount !== "")
+      ? Number(stats.likeCount)
+      : null;
+    const commentCount = (stats.commentCount !== undefined && stats.commentCount !== null && stats.commentCount !== "")
+      ? Number(stats.commentCount)
+      : null;
+
+    return {
+      success: true,
+      videoId: videoId,
+      concurrentViewers: concurrentViewers,
+      viewCount: viewCount,
+      likeCount: likeCount,
+      commentCount: commentCount,
+      actualStartTime: lsd.actualStartTime || null,
+      actualEndTime: lsd.actualEndTime || null,
+      isLive: concurrentViewers !== null || Boolean(lsd.actualStartTime && !lsd.actualEndTime)
+    };
+  } catch (fetchErr) {
+    return { success: false, unavailable: true, concurrentViewers: null, viewCount: null, error: "Fetch exception: " + fetchErr.message };
+  }
+}
+
+/**
+ * Batched server-side YouTube Data API v3 metric fetching for multiple sessions.
+ * Batches up to 50 video IDs per call (cost: 1 unit of YouTube quota).
+ */
+function fetchYouTubeBatchMetrics(sessionList) {
+  if (!sessionList || sessionList.length === 0) return {};
+
+  const videoIdMap = {};
+  const channelIds = {};
+
+  sessionList.forEach(function(s) {
+    const vId = String(s.YouTubeVideoID || s.YouTubeBroadcastID || "").trim();
+    if (vId) {
+      videoIdMap[vId] = s;
+      if (s.YouTubeChannelID) channelIds[String(s.YouTubeChannelID).trim()] = true;
+    }
+  });
+
+  const uniqueVideoIds = Object.keys(videoIdMap);
+  if (uniqueVideoIds.length === 0) return {};
+
+  let accessToken = "";
+  const channelList = Object.keys(channelIds);
+  for (let i = 0; i < channelList.length; i++) {
+    try {
+      const tRes = getOrRefreshYouTubeAccessToken(channelList[i]);
+      if (tRes && tRes.success && tRes.accessToken) {
+        accessToken = tRes.accessToken;
+        break;
+      }
+    } catch (e) {}
+  }
+
+  if (!accessToken) {
+    try {
+      const allCh = getAllLiveChannels() || [];
+      for (let j = 0; j < allCh.length; j++) {
+        if (allCh[j].YouTubeChannelID && allCh[j].Status === "Active") {
+          const tRes = getOrRefreshYouTubeAccessToken(allCh[j].YouTubeChannelID);
+          if (tRes && tRes.success && tRes.accessToken) {
+            accessToken = tRes.accessToken;
+            break;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  let apiKey = "";
+  try {
+    apiKey = PropertiesService.getScriptProperties().getProperty("YOUTUBE_API_KEY") || "";
+  } catch (e) {}
+
+  if (!accessToken && !apiKey) return {};
+
+  const resultMap = {};
+  for (let i = 0; i < uniqueVideoIds.length; i += 50) {
+    const chunk = uniqueVideoIds.slice(i, i + 50);
+    let url = "https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails,statistics&id=" + encodeURIComponent(chunk.join(","));
+    if (!accessToken && apiKey) {
+      url += "&key=" + encodeURIComponent(apiKey);
+    }
+    const headers = {};
+    if (accessToken) headers["Authorization"] = "Bearer " + accessToken;
+
+    try {
+      const resp = UrlFetchApp.fetch(url, {
+        method: "get",
+        headers: headers,
+        muteHttpExceptions: true
+      });
+      if (resp.getResponseCode() === 200) {
+        const data = JSON.parse(resp.getContentText());
+        const items = data.items || [];
+        items.forEach(function(item) {
+          const id = item.id;
+          const lsd = item.liveStreamingDetails || {};
+          const stats = item.statistics || {};
+          resultMap[id] = {
+            concurrentViewers: (lsd.concurrentViewers !== undefined && lsd.concurrentViewers !== null && lsd.concurrentViewers !== "") ? Number(lsd.concurrentViewers) : null,
+            viewCount: (stats.viewCount !== undefined && stats.viewCount !== null && stats.viewCount !== "") ? Number(stats.viewCount) : null,
+            likeCount: (stats.likeCount !== undefined && stats.likeCount !== null && stats.likeCount !== "") ? Number(stats.likeCount) : null,
+            commentCount: (stats.commentCount !== undefined && stats.commentCount !== null && stats.commentCount !== "") ? Number(stats.commentCount) : null
+          };
+        });
+      }
+    } catch (err) {
+      Logger.log("Batch YouTube metrics fetch error: " + err.message);
+    }
+  }
+
+  return resultMap;
 }
 
 /**
@@ -2719,6 +3013,582 @@ function adminAssociateSessionEvent(e) {
       eventId: eventId,
       eventName: eventName
     }, "Session event association updated successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * STAGE 8: SERVER-SIDE LIVE METRICS & ANALYTICS
+ * ============================================================
+ */
+
+/**
+ * ============================================================
+ * GET ADMIN LIVE ANALYTICS (Stage 8)
+ * ?action=adminliveanalytics&session=TOKEN
+ * Authoritative aggregate operational analytics across LiveSessions.
+ * Strictly excludes System B (Videos) and legacy Live sheet (L001-L003).
+ * Returns real-time vs delayed metrics distinction.
+ * Sanitizes all output (zero secrets, stream keys, tokens).
+ * ============================================================
+ */
+function getAdminLiveAnalytics(e) {
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    ensureLiveSessionsSheet();
+    ensureLiveMetricSnapshotsSheet();
+
+    const allSessions = getAllLiveSessions() || [];
+    const now = Date.now();
+    const nowIso = new Date().toISOString();
+
+    // Sourced strictly from LiveSessions
+    // Categorize
+    const activeSessions = [];
+    const completedSessions = [];
+    const startingSessions = [];
+
+    allSessions.forEach(function(s) {
+      const st = String(s.Status || "").trim().toLowerCase();
+      if (st === "active") {
+        activeSessions.push(s);
+      } else if (st === "starting") {
+        startingSessions.push(s);
+      } else {
+        completedSessions.push(s);
+      }
+    });
+
+    // Active session live metrics sync (batched and bounded)
+    let activeMetricsMap = {};
+    if (activeSessions.length > 0) {
+      try {
+        activeMetricsMap = fetchYouTubeBatchMetrics(activeSessions);
+      } catch (batchErr) {
+        Logger.log("Active sessions batch metrics notice: " + batchErr.message);
+      }
+    }
+
+    // Process active sessions: update live viewers / peak, and record sampled snapshot if cooldown elapsed
+    let currentConcurrentViewers = 0;
+    const SNAPSHOT_COOLDOWN_MS = 5 * 60 * 1000; // 5 min cooldown
+
+    activeSessions.forEach(function(s) {
+      const vId = String(s.YouTubeVideoID || s.YouTubeBroadcastID || "").trim();
+      const ytData = activeMetricsMap[vId];
+
+      let viewers = null;
+      let views = null;
+      if (ytData && ytData.concurrentViewers !== null) {
+        viewers = ytData.concurrentViewers;
+      } else if (s.CurrentViewers !== undefined && s.CurrentViewers !== null && s.CurrentViewers !== "") {
+        viewers = Number(s.CurrentViewers);
+      }
+
+      if (ytData && ytData.viewCount !== null) {
+        views = ytData.viewCount;
+      } else if (s.TotalViews !== undefined && s.TotalViews !== null && s.TotalViews !== "") {
+        views = Number(s.TotalViews);
+      }
+
+      if (viewers !== null) {
+        currentConcurrentViewers += viewers;
+      }
+
+      // Safe update to LiveSessions row if live data retrieved
+      if (ytData && s.LiveSessionID) {
+        const sessionUpdates = {};
+        let needsUpdate = false;
+
+        if (viewers !== null && viewers !== Number(s.CurrentViewers)) {
+          sessionUpdates.CurrentViewers = viewers;
+          needsUpdate = true;
+          s.CurrentViewers = viewers;
+        }
+
+        if (views !== null && views !== Number(s.TotalViews)) {
+          sessionUpdates.TotalViews = views;
+          needsUpdate = true;
+          s.TotalViews = views;
+        }
+
+        const currentPeak = Number(s.EkkaSampledPeak || 0);
+        if (viewers !== null && viewers > currentPeak) {
+          sessionUpdates.EkkaSampledPeak = viewers;
+          needsUpdate = true;
+          s.EkkaSampledPeak = viewers;
+        }
+
+        if (needsUpdate) {
+          sessionUpdates.UpdatedAt = nowIso;
+          updateLiveSession(s.LiveSessionID, sessionUpdates);
+        }
+
+        // Rate-limited snapshot sampling (at most once every 5 minutes)
+        try {
+          const snaps = getLiveMetricSnapshotsForSession(s.LiveSessionID, 1);
+          let lastSnapTime = 0;
+          if (snaps.length > 0 && snaps[0].CapturedAt) {
+            lastSnapTime = new Date(snaps[0].CapturedAt).getTime();
+          }
+          if (now - lastSnapTime >= SNAPSHOT_COOLDOWN_MS) {
+            const startMs = s.StartedAt ? new Date(s.StartedAt).getTime() : now;
+            const dur = Math.max(0, Math.floor((now - startMs) / 1000));
+            recordLiveMetricSnapshot({
+              LiveSessionID: s.LiveSessionID,
+              YouTubeVideoID: vId,
+              CapturedAt: nowIso,
+              CurrentViewers: viewers,
+              TotalViews: views,
+              Status: "Active",
+              DurationSeconds: dur
+            });
+          }
+        } catch (snapErr) {
+          Logger.log("Snapshot sampling notice: " + snapErr.message);
+        }
+      }
+    });
+
+    // Compute aggregates across completed & all sessions
+    let totalDurationSeconds = 0;
+    let totalViews = 0;
+    let peakConcurrentViewers = 0;
+
+    const channelBreakdown = {};
+    const broadcasterBreakdown = {};
+    const locationBreakdown = {};
+    const eventBreakdown = {};
+    const terminationReasons = {};
+
+    // Get channels and locations lookups for display titles
+    const channels = getAllLiveChannels() || [];
+    const channelTitleMap = {};
+    channels.forEach(function(c) {
+      if (c.YouTubeChannelID) channelTitleMap[String(c.YouTubeChannelID).trim()] = String(c.ChannelTitle || "").trim();
+    });
+
+    const locations = getAllLiveLocations() || [];
+    const locationNameMap = {};
+    locations.forEach(function(l) {
+      if (l.LocationEventID) locationNameMap[String(l.LocationEventID).trim()] = String(l.DisplayName || "").trim();
+    });
+
+    allSessions.forEach(function(s) {
+      const dur = Number(s.DurationSeconds || 0);
+      const views = Number(s.TotalViews || 0);
+      const peak = Number(s.EkkaSampledPeak || s.CurrentViewers || 0);
+
+      totalDurationSeconds += dur;
+      totalViews += views;
+      if (peak > peakConcurrentViewers) peakConcurrentViewers = peak;
+
+      // Channel breakdown
+      const chId = String(s.YouTubeChannelID || "Unknown").trim();
+      const chTitle = channelTitleMap[chId] || chId;
+      if (!channelBreakdown[chId]) {
+        channelBreakdown[chId] = { channelId: chId, channelTitle: chTitle, sessionCount: 0, totalDurationSeconds: 0, totalViews: 0 };
+      }
+      channelBreakdown[chId].sessionCount++;
+      channelBreakdown[chId].totalDurationSeconds += dur;
+      channelBreakdown[chId].totalViews += views;
+
+      // Broadcaster breakdown
+      const cpId = String(s.CameraPersonID || "Unknown").trim();
+      const cpName = String(s.CameraPersonName || cpId).trim();
+      if (!broadcasterBreakdown[cpId]) {
+        broadcasterBreakdown[cpId] = { cameraPersonId: cpId, cameraPersonName: cpName, sessionCount: 0, totalDurationSeconds: 0, totalViews: 0 };
+      }
+      broadcasterBreakdown[cpId].sessionCount++;
+      broadcasterBreakdown[cpId].totalDurationSeconds += dur;
+      broadcasterBreakdown[cpId].totalViews += views;
+
+      // Location breakdown
+      const locId = String(s.LocationEventID || "").trim();
+      if (locId) {
+        const locName = locationNameMap[locId] || String(s.LocationEventName || locId);
+        if (!locationBreakdown[locId]) {
+          locationBreakdown[locId] = { locationId: locId, locationName: locName, sessionCount: 0, totalDurationSeconds: 0 };
+        }
+        locationBreakdown[locId].sessionCount++;
+        locationBreakdown[locId].totalDurationSeconds += dur;
+      }
+
+      // Event breakdown
+      const evtId = String(s.LocationEventID || "").trim();
+      const evtName = String(s.LocationEventName || "").trim();
+      if (evtName) {
+        const key = evtId || evtName;
+        if (!eventBreakdown[key]) {
+          eventBreakdown[key] = { eventId: evtId, eventName: evtName, sessionCount: 0, totalDurationSeconds: 0 };
+        }
+        eventBreakdown[key].sessionCount++;
+        eventBreakdown[key].totalDurationSeconds += dur;
+      }
+
+      // Termination reason breakdown
+      const reason = String(s.TerminationReason || "Normal").trim();
+      terminationReasons[reason] = (terminationReasons[reason] || 0) + 1;
+    });
+
+    const completedCount = completedSessions.length;
+    const averageDurationSeconds = completedCount > 0 ? Math.round(totalDurationSeconds / completedCount) : 0;
+
+    // Build active streams list with safe sanitized fields
+    const activeStreamsList = activeSessions.map(function(s) {
+      const vId = String(s.YouTubeVideoID || s.YouTubeBroadcastID || "").trim();
+      const startMs = s.StartedAt ? new Date(s.StartedAt).getTime() : now;
+      const liveDuration = Math.max(0, Math.floor((now - startMs) / 1000));
+      const viewers = (s.CurrentViewers !== undefined && s.CurrentViewers !== null && s.CurrentViewers !== "")
+        ? Number(s.CurrentViewers)
+        : null;
+
+      return {
+        liveId: String(s.LiveSessionID || ""),
+        LiveSessionID: String(s.LiveSessionID || ""),
+        title: String(s.Title || "Live Stream"),
+        Title: String(s.Title || "Live Stream"),
+        cameraPersonName: String(s.CameraPersonName || "Broadcaster"),
+        CameraPersonName: String(s.CameraPersonName || "Broadcaster"),
+        channelTitle: channelTitleMap[String(s.YouTubeChannelID || "").trim()] || "Channel",
+        ChannelTitle: channelTitleMap[String(s.YouTubeChannelID || "").trim()] || "Channel",
+        locationName: String(s.LocationEventName || ""),
+        LocationEventName: String(s.LocationEventName || ""),
+        startedAt: s.StartedAt || "",
+        StartedAt: s.StartedAt || "",
+        durationSeconds: liveDuration,
+        DurationSeconds: liveDuration,
+        currentViewers: viewers,
+        CurrentViewers: viewers,
+        peakViewers: Number(s.EkkaSampledPeak || viewers || 0),
+        EkkaSampledPeak: Number(s.EkkaSampledPeak || viewers || 0),
+        youtubeVideoId: vId,
+        YouTubeVideoID: vId,
+        watchUrl: String(s.WatchUrl || (vId ? ("https://www.youtube.com/watch?v=" + vId) : ""))
+      };
+    });
+
+    const responseData = {
+      // Summary KPIs
+      totalLiveSessions: allSessions.length,
+      activeLiveSessionsCount: activeSessions.length,
+      completedLiveSessionsCount: completedCount,
+      startingSessionsCount: startingSessions.length,
+      totalDurationSeconds: totalDurationSeconds,
+      averageDurationSeconds: averageDurationSeconds,
+      totalViews: totalViews,
+      peakConcurrentViewers: peakConcurrentViewers,
+      currentConcurrentViewers: currentConcurrentViewers,
+
+      // Active streams real-time telemetry
+      activeStreams: activeStreamsList,
+
+      // Descriptive breakdowns
+      sessionsByChannel: Object.values(channelBreakdown),
+      sessionsByBroadcaster: Object.values(broadcasterBreakdown),
+      sessionsByLocation: Object.values(locationBreakdown),
+      sessionsByEvent: Object.values(eventBreakdown),
+      terminationReasons: terminationReasons,
+
+      // Freshness & audit metadata
+      metricFreshness: {
+        realTimeMetrics: ["currentConcurrentViewers", "activeLiveSessionsCount", "activeStreams"],
+        delayedMetrics: ["totalViews", "youtubeStatistics", "historicalAggregates"],
+        notice: "Concurrent viewers reflect real-time live streaming details. YouTube total views and statistics are subject to YouTube API processing delays."
+      },
+      generatedAt: nowIso
+    };
+
+    return success(responseData, "Live analytics retrieved successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * GET ADMIN LIVE SESSION METRICS (Stage 8)
+ * ?action=adminlivesessionmetrics&session=TOKEN&liveId=LS_...
+ * Returns safe server-side operational metrics for a specific session.
+ * For active sessions, queries current YouTube streaming details.
+ * For ended sessions, queries historical metrics and video stats.
+ * ============================================================
+ */
+function getAdminLiveSessionMetrics(e) {
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    const p = (e && e.parameter) || {};
+    const sessionId = String(p.liveId || p.sessionId || p.liveSessionId || "").trim();
+    if (!sessionId) return error("liveId is required");
+
+    ensureLiveSessionsSheet();
+    const session = findLiveSessionById(sessionId);
+    if (!session) return error("Live session not found: " + sessionId);
+
+    const now = Date.now();
+    const nowIso = new Date().toISOString();
+    const isLive = String(session.Status || "").trim().toLowerCase() === "active";
+    const vId = String(session.YouTubeVideoID || session.YouTubeBroadcastID || "").trim();
+    const channelId = String(session.YouTubeChannelID || "").trim();
+
+    // Query server-side YouTube Data API v3
+    let ytMetrics = {
+      concurrentViewers: null,
+      viewCount: null,
+      likeCount: null,
+      commentCount: null
+    };
+
+    if (vId) {
+      try {
+        const ytRes = fetchYouTubeVideoMetrics(vId, channelId);
+        if (ytRes && ytRes.success) {
+          ytMetrics = ytRes;
+        }
+      } catch (ytErr) {
+        Logger.log("Live session metrics YouTube fetch notice: " + ytErr.message);
+      }
+    }
+
+    // Compute live duration or use recorded duration
+    let durationSeconds = Number(session.DurationSeconds || 0);
+    if (isLive && session.StartedAt) {
+      const startMs = new Date(session.StartedAt).getTime();
+      durationSeconds = Math.max(0, Math.floor((now - startMs) / 1000));
+    }
+
+    // Current viewers: use real-time YouTube metric if live, or stored value
+    let currentViewers = null;
+    if (isLive) {
+      currentViewers = ytMetrics.concurrentViewers !== null ? ytMetrics.concurrentViewers : (session.CurrentViewers ? Number(session.CurrentViewers) : null);
+    }
+
+    // Total views: use YouTube viewCount if available, or stored value
+    const totalViews = ytMetrics.viewCount !== null ? ytMetrics.viewCount : (session.TotalViews ? Number(session.TotalViews) : null);
+
+    // Get recent snapshots
+    const snapshots = getLiveMetricSnapshotsForSession(sessionId, 20);
+
+    // Sanitize output (NEVER leak stream keys, tokens, or private secrets)
+    const metricsResult = {
+      liveId: sessionId,
+      LiveSessionID: sessionId,
+      title: String(session.Title || "Live Broadcast"),
+      Title: String(session.Title || "Live Broadcast"),
+      status: String(session.Status || ""),
+      Status: String(session.Status || ""),
+      isLive: isLive,
+      startedAt: session.StartedAt || "",
+      StartedAt: session.StartedAt || "",
+      endedAt: session.EndedAt || "",
+      EndedAt: session.EndedAt || "",
+      durationSeconds: durationSeconds,
+      DurationSeconds: durationSeconds,
+      currentViewers: currentViewers,
+      CurrentViewers: currentViewers,
+      totalViews: totalViews,
+      TotalViews: totalViews,
+      peakViewers: Number(session.EkkaSampledPeak || currentViewers || 0),
+      EkkaSampledPeak: Number(session.EkkaSampledPeak || currentViewers || 0),
+      sampledAverageViewers: Number(session.EkkaSampledAverage || 0),
+      totalLikes: ytMetrics.likeCount !== null ? ytMetrics.likeCount : Number(session.TotalLikes || 0),
+      totalComments: ytMetrics.commentCount !== null ? ytMetrics.commentCount : Number(session.TotalComments || 0),
+      terminationReason: String(session.TerminationReason || "Normal"),
+      TerminationReason: String(session.TerminationReason || "Normal"),
+      channelId: channelId,
+      YouTubeChannelID: channelId,
+      cameraPersonId: String(session.CameraPersonID || ""),
+      CameraPersonID: String(session.CameraPersonID || ""),
+      cameraPersonName: String(session.CameraPersonName || "Broadcaster"),
+      CameraPersonName: String(session.CameraPersonName || "Broadcaster"),
+      locationEventId: String(session.LocationEventID || ""),
+      LocationEventID: String(session.LocationEventID || ""),
+      locationEventName: String(session.LocationEventName || ""),
+      LocationEventName: String(session.LocationEventName || ""),
+      youtubeVideoId: vId,
+      YouTubeVideoID: vId,
+      watchUrl: String(session.WatchUrl || (vId ? ("https://www.youtube.com/watch?v=" + vId) : "")),
+      snapshots: snapshots.map(function(snap) {
+        return {
+          snapshotId: String(snap.MetricSnapshotID || ""),
+          capturedAt: snap.CapturedAt || "",
+          currentViewers: snap.CurrentViewers !== "" ? Number(snap.CurrentViewers) : null,
+          totalViews: snap.TotalViews !== "" ? Number(snap.TotalViews) : null,
+          status: String(snap.Status || ""),
+          durationSeconds: Number(snap.DurationSeconds || 0)
+        };
+      }),
+      metricFreshness: {
+        isRealTimeViewers: isLive && ytMetrics.concurrentViewers !== null,
+        isDelayedViews: ytMetrics.viewCount !== null || !isLive,
+        capturedAt: nowIso
+      }
+    };
+
+    return success(metricsResult, "Session metrics retrieved successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * GET ADMIN LIVE METRIC SNAPSHOTS (Stage 8)
+ * ?action=adminlivemetricsnapshots&session=TOKEN&sessionId=...&page=1&limit=25
+ * Returns paginated metric snapshot records.
+ * ============================================================
+ */
+function getAdminLiveMetricSnapshots(e) {
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    ensureLiveMetricSnapshotsSheet();
+
+    const p = (e && e.parameter) || {};
+    const sessionId = String(p.sessionId || p.liveId || "").trim();
+    const page = Math.max(1, parseInt(p.page || "1", 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(p.limit || "25", 10) || 25));
+
+    let snapshots = [];
+    if (sessionId) {
+      snapshots = getLiveMetricSnapshotsForSession(sessionId);
+    } else {
+      snapshots = getAllLiveMetricSnapshots();
+    }
+
+    // Sort newest first
+    snapshots.sort(function(a, b) {
+      const tA = a.CapturedAt ? new Date(a.CapturedAt).getTime() : 0;
+      const tB = b.CapturedAt ? new Date(b.CapturedAt).getTime() : 0;
+      return tB - tA;
+    });
+
+    const totalCount = snapshots.length;
+    const totalPages = Math.ceil(totalCount / limit) || 1;
+    const startIndex = (page - 1) * limit;
+    const pageRows = snapshots.slice(startIndex, startIndex + limit);
+
+    return success({
+      snapshots: pageRows,
+      totalCount: totalCount,
+      page: page,
+      totalPages: totalPages,
+      limit: limit
+    }, "Metric snapshots retrieved");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * ADMIN CAPTURE METRIC SNAPSHOT (Stage 8)
+ * ?action=admincapturesnapshot&session=TOKEN&liveId=LS_...&force=false
+ * Admin-triggered on-demand metric capture for a live session.
+ * Throttled to at most once per 60 seconds unless force=true.
+ * ============================================================
+ */
+function adminCaptureMetricSnapshot(e) {
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    const p = (e && e.parameter) || {};
+    const sessionId = String(p.liveId || p.sessionId || "").trim();
+    const force = String(p.force || "").toLowerCase() === "true";
+    if (!sessionId) return error("liveId parameter is required");
+
+    ensureLiveSessionsSheet();
+    ensureLiveMetricSnapshotsSheet();
+
+    const session = findLiveSessionById(sessionId);
+    if (!session) return error("Live session not found: " + sessionId);
+
+    const now = Date.now();
+    const nowIso = new Date().toISOString();
+
+    // Cooldown check (60 seconds for manual admin capture)
+    if (!force) {
+      const recentSnaps = getLiveMetricSnapshotsForSession(sessionId, 1);
+      if (recentSnaps.length > 0 && recentSnaps[0].CapturedAt) {
+        const lastTime = new Date(recentSnaps[0].CapturedAt).getTime();
+        if (now - lastTime < 60 * 1000) {
+          return error("Rate limit: A metric snapshot was already captured recently. Please wait before capturing again.");
+        }
+      }
+    }
+
+    const vId = String(session.YouTubeVideoID || session.YouTubeBroadcastID || "").trim();
+    const chId = String(session.YouTubeChannelID || "").trim();
+    const isLive = String(session.Status || "").trim().toLowerCase() === "active";
+
+    // Fetch YouTube Data API metrics
+    let viewers = null;
+    let views = null;
+    if (vId) {
+      try {
+        const ytRes = fetchYouTubeVideoMetrics(vId, chId);
+        if (ytRes && ytRes.success) {
+          viewers = ytRes.concurrentViewers;
+          views = ytRes.viewCount;
+        }
+      } catch (ytErr) {
+        Logger.log("Capture snapshot YouTube notice: " + ytErr.message);
+      }
+    }
+
+    // If YouTube metric unavailable, fallback to session stored value
+    if (viewers === null && session.CurrentViewers !== undefined && session.CurrentViewers !== "") {
+      viewers = Number(session.CurrentViewers);
+    }
+    if (views === null && session.TotalViews !== undefined && session.TotalViews !== "") {
+      views = Number(session.TotalViews);
+    }
+
+    const startMs = session.StartedAt ? new Date(session.StartedAt).getTime() : now;
+    const dur = Math.max(0, Math.floor((now - startMs) / 1000));
+
+    const snap = recordLiveMetricSnapshot({
+      LiveSessionID: sessionId,
+      YouTubeVideoID: vId,
+      CapturedAt: nowIso,
+      CurrentViewers: viewers,
+      TotalViews: views,
+      Status: String(session.Status || "Active"),
+      DurationSeconds: isLive ? dur : Number(session.DurationSeconds || 0)
+    });
+
+    // Update session peak/current viewers if live
+    if (isLive) {
+      const updates = { UpdatedAt: nowIso };
+      if (viewers !== null) {
+        updates.CurrentViewers = viewers;
+        const peak = Number(session.EkkaSampledPeak || 0);
+        if (viewers > peak) {
+          updates.EkkaSampledPeak = viewers;
+        }
+      }
+      if (views !== null) {
+        updates.TotalViews = views;
+      }
+      updateLiveSession(sessionId, updates);
+    }
+
+    return success({
+      snapshot: snap,
+      sessionId: sessionId
+    }, "Metric snapshot captured successfully");
 
   } catch (err) {
     return exception(err);

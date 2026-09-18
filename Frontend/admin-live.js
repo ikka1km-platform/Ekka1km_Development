@@ -142,6 +142,7 @@ moderator management, and stream lifecycle controls
     tabs += '  <button class="module-btn ' + (activeTab === "history" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'history\')">📜 Live History</button>';
     tabs += '  <button class="module-btn ' + (activeTab === "locations" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'locations\')">📍 Locations</button>';
     tabs += '  <button class="module-btn ' + (activeTab === "events" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'events\')">🎪 Events</button>';
+    tabs += '  <button class="module-btn ' + (activeTab === "analytics" ? "module-btn-primary" : "module-btn-secondary") + '" style="border-radius:6px;font-weight:600;" onclick="window._switchLiveMainTab(\'analytics\')">📊 Live Analytics</button>';
     tabs += '</div>';
     return tabs;
   }
@@ -1905,7 +1906,270 @@ moderator management, and stream lifecycle controls
     }
 
     // ============================================================
-    // GLOBAL HANDLERS FOR CHANNELS, ALLOCATIONS, HISTORY, LOCATIONS & EVENTS
+    // STAGE 8: LIVE ANALYTICS CONTROLLER & RENDERING
+    // ============================================================
+
+    async function loadAndRenderAnalytics() {
+      _stopLiveTimer();
+      const session = AdminAuth.getSession();
+      if (!session) {
+        container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired</h3><p>Please login again.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
+        return;
+      }
+
+      container.innerHTML = '<div class="module-loading"><div class="loader"></div><p>Loading Live Analytics & Metrics...</p></div>';
+
+      try {
+        const url = getApiUrl() + "?action=adminliveanalytics&session=" + encodeURIComponent(session);
+        const response = await fetch(url);
+        const json = await response.json();
+
+        if (!json || !json.success) {
+          if (json && (json.status === "UNAUTHORIZED" || json.message === "Unauthorized access.")) {
+            if (typeof AdminAuth !== "undefined" && typeof AdminAuth.clearSession === "function") {
+              AdminAuth.clearSession();
+            }
+            container.innerHTML = '<div class="module-error"><span class="module-error-icon">🔒</span><h3>Session Expired or Unauthorized</h3><p>Your admin session has expired or is invalid. Please log in again to access Live Analytics.</p><button class="module-btn module-btn-primary" onclick="AdminAuth.redirectToLogin()" style="margin-top:12px;">🔑 Login Again</button></div>';
+            return;
+          }
+          container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Failed to Load Live Analytics</h3><p>' + _esc(json && json.message || "Unknown error") + '</p><button class="module-btn module-btn-primary" onclick="window._refreshAnalyticsTab()">🔄 Retry</button></div>';
+          return;
+        }
+
+        _currentLiveAnalytics = json.data || {};
+        renderAnalyticsCenter(container, _currentLiveAnalytics);
+      } catch (err) {
+        console.error("Live analytics load error:", err);
+        container.innerHTML = '<div class="module-error"><span class="module-error-icon">⚠️</span><h3>Error Loading Live Analytics</h3><p>' + _esc(err.message || String(err)) + '</p><button class="module-btn module-btn-primary" onclick="window._refreshAnalyticsTab()">🔄 Retry</button></div>';
+      }
+    }
+
+    function renderAnalyticsCenter(parent, data) {
+      const d = data || {};
+      const activeStreams = d.activeStreams || [];
+      const channelsList = d.sessionsByChannel || [];
+      const broadcastersList = d.sessionsByBroadcaster || [];
+      const locationsList = d.sessionsByLocation || [];
+      const eventsList = d.sessionsByEvent || [];
+      const reasonsObj = d.terminationReasons || {};
+
+      let html = "";
+
+      // Header
+      html += '<div class="module-header">';
+      html += '  <div class="module-header-left">';
+      html += '    <h2 class="module-title">📊 Live Metrics & Analytics</h2>';
+      html += '    <span class="module-count">' + (d.totalLiveSessions || 0) + ' total sessions</span>';
+      html += '  </div>';
+      html += '  <div class="module-header-actions">';
+      html += '    <button class="module-btn module-btn-secondary" onclick="window._refreshAnalyticsTab()">🔄 Refresh Analytics</button>';
+      html += '  </div>';
+      html += '</div>';
+
+      // Navigation Tabs
+      html += renderLiveNavTabs("analytics");
+
+      // Real-time vs Delayed Indicator Banner
+      html += '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-left:4px solid #16a34a;padding:10px 16px;border-radius:6px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">';
+      html += '  <div>';
+      html += '    <span style="font-size:12px;font-weight:700;color:#15803d;margin-right:8px;">🟢 REAL-TIME:</span>';
+      html += '    <span style="font-size:12px;color:#166534;">Concurrent Viewers (' + (d.currentConcurrentViewers || 0) + ') & Active Streams (' + (d.activeLiveSessionsCount || 0) + ')</span>';
+      html += '    <span style="margin:0 10px;color:#94a3b8;">|</span>';
+      html += '    <span style="font-size:12px;font-weight:700;color:#0369a1;margin-right:8px;">⏱️ DELAYED:</span>';
+      html += '    <span style="font-size:12px;color:#075985;">Aggregated YouTube Views (' + (d.totalViews || 0) + ') & Statistics</span>';
+      html += '  </div>';
+      html += '  <span style="font-size:11px;color:var(--text-muted);">' + (d.generatedAt ? ('Updated: ' + _esc(d.generatedAt.replace('T', ' ').substring(0, 19))) : '') + '</span>';
+      html += '</div>';
+
+      // KPI Summary Cards
+      html += '<div class="live-stats-row" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:14px;margin-bottom:24px;">';
+
+      // Total Sessions
+      html += '  <div class="stat-card" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:16px;">';
+      html += '    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Total Broadcasts</div>';
+      html += '    <div style="font-size:24px;font-weight:800;color:#1e293b;margin-top:4px;">' + (d.totalLiveSessions || 0) + '</div>';
+      html += '    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + (d.completedLiveSessionsCount || 0) + ' completed · ' + (d.activeLiveSessionsCount || 0) + ' active</div>';
+      html += '  </div>';
+
+      // Active Now
+      html += '  <div class="stat-card" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:16px;">';
+      html += '    <div style="font-size:11px;font-weight:700;color:#dc2626;text-transform:uppercase;">🔴 Active Now</div>';
+      html += '    <div style="font-size:24px;font-weight:800;color:#dc2626;margin-top:4px;">' + (d.activeLiveSessionsCount || 0) + '</div>';
+      html += '    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + (d.currentConcurrentViewers || 0) + ' concurrent viewers</div>';
+      html += '  </div>';
+
+      // Total Airtime
+      html += '  <div class="stat-card" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:16px;">';
+      html += '    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Total Airtime</div>';
+      html += '    <div style="font-size:24px;font-weight:800;color:#0284c7;margin-top:4px;">' + formatDuration(d.totalDurationSeconds || 0) + '</div>';
+      html += '    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Cumulative broadcast duration</div>';
+      html += '  </div>';
+
+      // Average Duration
+      html += '  <div class="stat-card" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:16px;">';
+      html += '    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Avg Stream Duration</div>';
+      html += '    <div style="font-size:24px;font-weight:800;color:#7c3aed;margin-top:4px;">' + formatDuration(d.averageDurationSeconds || 0) + '</div>';
+      html += '    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Across completed broadcasts</div>';
+      html += '  </div>';
+
+      // Total Views
+      html += '  <div class="stat-card" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:16px;">';
+      html += '    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Total Views</div>';
+      html += '    <div style="font-size:24px;font-weight:800;color:#059669;margin-top:4px;">' + (d.totalViews || 0).toLocaleString() + '</div>';
+      html += '    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">YouTube recorded views</div>';
+      html += '  </div>';
+
+      // Peak Viewers
+      html += '  <div class="stat-card" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:16px;">';
+      html += '    <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">All-Time Peak</div>';
+      html += '    <div style="font-size:24px;font-weight:800;color:#d97706;margin-top:4px;">' + (d.peakConcurrentViewers || 0).toLocaleString() + '</div>';
+      html += '    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Max concurrent recorded</div>';
+      html += '  </div>';
+
+      html += '</div>';
+
+      // Active Streams Real-Time Telemetry Section
+      html += '<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:18px;margin-bottom:24px;">';
+      html += '  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">';
+      html += '    <h3 style="font-size:15px;font-weight:700;color:#1e293b;margin:0;">🔴 Active Streams Real-Time Telemetry</h3>';
+      html += '    <span style="font-size:12px;color:var(--text-muted);">' + activeStreams.length + ' active broadcast' + (activeStreams.length === 1 ? '' : 's') + '</span>';
+      html += '  </div>';
+
+      if (activeStreams.length === 0) {
+        html += '  <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px;background:#f8fafc;border-radius:6px;">No live streams currently broadcasting. Real-time telemetry will appear here when a stream goes live.</div>';
+      } else {
+        html += '  <div class="module-table-wrapper" style="overflow-x:auto;">';
+        html += '    <table class="module-table" style="width:100%;font-size:13px;">';
+        html += '      <thead>';
+        html += '        <tr>';
+        html += '          <th>Broadcast Title</th>';
+        html += '          <th>Broadcaster</th>';
+        html += '          <th>Channel</th>';
+        html += '          <th>Location / Event</th>';
+        html += '          <th>Live Duration</th>';
+        html += '          <th>Concurrent Viewers</th>';
+        html += '          <th>Peak</th>';
+        html += '          <th>Actions</th>';
+        html += '        </tr>';
+        html += '      </thead>';
+        html += '      <tbody>';
+        activeStreams.forEach(function(as) {
+          html += '      <tr>';
+          html += '        <td><div style="font-weight:600;">' + _esc(as.title) + '</div><div style="font-size:11px;color:var(--text-muted);">' + _esc(as.liveId) + '</div></td>';
+          html += '        <td>' + _esc(as.cameraPersonName) + '</td>';
+          html += '        <td>' + _esc(as.channelTitle) + '</td>';
+          html += '        <td>' + _esc(as.locationName || "—") + '</td>';
+          html += '        <td style="font-weight:600;color:#0284c7;">' + formatDuration(as.durationSeconds) + '</td>';
+          html += '        <td><span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-weight:700;font-size:12px;">👥 ' + (as.currentViewers !== null ? as.currentViewers : '—') + '</span></td>';
+          html += '        <td style="font-weight:600;">' + as.peakViewers + '</td>';
+          html += '        <td style="white-space:nowrap;">';
+          html += '          <button class="module-btn module-btn-sm module-btn-secondary" onclick="window._openSessionMetricsModal(\'' + _esc(as.liveId) + '\')">📈 Metrics</button> ';
+          html += '          <button class="module-btn module-btn-sm module-btn-secondary" onclick="window._captureLiveSnapshot(\'' + _esc(as.liveId) + '\')">📸 Snapshot</button>';
+          html += '        </td>';
+          html += '      </tr>';
+        });
+        html += '      </tbody>';
+        html += '    </table>';
+        html += '  </div>';
+      }
+      html += '</div>';
+
+      // 2-Column Breakdown Grids
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(360px, 1fr));gap:20px;margin-bottom:24px;">';
+
+      // Breakdown: Channels
+      html += '  <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:18px;">';
+      html += '    <h3 style="font-size:14px;font-weight:700;color:#1e293b;margin:0 0 12px 0;">📺 Activity by YouTube Channel</h3>';
+      if (channelsList.length === 0) {
+        html += '    <div style="font-size:12px;color:var(--text-muted);padding:12px;text-align:center;">No channel data recorded.</div>';
+      } else {
+        html += '    <table class="module-table" style="width:100%;font-size:12px;">';
+        html += '      <thead><tr><th>Channel</th><th>Sessions</th><th>Total Airtime</th><th>Views</th></tr></thead>';
+        html += '      <tbody>';
+        channelsList.forEach(function(c) {
+          html += '      <tr>';
+          html += '        <td style="font-weight:600;">' + _esc(c.channelTitle) + '</td>';
+          html += '        <td>' + c.sessionCount + '</td>';
+          html += '        <td>' + formatDuration(c.totalDurationSeconds) + '</td>';
+          html += '        <td>' + (c.totalViews || 0).toLocaleString() + '</td>';
+          html += '      </tr>';
+        });
+        html += '      </tbody>';
+        html += '    </table>';
+      }
+      html += '  </div>';
+
+      // Breakdown: Broadcasters
+      html += '  <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:18px;">';
+      html += '    <h3 style="font-size:14px;font-weight:700;color:#1e293b;margin:0 0 12px 0;">👥 Activity by Camera Person</h3>';
+      if (broadcastersList.length === 0) {
+        html += '    <div style="font-size:12px;color:var(--text-muted);padding:12px;text-align:center;">No broadcaster data recorded.</div>';
+      } else {
+        html += '    <table class="module-table" style="width:100%;font-size:12px;">';
+        html += '      <thead><tr><th>Broadcaster</th><th>Sessions</th><th>Total Airtime</th><th>Views</th></tr></thead>';
+        html += '      <tbody>';
+        broadcastersList.forEach(function(b) {
+          html += '      <tr>';
+          html += '        <td style="font-weight:600;">' + _esc(b.cameraPersonName) + '</td>';
+          html += '        <td>' + b.sessionCount + '</td>';
+          html += '        <td>' + formatDuration(b.totalDurationSeconds) + '</td>';
+          html += '        <td>' + (b.totalViews || 0).toLocaleString() + '</td>';
+          html += '      </tr>';
+        });
+        html += '      </tbody>';
+        html += '    </table>';
+      }
+      html += '  </div>';
+
+      // Breakdown: Locations
+      html += '  <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:18px;">';
+      html += '    <h3 style="font-size:14px;font-weight:700;color:#1e293b;margin:0 0 12px 0;">📍 Activity by Location</h3>';
+      if (locationsList.length === 0) {
+        html += '    <div style="font-size:12px;color:var(--text-muted);padding:12px;text-align:center;">No location associations recorded.</div>';
+      } else {
+        html += '    <table class="module-table" style="width:100%;font-size:12px;">';
+        html += '      <thead><tr><th>Location</th><th>Sessions</th><th>Total Airtime</th></tr></thead>';
+        html += '      <tbody>';
+        locationsList.forEach(function(l) {
+          html += '      <tr>';
+          html += '        <td style="font-weight:600;">' + _esc(l.locationName) + '</td>';
+          html += '        <td>' + l.sessionCount + '</td>';
+          html += '        <td>' + formatDuration(l.totalDurationSeconds) + '</td>';
+          html += '      </tr>';
+        });
+        html += '      </tbody>';
+        html += '    </table>';
+      }
+      html += '  </div>';
+
+      // Breakdown: Termination Reasons
+      html += '  <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:18px;">';
+      html += '    <h3 style="font-size:14px;font-weight:700;color:#1e293b;margin:0 0 12px 0;">🛑 Termination Reasons</h3>';
+      const reasonKeys = Object.keys(reasonsObj);
+      if (reasonKeys.length === 0) {
+        html += '    <div style="font-size:12px;color:var(--text-muted);padding:12px;text-align:center;">No termination reasons recorded.</div>';
+      } else {
+        html += '    <table class="module-table" style="width:100%;font-size:12px;">';
+        html += '      <thead><tr><th>Reason</th><th>Count</th></tr></thead>';
+        html += '      <tbody>';
+        reasonKeys.forEach(function(r) {
+          html += '      <tr>';
+          html += '        <td style="font-weight:600;">' + _esc(r) + '</td>';
+          html += '        <td>' + reasonsObj[r] + '</td>';
+          html += '      </tr>';
+        });
+        html += '      </tbody>';
+        html += '    </table>';
+      }
+      html += '  </div>';
+
+      html += '</div>';
+
+      parent.innerHTML = html;
+    }
+
+    // ============================================================
+    // GLOBAL HANDLERS FOR CHANNELS, ALLOCATIONS, HISTORY, LOCATIONS, EVENTS & ANALYTICS
     // ============================================================
 
     window._switchLiveMainTab = function (tab) {
@@ -1924,6 +2188,157 @@ moderator management, and stream lifecycle controls
         loadAndRenderLocations();
       } else if (_currentLiveTab === "events") {
         loadAndRenderEvents();
+      } else if (_currentLiveTab === "analytics") {
+        loadAndRenderAnalytics();
+      }
+    };
+
+    window._refreshAnalyticsTab = function () {
+      loadAndRenderAnalytics();
+    };
+
+    window._openSessionMetricsModal = async function (liveId) {
+      if (!liveId) return;
+      const session = AdminAuth.getSession();
+      if (!session) {
+        if (typeof AdminAuth !== "undefined" && typeof AdminAuth.redirectToLogin === "function") {
+          AdminAuth.redirectToLogin();
+        }
+        return;
+      }
+
+      closeModal();
+
+      let mhtml = '<div class="modal-overlay" onclick="closeModal(event)">';
+      mhtml += '  <div class="modal-container" style="max-width:680px;" onclick="event.stopPropagation()">';
+      mhtml += '    <div class="modal-header">';
+      mhtml += '      <h3 class="modal-title">📈 Live Session Operational Metrics</h3>';
+      mhtml += '      <button class="modal-close" onclick="closeModal()">✕</button>';
+      mhtml += '    </div>';
+      mhtml += '    <div class="modal-body" id="sessionMetricsModalBody">';
+      mhtml += '      <div class="module-loading" style="padding:30px 0;"><div class="loader"></div><p>Fetching server-side metrics...</p></div>';
+      mhtml += '    </div>';
+      mhtml += '    <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">';
+      mhtml += '      <button class="module-btn module-btn-sm module-btn-secondary" id="captureSnapBtn" onclick="window._captureLiveSnapshot(\'' + _esc(liveId) + '\', true)">📸 Capture Snapshot Now</button>';
+      mhtml += '      <button class="module-btn module-btn-secondary" onclick="closeModal()">Close</button>';
+      mhtml += '    </div>';
+      mhtml += '  </div>';
+      mhtml += '</div>';
+
+      document.body.insertAdjacentHTML("beforeend", mhtml);
+
+      try {
+        const url = getApiUrl() + "?action=adminlivesessionmetrics&liveId=" + encodeURIComponent(liveId) + "&session=" + encodeURIComponent(session);
+        const res = await fetch(url);
+        const json = await res.json();
+        const mBody = document.getElementById("sessionMetricsModalBody");
+        if (!mBody) return;
+
+        if (!json || !json.success || !json.data) {
+          mBody.innerHTML = '<div style="color:#b91c1c;padding:16px;background:#fee2e2;border-radius:6px;">⚠️ Failed to load session metrics: ' + _esc(json && json.message || "Unknown error") + '</div>';
+          return;
+        }
+
+        const s = json.data;
+        const durStr = formatDuration(s.durationSeconds || s.DurationSeconds || 0);
+        const isLive = s.isLive || String(s.status || "").toLowerCase() === "active";
+        const viewersVal = s.currentViewers !== null ? s.currentViewers : "Unavailable / Offline";
+        const viewsVal = s.totalViews !== null ? s.totalViews.toLocaleString() : "Unavailable / Offline";
+
+        let bhtml = '';
+        bhtml += '<div style="background:#f8fafc;border-left:4px solid ' + (isLive ? '#16a34a' : '#64748b') + ';padding:10px 14px;border-radius:4px;margin-bottom:16px;font-size:12px;display:flex;justify-content:space-between;align-items:center;">';
+        bhtml += '  <div><strong>Status:</strong> <span class="status-badge" style="background:' + (isLive ? '#dcfce7;color:#15803d' : '#f1f5f9;color:#475569') + ';padding:2px 8px;border-radius:10px;font-size:11px;">' + _esc(s.status || s.Status) + '</span> · ' + (isLive ? 'Live Stream Ongoing' : 'Concluded Stream Archive') + '</div>';
+        bhtml += '  <div style="font-size:11px;color:var(--text-muted);">' + (s.metricFreshness && s.metricFreshness.isRealTimeViewers ? '🟢 Real-Time Verified' : '⏱️ Delayed / Cached') + '</div>';
+        bhtml += '</div>';
+
+        bhtml += '<div style="margin-bottom:14px;">';
+        bhtml += '  <h4 style="margin:0 0 4px 0;font-size:15px;font-weight:700;">' + _esc(s.title || s.Title) + '</h4>';
+        bhtml += '  <div style="font-size:12px;color:var(--text-muted);">' + _esc(s.channelTitle || s.YouTubeChannelID) + ' · Broadcaster: ' + _esc(s.cameraPersonName || s.CameraPersonID) + '</div>';
+        bhtml += '</div>';
+
+        // 4 KPI Mini-Cards
+        bhtml += '<div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;margin-bottom:16px;">';
+        bhtml += '  <div style="background:#f1f5f9;padding:10px;border-radius:6px;text-align:center;">';
+        bhtml += '    <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Viewers</div>';
+        bhtml += '    <div style="font-size:18px;font-weight:800;color:' + (isLive ? '#15803d' : '#475569') + ';">' + (typeof viewersVal === "number" ? viewersVal.toLocaleString() : viewersVal) + '</div>';
+        bhtml += '  </div>';
+        bhtml += '  <div style="background:#f1f5f9;padding:10px;border-radius:6px;text-align:center;">';
+        bhtml += '    <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Total Views</div>';
+        bhtml += '    <div style="font-size:18px;font-weight:800;color:#0284c7;">' + viewsVal + '</div>';
+        bhtml += '  </div>';
+        bhtml += '  <div style="background:#f1f5f9;padding:10px;border-radius:6px;text-align:center;">';
+        bhtml += '    <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Peak Recorded</div>';
+        bhtml += '    <div style="font-size:18px;font-weight:800;color:#d97706;">' + (s.peakViewers || 0) + '</div>';
+        bhtml += '  </div>';
+        bhtml += '  <div style="background:#f1f5f9;padding:10px;border-radius:6px;text-align:center;">';
+        bhtml += '    <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Duration</div>';
+        bhtml += '    <div style="font-size:16px;font-weight:800;color:#7c3aed;line-height:24px;">' + durStr + '</div>';
+        bhtml += '  </div>';
+        bhtml += '</div>';
+
+        // Additional stats
+        bhtml += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:12px;">';
+        bhtml += '  <div><strong>Started At:</strong> ' + (s.startedAt ? _esc(s.startedAt.replace('T', ' ').substring(0, 19)) : '—') + '</div>';
+        bhtml += '  <div><strong>Ended At:</strong> ' + (s.endedAt ? _esc(s.endedAt.replace('T', ' ').substring(0, 19)) : (isLive ? 'Currently Live' : '—')) + '</div>';
+        bhtml += '  <div><strong>Termination Reason:</strong> ' + _esc(s.terminationReason || s.TerminationReason || "Normal") + '</div>';
+        bhtml += '  <div><strong>Location / Event:</strong> ' + _esc(s.locationEventName || "—") + '</div>';
+        bhtml += '</div>';
+
+        // Snapshots list
+        bhtml += '<div style="border-top:1px solid #e2e8f0;padding-top:12px;">';
+        bhtml += '  <h5 style="margin:0 0 8px 0;font-size:13px;font-weight:700;color:#1e293b;">📸 Captured Metric Snapshots</h5>';
+        const snaps = s.snapshots || [];
+        if (snaps.length === 0) {
+          bhtml += '  <div style="font-size:12px;color:var(--text-muted);padding:8px 0;">No metric snapshots recorded for this session yet.</div>';
+        } else {
+          bhtml += '  <div style="max-height:160px;overflow-y:auto;">';
+          bhtml += '    <table class="module-table" style="width:100%;font-size:11px;">';
+          bhtml += '      <thead><tr><th>Captured At</th><th>Viewers</th><th>Total Views</th><th>Duration</th><th>Status</th></tr></thead>';
+          bhtml += '      <tbody>';
+          snaps.forEach(function(snap) {
+            bhtml += '      <tr>';
+            bhtml += '        <td>' + _esc(snap.capturedAt ? snap.capturedAt.replace('T', ' ').substring(0, 19) : '—') + '</td>';
+            bhtml += '        <td>' + (snap.currentViewers !== null ? snap.currentViewers : '—') + '</td>';
+            bhtml += '        <td>' + (snap.totalViews !== null ? snap.totalViews.toLocaleString() : '—') + '</td>';
+            bhtml += '        <td>' + formatDuration(snap.durationSeconds) + '</td>';
+            bhtml += '        <td>' + _esc(snap.status) + '</td>';
+            bhtml += '      </tr>';
+          });
+          bhtml += '      </tbody>';
+          bhtml += '    </table>';
+          bhtml += '  </div>';
+        }
+        bhtml += '</div>';
+
+        mBody.innerHTML = bhtml;
+
+      } catch (err) {
+        const mBody = document.getElementById("sessionMetricsModalBody");
+        if (mBody) {
+          mBody.innerHTML = '<div style="color:#b91c1c;padding:16px;background:#fee2e2;border-radius:6px;">⚠️ Exception: ' + _esc(err.message) + '</div>';
+        }
+      }
+    };
+
+    window._captureLiveSnapshot = async function (liveId, reloadModal) {
+      if (!liveId) return;
+      const session = AdminAuth.getSession();
+      if (!session) return;
+
+      try {
+        const url = getApiUrl() + "?action=admincapturesnapshot&liveId=" + encodeURIComponent(liveId) + "&force=true&session=" + encodeURIComponent(session);
+        const res = await fetch(url);
+        const json = await res.json();
+        if (json && json.success) {
+          showToast("Snapshot captured successfully", "success");
+          if (reloadModal && typeof window._openSessionMetricsModal === "function") {
+            window._openSessionMetricsModal(liveId);
+          }
+        } else {
+          showToast("Snapshot: " + (json && json.message || "Failed"), "error");
+        }
+      } catch (e) {
+        showToast("Error capturing snapshot: " + e.message, "error");
       }
     };
 
@@ -2397,7 +2812,8 @@ moderator management, and stream lifecycle controls
       mhtml += '    <div class="modal-body" id="historicalModalBody" style="padding:16px;">';
       mhtml += '      <div style="text-align:center;padding:24px;color:var(--text-muted);"><div class="loader" style="margin:0 auto 10px;"></div>Loading broadcast session record...</div>';
       mhtml += '    </div>';
-      mhtml += '    <div class="modal-footer" style="display:flex;justify-content:flex-end;">';
+      mhtml += '    <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">';
+      mhtml += '      <button class="module-btn module-btn-sm module-btn-secondary" onclick="window._openSessionMetricsModal(\'' + _esc(liveId) + '\')">📈 View Metrics & Snapshots</button>';
       mhtml += '      <button class="module-btn module-btn-secondary" onclick="closeModal()">Close</button>';
       mhtml += '    </div>';
       mhtml += '  </div>';
