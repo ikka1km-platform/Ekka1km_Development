@@ -9,6 +9,84 @@
 
 
 /**
+ * Helper to normalize business records and safely heal structural column shifts
+ */
+function normalizeBusinessRecord(b) {
+  if (!b || typeof b !== "object") return b;
+
+  var pincodeStr = String(b.Pincode || "").trim().toLowerCase();
+  var stateStr = String(b.State || "").trim().toLowerCase();
+  var latStr = String(b.Latitude || "").trim();
+
+  // Detect structural column shift:
+  // In shifted records, Pincode contains a status string ("pending", "active", etc.),
+  // State contains an image URL ("http...", "https..."),
+  // or Latitude contains an ISO timestamp string.
+  var isShifted = (
+    (pincodeStr === "pending" || pincodeStr === "approved" || pincodeStr === "active" || pincodeStr === "rejected") ||
+    (stateStr.indexOf("http://") === 0 || stateStr.indexOf("https://") === 0) ||
+    (latStr.indexOf("T") !== -1 && latStr.indexOf("Z") !== -1 && !isNaN(Date.parse(latStr)))
+  );
+
+  if (isShifted) {
+    var rawAddress = b.Logo;
+    var rawCity = b.CoverImage;
+    var rawState = b.Phone;
+    var rawPincode = b.WhatsApp;
+    var rawLat = b.Email;
+    var rawLng = b.Website;
+    var rawPhone = b.Address;
+    var rawLogo = b.State;
+    var rawCover = b.Country;
+    var rawStatus = b.Pincode;
+    var rawDate = b.Latitude;
+
+    return {
+      BusinessID: String(b.BusinessID || ""),
+      OwnerUserID: String(b.OwnerUserID || b.UserID || ""),
+      UserID: String(b.OwnerUserID || b.UserID || ""),
+      BusinessName: String(b.BusinessName || b.Title || ""),
+      Title: String(b.BusinessName || b.Title || ""),
+      Category: String(b.Category || ""),
+      Description: String(b.Description || ""),
+      Logo: (typeof rawLogo === "string" && (rawLogo.indexOf("http://") === 0 || rawLogo.indexOf("https://") === 0)) ? rawLogo : "",
+      CoverImage: (typeof rawCover === "string" && (rawCover.indexOf("http://") === 0 || rawCover.indexOf("https://") === 0)) ? rawCover : "",
+      Phone: String(rawPhone || ""),
+      WhatsApp: (rawPincode && String(rawPincode).length === 10) ? String(rawPincode) : "",
+      Email: "",
+      Website: "",
+      Address: String(rawAddress || ""),
+      City: String(rawCity || ""),
+      District: String(b.District || ""),
+      State: String(rawState || ""),
+      Country: "India",
+      Pincode: String(rawPincode || ""),
+      Latitude: parseFloat(rawLat) || "",
+      Longitude: parseFloat(rawLng) || "",
+      OpeningTime: String(b.OpeningTime || ""),
+      ClosingTime: String(b.ClosingTime || ""),
+      Status: String(rawStatus || "Active"),
+      CreatedDate: rawDate || "",
+      Views: b.Views || 0,
+      Featured: b.Featured || "No",
+      PromotionCampaignID: b.PromotionCampaignID || "",
+      BusinessType: b.BusinessType || "",
+      Verified: b.Verified || "",
+      VerificationDate: b.VerificationDate || "",
+      VerificationBy: b.VerificationBy || "",
+      DistanceKm: b.DistanceKm || ""
+    };
+  }
+
+  var norm = Object.assign({}, b);
+  if (!norm.BusinessName && norm.Title) norm.BusinessName = norm.Title;
+  if (!norm.Title && norm.BusinessName) norm.Title = norm.BusinessName;
+  if (!norm.OwnerUserID && norm.UserID) norm.OwnerUserID = norm.UserID;
+  if (!norm.UserID && norm.OwnerUserID) norm.UserID = norm.OwnerUserID;
+  return norm;
+}
+
+/**
  * Get all businesses
  * URL:
  * ?action=businesses
@@ -20,13 +98,16 @@ function getBusinesses(e) {
   let data =
     getSheetData("Businesses");
 
-  // Filter by userId if provided (Businesses use OwnerUserID)
+  // Normalize all business records to heal schema shifts transparently
+  data = data.map(normalizeBusinessRecord);
+
+  // Filter by userId if provided (Businesses use OwnerUserID or UserID)
   const userId = e && e.parameter ? e.parameter.userId || "" : "";
   if (userId) {
     const auth = requireAuthenticatedUser(e);
     if (!auth.valid) return auth.response;
     data = data.filter(function(b) {
-      return String(b.OwnerUserID) === auth.userId;
+      return String(b.OwnerUserID || b.UserID) === auth.userId;
     });
   }
 
@@ -85,7 +166,7 @@ function getBusiness(e) {
     return error("Business ID required");
   }
 
-  const business =
+  let business =
     getRowById(
       "Businesses",
       "BusinessID",
@@ -95,6 +176,8 @@ function getBusiness(e) {
   if (!business) {
     return error("Business not found");
   }
+
+  business = normalizeBusinessRecord(business);
 
   return success(
     business,
@@ -117,33 +200,47 @@ function addBusiness(e) {
       getSheet("Businesses");
 
     const p =
-      e.parameter;
+      e.parameter || {};
 
     const businessId =
       "B" +
       Utilities.getUuid()
         .substring(0, 8);
 
-    sheet.appendRow([
-      businessId,
-      auth.userId,
-      p.title || "",
-      p.category || "",
-      p.description || "",
-      p.address || "",
-      p.city || "",
-      p.state || "",
-      p.pincode || "",
-      p.latitude || "",
-      p.longitude || "",
-      p.phone || "",
-      p.email || "",
-      p.website || "",
-      p.logo || "",
-      p.coverImage || "",
-      "Pending",
-      new Date()
-    ]);
+    const headers = sheet.getDataRange().getValues()[0];
+    const newRow = new Array(headers.length).fill("");
+
+    function setCol(name, val) {
+      const idx = headers.indexOf(name);
+      if (idx >= 0) newRow[idx] = (val !== undefined && val !== null) ? val : "";
+    }
+
+    setCol("BusinessID", businessId);
+    setCol("OwnerUserID", auth.userId);
+    setCol("UserID", auth.userId);
+    setCol("BusinessName", p.title || p.businessName || p.name || "");
+    setCol("Category", p.category || "");
+    setCol("Description", p.description || "");
+    setCol("Logo", p.logo || "");
+    setCol("CoverImage", p.coverImage || "");
+    setCol("Phone", p.phone || p.mobile || "");
+    setCol("WhatsApp", p.whatsapp || "");
+    setCol("Email", p.email || "");
+    setCol("Website", p.website || "");
+    setCol("Address", p.address || "");
+    setCol("City", p.city || "");
+    setCol("District", p.district || "");
+    setCol("State", p.state || "");
+    setCol("Country", p.country || "India");
+    setCol("Pincode", p.pincode || "");
+    setCol("Latitude", p.latitude || p.lat || "");
+    setCol("Longitude", p.longitude || p.lng || "");
+    setCol("OpeningTime", p.openingTime || p.openTime || "");
+    setCol("ClosingTime", p.closingTime || p.closeTime || "");
+    setCol("Status", p.status || "Pending");
+    setCol("CreatedDate", new Date());
+
+    sheet.appendRow(newRow);
 
     return success(
       {
@@ -170,8 +267,8 @@ function updateBusiness(e) {
     const auth = requireAuthenticatedUser(e);
     if (!auth.valid) return auth.response;
 
-    const id =
-      e.parameter.id;
+    const p = e.parameter || {};
+    const id = p.id || p.businessId || "";
 
     if (!id) {
       return error(
@@ -186,111 +283,54 @@ function updateBusiness(e) {
       sheet.getDataRange()
         .getValues();
 
-    for (let i = 1; i < data.length; i++) {
+    if (data.length < 2) {
+      return error("Business not found");
+    }
 
+    const headers = data[0];
+    const idIndex = headers.indexOf("BusinessID");
+    let ownerIndex = headers.indexOf("OwnerUserID");
+    if (ownerIndex < 0) ownerIndex = headers.indexOf("UserID");
+
+    const targetIdCol = idIndex >= 0 ? idIndex : 0;
+
+    for (let i = 1; i < data.length; i++) {
       if (
-        String(data[i][0]).trim() ===
+        String(data[i][targetIdCol]).trim() ===
         String(id).trim()
       ) {
-        if (String(data[i][1] || "") !== auth.userId) return error("Forbidden");
-
-        if (e.parameter.title) {
-          sheet.getRange(i + 1, 3)
-            .setValue(
-              e.parameter.title
-            );
+        if (ownerIndex >= 0 && String(data[i][ownerIndex] || "").trim() !== auth.userId) {
+          return error("Forbidden");
         }
 
-        if (e.parameter.category) {
-          sheet.getRange(i + 1, 4)
-            .setValue(
-              e.parameter.category
-            );
+        function updateField(colName, val) {
+          if (val === undefined || val === null || val === "") return;
+          const idx = headers.indexOf(colName);
+          if (idx >= 0) {
+            sheet.getRange(i + 1, idx + 1).setValue(val);
+          }
         }
 
-        if (e.parameter.description) {
-          sheet.getRange(i + 1, 5)
-            .setValue(
-              e.parameter.description
-            );
-        }
-
-        if (e.parameter.address) {
-          sheet.getRange(i + 1, 6)
-            .setValue(
-              e.parameter.address
-            );
-        }
-
-        if (e.parameter.city) {
-          sheet.getRange(i + 1, 7)
-            .setValue(
-              e.parameter.city
-            );
-        }
-
-        if (e.parameter.state) {
-          sheet.getRange(i + 1, 8)
-            .setValue(
-              e.parameter.state
-            );
-        }
-
-        if (e.parameter.pincode) {
-          sheet.getRange(i + 1, 9)
-            .setValue(
-              e.parameter.pincode
-            );
-        }
-
-        if (e.parameter.latitude) {
-          sheet.getRange(i + 1, 10)
-            .setValue(
-              e.parameter.latitude
-            );
-        }
-
-        if (e.parameter.longitude) {
-          sheet.getRange(i + 1, 11)
-            .setValue(
-              e.parameter.longitude
-            );
-        }
-
-        if (e.parameter.phone) {
-          sheet.getRange(i + 1, 12)
-            .setValue(
-              e.parameter.phone
-            );
-        }
-
-        if (e.parameter.email) {
-          sheet.getRange(i + 1, 13)
-            .setValue(
-              e.parameter.email
-            );
-        }
-
-        if (e.parameter.website) {
-          sheet.getRange(i + 1, 14)
-            .setValue(
-              e.parameter.website
-            );
-        }
-
-        if (e.parameter.logo) {
-          sheet.getRange(i + 1, 15)
-            .setValue(
-              e.parameter.logo
-            );
-        }
-
-        if (e.parameter.coverImage) {
-          sheet.getRange(i + 1, 16)
-            .setValue(
-              e.parameter.coverImage
-            );
-        }
+        updateField("BusinessName", p.title || p.businessName || p.name);
+        updateField("Title", p.title || p.businessName || p.name);
+        updateField("Category", p.category);
+        updateField("Description", p.description);
+        updateField("Address", p.address);
+        updateField("City", p.city);
+        updateField("District", p.district);
+        updateField("State", p.state);
+        updateField("Country", p.country);
+        updateField("Pincode", p.pincode);
+        updateField("Latitude", p.latitude || p.lat);
+        updateField("Longitude", p.longitude || p.lng);
+        updateField("Phone", p.phone || p.mobile);
+        updateField("WhatsApp", p.whatsapp);
+        updateField("Email", p.email);
+        updateField("Website", p.website);
+        updateField("Logo", p.logo);
+        updateField("CoverImage", p.coverImage);
+        updateField("OpeningTime", p.openingTime || p.openTime);
+        updateField("ClosingTime", p.closingTime || p.closeTime);
 
         return success(
           {},

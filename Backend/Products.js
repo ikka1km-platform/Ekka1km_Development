@@ -104,7 +104,17 @@ function addProduct(e) {
     if (!auth.valid) return auth.response;
 
     const sheet = getSheet("Products");
-    const p = e.parameter;
+    const p = e.parameter || {};
+
+    const businessId = (p.businessId || "").trim();
+    if (businessId) {
+      const business = getRowById("Businesses", "BusinessID", businessId);
+      if (!business) return error("Business not found");
+      const bizOwner = String(business.OwnerUserID || business.UserID || "").trim();
+      if (bizOwner !== String(auth.userId).trim()) {
+        return error("Not authorized to post products for this business");
+      }
+    }
 
     const productId =
       "P" +
@@ -114,7 +124,7 @@ function addProduct(e) {
     sheet.appendRow([
       productId,               // ProductID
       auth.userId,              // UserID
-      "",                      // BusinessID
+      businessId,              // BusinessID
       p.title || "",           // Title
       p.description || "",     // Description
       p.price || "",           // Price

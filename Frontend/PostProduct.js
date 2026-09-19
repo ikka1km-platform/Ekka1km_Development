@@ -16,6 +16,9 @@ function openPostProductForm() {
   if (!requireLogin()) return;
   openPage("postProduct");
   clearProductForm();
+  if (typeof setPublishAsChoice === "function") {
+    setPublishAsChoice("product", "", "Personal Listing", "Sell from your personal profile.");
+  }
   // Use existing proven init from Post.js (expects prodImageUpload1/2/3 in HTML)
   if (typeof initProductImageUploads === "function") {
     initProductImageUploads();
@@ -40,14 +43,124 @@ function clearProductForm() {
   document.getElementById("prodImage").value = "";
   document.getElementById("prodImage2").value = "";
   document.getElementById("prodImage3").value = "";
-  document.getElementById("prodCity").value = "";
-  document.getElementById("prodState").value = "";
-  document.getElementById("prodPincode").value = "";
-  document.getElementById("prodPhone").value = "";
-  document.getElementById("prodWhatsapp").value = "";
+
+  var cityEl = document.getElementById("prodCity");
+  var stateEl = document.getElementById("prodState");
+  var pinEl = document.getElementById("prodPincode");
+  var phoneEl = document.getElementById("prodPhone");
+  var waEl = document.getElementById("prodWhatsapp");
+
+  if (cityEl) { cityEl.value = ""; cityEl.style.display = ""; }
+  if (stateEl) { stateEl.value = ""; stateEl.style.display = ""; }
+  if (pinEl) { pinEl.value = ""; pinEl.style.display = ""; }
+  if (phoneEl) { phoneEl.value = ""; phoneEl.style.display = ""; }
+  if (waEl) { waEl.value = ""; waEl.style.display = ""; }
+
   document.getElementById("prodDelivery").value = "No";
   document.getElementById("prodCOD").value = "No";
   document.getElementById("prodNegotiable").value = "No";
+
+  // Remove any business posting banner if present
+  var banner = document.getElementById("prodBusinessPostingBanner");
+  if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
+}
+
+/*
+============================================================
+OPEN ADD PRODUCT FOR BUSINESS
+============================================================
+*/
+
+function openAddProductForBusiness(businessId) {
+  if (!requireLogin()) return;
+  var userId = getUserId();
+  if (!userId) return;
+
+  // Resolve business
+  var business = (typeof CURRENT_BUSINESS !== "undefined" && CURRENT_BUSINESS && String(CURRENT_BUSINESS.BusinessID || CURRENT_BUSINESS.businessId) === String(businessId))
+    ? CURRENT_BUSINESS
+    : ((typeof CURRENT_BUSINESSES !== "undefined" && CURRENT_BUSINESSES) ? CURRENT_BUSINESSES.find(function(b) {
+        return String(b.BusinessID || b.businessId) === String(businessId);
+      }) : null);
+
+  if (!business) {
+    // If not in cache, fetch
+    fetch(getApiUrl() + "?action=business&id=" + encodeURIComponent(businessId))
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (res && res.success && res.data) {
+          var norm = typeof normalizeBusinessRecord === "function" ? normalizeBusinessRecord(res.data) : res.data;
+          openAddProductForBusinessWithData(norm);
+        } else {
+          alert("Business not found");
+        }
+      })
+      .catch(function(err) {
+        console.log("openAddProductForBusiness fetch error:", err);
+        alert("Unable to load business details");
+      });
+    return;
+  }
+
+  openAddProductForBusinessWithData(business);
+}
+
+function openAddProductForBusinessWithData(business) {
+  var userId = getUserId();
+  var ownerId = String(business.OwnerUserID || business.UserID || "").trim();
+  if (!ownerId || ownerId !== String(userId).trim()) {
+    alert("You are not authorized to add products for this business.");
+    return;
+  }
+
+  openPage("postProduct");
+  clearProductForm();
+
+  // Pre-populate inherited fields & apply Option A (hide from owner)
+  var cityEl = document.getElementById("prodCity");
+  var stateEl = document.getElementById("prodState");
+  var pinEl = document.getElementById("prodPincode");
+  var phoneEl = document.getElementById("prodPhone");
+  var waEl = document.getElementById("prodWhatsapp");
+
+  if (cityEl) { cityEl.value = business.City || ""; cityEl.style.display = "none"; }
+  if (stateEl) { stateEl.value = business.State || ""; stateEl.style.display = "none"; }
+  if (pinEl) { pinEl.value = business.Pincode || ""; pinEl.style.display = "none"; }
+  var bizPhone = business.Phone || business.Mobile || "";
+  if (phoneEl) { phoneEl.value = bizPhone; phoneEl.style.display = "none"; }
+  if (waEl) { waEl.value = business.WhatsApp || ""; waEl.style.display = "none"; }
+
+  // Set PublishAs choice
+  var bizId = business.BusinessID || business.businessId || "";
+  var bizName = business.BusinessName || business.Title || "Business";
+  if (typeof setPublishAsChoice === "function") {
+    setPublishAsChoice("product", bizId, bizName, "Posting under business profile.");
+  }
+
+  // Use existing init from Post.js
+  if (typeof initProductImageUploads === "function") {
+    initProductImageUploads();
+  }
+  if (typeof showPublishAsCard === "function") {
+    showPublishAsCard("product");
+  }
+
+  // Add notification banner above the form
+  var postProductPage = document.getElementById("postProduct");
+  if (postProductPage) {
+    var existingBanner = document.getElementById("prodBusinessPostingBanner");
+    if (existingBanner && existingBanner.parentNode) existingBanner.parentNode.removeChild(existingBanner);
+
+    var banner = document.createElement("div");
+    banner.id = "prodBusinessPostingBanner";
+    banner.style.cssText = "margin:10px 0 14px 0;padding:12px 14px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:10px;font-size:13px;color:#2e7d32;display:flex;align-items:center;gap:8px;";
+    banner.innerHTML = '<i class="material-icons" style="font-size:20px;">store</i><span>Posting for <strong>' + (typeof escapeHtml === "function" ? escapeHtml(bizName) : bizName) + '</strong>. Location & contact details are inherited automatically.</span>';
+
+    var card = postProductPage.querySelector(".card");
+    if (card) {
+      card.insertBefore(banner, card.firstChild);
+    }
+  }
 }
 
 /*

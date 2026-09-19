@@ -26,6 +26,80 @@ function businessSafeRender(val) {
   return s;
 }
 
+/**
+ * Helper to normalize business records and safely heal structural column shifts on client
+ */
+function normalizeBusinessRecord(b) {
+  if (!b || typeof b !== "object") return b;
+
+  var pincodeStr = String(b.Pincode || "").trim().toLowerCase();
+  var stateStr = String(b.State || "").trim().toLowerCase();
+  var latStr = String(b.Latitude || "").trim();
+
+  var isShifted = (
+    (pincodeStr === "pending" || pincodeStr === "approved" || pincodeStr === "active" || pincodeStr === "rejected") ||
+    (stateStr.indexOf("http://") === 0 || stateStr.indexOf("https://") === 0) ||
+    (latStr.indexOf("T") !== -1 && latStr.indexOf("Z") !== -1 && !isNaN(Date.parse(latStr)))
+  );
+
+  if (isShifted) {
+    var rawAddress = b.Logo;
+    var rawCity = b.CoverImage;
+    var rawState = b.Phone;
+    var rawPincode = b.WhatsApp;
+    var rawLat = b.Email;
+    var rawLng = b.Website;
+    var rawPhone = b.Address;
+    var rawLogo = b.State;
+    var rawCover = b.Country;
+    var rawStatus = b.Pincode;
+    var rawDate = b.Latitude;
+
+    return {
+      BusinessID: String(b.BusinessID || ""),
+      OwnerUserID: String(b.OwnerUserID || b.UserID || ""),
+      UserID: String(b.OwnerUserID || b.UserID || ""),
+      BusinessName: String(b.BusinessName || b.Title || ""),
+      Title: String(b.BusinessName || b.Title || ""),
+      Category: String(b.Category || ""),
+      Description: String(b.Description || ""),
+      Logo: (typeof rawLogo === "string" && (rawLogo.indexOf("http://") === 0 || rawLogo.indexOf("https://") === 0)) ? rawLogo : "",
+      CoverImage: (typeof rawCover === "string" && (rawCover.indexOf("http://") === 0 || rawCover.indexOf("https://") === 0)) ? rawCover : "",
+      Phone: String(rawPhone || ""),
+      WhatsApp: (rawPincode && String(rawPincode).length === 10) ? String(rawPincode) : "",
+      Email: "",
+      Website: "",
+      Address: String(rawAddress || ""),
+      City: String(rawCity || ""),
+      District: String(b.District || ""),
+      State: String(rawState || ""),
+      Country: "India",
+      Pincode: String(rawPincode || ""),
+      Latitude: parseFloat(rawLat) || "",
+      Longitude: parseFloat(rawLng) || "",
+      OpeningTime: String(b.OpeningTime || ""),
+      ClosingTime: String(b.ClosingTime || ""),
+      Status: String(rawStatus || "Active"),
+      CreatedDate: rawDate || "",
+      Views: b.Views || 0,
+      Featured: b.Featured || "No",
+      PromotionCampaignID: b.PromotionCampaignID || "",
+      BusinessType: b.BusinessType || "",
+      Verified: b.Verified || "",
+      VerificationDate: b.VerificationDate || "",
+      VerificationBy: b.VerificationBy || "",
+      DistanceKm: b.DistanceKm || ""
+    };
+  }
+
+  var norm = Object.assign({}, b);
+  if (!norm.BusinessName && norm.Title) norm.BusinessName = norm.Title;
+  if (!norm.Title && norm.BusinessName) norm.Title = norm.BusinessName;
+  if (!norm.OwnerUserID && norm.UserID) norm.OwnerUserID = norm.UserID;
+  if (!norm.UserID && norm.OwnerUserID) norm.UserID = norm.OwnerUserID;
+  return norm;
+}
+
 /*
 ESCAPE HTML
 */
@@ -59,7 +133,8 @@ async function loadBusinesses() {
       `${getApiUrl()}?action=businesses&lat=${CURRENT_LAT}&lng=${CURRENT_LNG}&radius=${getRadius()}`
     );
     const json = await response.json();
-    const businesses = (json.data && json.data.data) || [];
+    const rawBusinesses = (json.data && json.data.data) || [];
+    const businesses = rawBusinesses.map(normalizeBusinessRecord);
 
     if (businesses.length === 0) {
       container.innerHTML = '<div class="hij-empty"><i class="material-icons">store</i><p>No Businesses Found.</p></div>';
@@ -72,42 +147,50 @@ async function loadBusinesses() {
     let html = '<div class="business-listing">';
 
     businesses.forEach(business => {
-      const name = businessSafeRender(business.BusinessName) || "-";
+      const name = businessSafeRender(business.BusinessName || business.Title) || "-";
       const category = businessSafeRender(business.Category);
       const desc = businessSafeRender(business.Description);
       const address = businessSafeRender(business.Address);
       const city = businessSafeRender(business.City);
       const state = businessSafeRender(business.State);
       const distance = businessSafeRender(business.DistanceKm);
-      const logo = businessSafeRender(business.Logo);
+      const rawLogo = businessSafeRender(business.Logo);
+      const logo = (rawLogo.indexOf("http://") === 0 || rawLogo.indexOf("https://") === 0) ? rawLogo : "";
+      const rawCover = businessSafeRender(business.CoverImage);
+      const coverImage = (rawCover.indexOf("http://") === 0 || rawCover.indexOf("https://") === 0) ? rawCover : "";
       const phone = businessSafeRender(business.Phone) || businessSafeRender(business.Mobile);
       const email = businessSafeRender(business.Email);
       const businessId = business.BusinessID || business.businessId || "";
 
+      const locationText = [city, state].filter(Boolean).join(", ");
+
       html += `
         <div class="businessCard" onclick='showBusinessDetailsById("${businessId}")'>
+          <div class="businessCard-cover">
+            ${coverImage ? `<img src="${coverImage}" alt="${escapeHtml(name)}" onerror="this.style.display='none'">` : ""}
+          </div>
           <div class="businessCard-header">
             <div class="businessCard-logo">
               ${logo
-                ? `<img src="${logo}" alt="${name}" onerror="this.parentElement.innerHTML='<span class=\\'businessCard-logoPlaceholder\\'>${name.charAt(0)}</span>'">`
-                : `<span class="businessCard-logoPlaceholder">${name.charAt(0)}</span>`
+                ? `<img src="${logo}" alt="${escapeHtml(name)}" onerror="this.parentElement.innerHTML='<span class=\\'businessCard-logoPlaceholder\\'>${escapeHtml(name.charAt(0))}</span>'">`
+                : `<span class="businessCard-logoPlaceholder">${escapeHtml(name.charAt(0))}</span>`
               }
             </div>
             <div class="businessCard-info">
-              <div class="businessCard-name">${name}</div>
-              ${category ? `<div class="businessCard-category">${category}</div>` : ""}
+              <div class="businessCard-name">${escapeHtml(name)}</div>
+              ${category ? `<div class="businessCard-category">${escapeHtml(category)}</div>` : ""}
             </div>
           </div>
           <div class="businessCard-body">
-            ${desc ? `<div class="businessCard-desc">${desc}</div>` : ""}
+            ${desc ? `<div class="businessCard-desc">${escapeHtml(desc)}</div>` : ""}
             <div class="businessCard-details">
-              ${city ? `<span class="businessCard-detail"><i class="material-icons">location_on</i> ${city}${state ? ", " + state : ""}</span>` : ""}
+              ${locationText ? `<span class="businessCard-detail"><i class="material-icons">location_on</i> ${escapeHtml(locationText)}</span>` : ""}
               ${distance ? `<span class="businessCard-detail"><i class="material-icons">near_me</i> ${distance} KM</span>` : ""}
-              ${phone ? `<span class="businessCard-detail"><i class="material-icons">phone</i> ${phone}</span>` : ""}
+              ${phone ? `<span class="businessCard-detail"><i class="material-icons">phone</i> ${escapeHtml(phone)}</span>` : ""}
             </div>
             <div class="businessCard-actions">
               <button class="productCard-btnPrimary" onclick='event.stopPropagation();showBusinessDetailsById("${businessId}")'>View Details</button>
-              <button class="productCard-btnSecondary" onclick='event.stopPropagation();openStorePage(${JSON.stringify(business)})'>Visit Store</button>
+              <button class="productCard-btnSecondary" onclick='event.stopPropagation();openStorePage({ BusinessID: "${businessId}" })'>Visit Store</button>
             </div>
           </div>
         </div>
@@ -149,12 +232,14 @@ function renderHomeBusinessesPreview(businesses) {
 
   preview.forEach(business => {
     const businessId = business.BusinessID || business.businessId || "";
-    const name = business.BusinessName || "-";
+    const name = business.BusinessName || business.Title || "-";
     const category = business.Category || "";
     const distance = business.DistanceKm ? `${business.DistanceKm} KM away` : "";
     const rating = business.Rating || "";
-    const logo = business.Logo || "";
-    const coverImage = business.CoverImage || "";
+    const rawLogo = business.Logo || "";
+    const logo = (rawLogo.indexOf("http://") === 0 || rawLogo.indexOf("https://") === 0) ? rawLogo : "";
+    const rawCover = business.CoverImage || "";
+    const coverImage = (rawCover.indexOf("http://") === 0 || rawCover.indexOf("https://") === 0) ? rawCover : "";
 
     html += `
       <div class="homePreviewCard" onclick='showBusinessDetailsById("${businessId}")'>
@@ -166,8 +251,8 @@ function renderHomeBusinessesPreview(businesses) {
           <i class="material-icons">favorite_border</i>
         </div>
         <div class="homePreviewCard-body">
-          <div class="homePreviewCard-title">${name}</div>
-          ${category ? `<div class="homePreviewCard-meta">${category}</div>` : ""}
+          <div class="homePreviewCard-title">${escapeHtml(name)}</div>
+          ${category ? `<div class="homePreviewCard-meta">${escapeHtml(category)}</div>` : ""}
           ${distance ? `<div class="homePreviewCard-meta">${distance}</div>` : ""}
           ${rating ? `<div class="homePreviewCard-meta">⭐ ${rating}</div>` : ""}
         </div>
@@ -212,8 +297,9 @@ function showBusinessDetailsById(businessId) {
   }
 }
 
-function showBusinessDetails(business) {
-  if (!business) return;
+function showBusinessDetails(rawBiz) {
+  if (!rawBiz) return;
+  const business = normalizeBusinessRecord(rawBiz);
   CURRENT_BUSINESS = business;
 
   const container = document.getElementById("businessList");
@@ -222,19 +308,25 @@ function showBusinessDetails(business) {
   const isLogin = !!getCurrentUser();
   const userId = getUserId();
   const isOwner = userId && (String(business.UserID) === String(userId) || String(business.OwnerUserID) === String(userId));
+  const businessId = business.BusinessID || business.businessId || "";
 
-  const name = businessSafeRender(business.BusinessName) || "-";
+  const name = businessSafeRender(business.BusinessName || business.Title) || "-";
   const category = businessSafeRender(business.Category);
   const desc = businessSafeRender(business.Description);
   const address = businessSafeRender(business.Address);
   const city = businessSafeRender(business.City);
+  const district = businessSafeRender(business.District);
   const state = businessSafeRender(business.State);
+  const country = businessSafeRender(business.Country);
   const pincode = businessSafeRender(business.Pincode);
   const phone = businessSafeRender(business.Phone) || businessSafeRender(business.Mobile);
+  const whatsapp = businessSafeRender(business.WhatsApp);
   const email = businessSafeRender(business.Email);
   const website = businessSafeRender(business.Website);
-  const logo = businessSafeRender(business.Logo);
-  const coverImage = businessSafeRender(business.CoverImage);
+  const rawLogo = businessSafeRender(business.Logo);
+  const logo = (rawLogo.indexOf("http://") === 0 || rawLogo.indexOf("https://") === 0) ? rawLogo : "";
+  const rawCover = businessSafeRender(business.CoverImage);
+  const coverImage = (rawCover.indexOf("http://") === 0 || rawCover.indexOf("https://") === 0) ? rawCover : "";
   const openTime = businessSafeRender(business.OpenTime) || businessSafeRender(business.OpeningTime);
   const closeTime = businessSafeRender(business.CloseTime) || businessSafeRender(business.ClosingTime);
   const distance = businessSafeRender(business.DistanceKm);
@@ -261,30 +353,33 @@ function showBusinessDetails(business) {
     </div>`;
   } else {
     html += `<div style="width:72px;height:72px;border-radius:16px;border:3px solid #fff;background:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.1);">
-      <span style="font-size:28px;font-weight:700;color:#fff;">${name.charAt(0)}</span>
+      <span style="font-size:28px;font-weight:700;color:#fff;">${escapeHtml(name.charAt(0))}</span>
     </div>`;
   }
   html += '</div>';
   html += '</div>';
 
   // Name & Category
-  html += `<div class="hij-detail-title">${name}</div>`;
-  if (category) html += `<div style="font-size:13px;color:var(--primary);font-weight:500;margin-bottom:8px;">${category}</div>`;
+  html += `<div class="hij-detail-title">${escapeHtml(name)}</div>`;
+  if (category) html += `<div style="font-size:13px;color:var(--primary);font-weight:500;margin-bottom:8px;">${escapeHtml(category)}</div>`;
 
   // Description
-  if (desc) html += `<div class="hij-detail-desc">${desc}</div>`;
+  if (desc) html += `<div class="hij-detail-desc">${escapeHtml(desc)}</div>`;
 
   // Details Grid
   html += '<div class="hij-detail-grid">';
-  if (address) html += `<div class="hij-detail-gridItem" style="grid-column:1/-1;"><strong>Address</strong>${address}</div>`;
-  if (city) html += `<div class="hij-detail-gridItem"><strong>City</strong>${city}${state ? ", " + state : ""}</div>`;
-  if (pincode) html += `<div class="hij-detail-gridItem"><strong>Pincode</strong>${pincode}</div>`;
+  if (address) html += `<div class="hij-detail-gridItem" style="grid-column:1/-1;"><strong>Address</strong>${escapeHtml(address)}</div>`;
+  const cityState = [city, district, state].filter(Boolean).join(", ");
+  if (cityState) html += `<div class="hij-detail-gridItem"><strong>Location</strong>${escapeHtml(cityState)}</div>`;
+  if (pincode) html += `<div class="hij-detail-gridItem"><strong>Pincode</strong>${escapeHtml(pincode)}</div>`;
+  if (country) html += `<div class="hij-detail-gridItem"><strong>Country</strong>${escapeHtml(country)}</div>`;
   if (distance) html += `<div class="hij-detail-gridItem"><strong>Distance</strong>${distance} KM</div>`;
-  if (phone) html += `<div class="hij-detail-gridItem"><strong>Phone</strong>${phone}</div>`;
-  if (email) html += `<div class="hij-detail-gridItem"><strong>Email</strong>${email}</div>`;
-  if (website) html += `<div class="hij-detail-gridItem" style="grid-column:1/-1;"><strong>Website</strong>${website}</div>`;
-  if (openTime) html += `<div class="hij-detail-gridItem"><strong>Opens</strong>${openTime}</div>`;
-  if (closeTime) html += `<div class="hij-detail-gridItem"><strong>Closes</strong>${closeTime}</div>`;
+  if (phone) html += `<div class="hij-detail-gridItem"><strong>Phone</strong>${escapeHtml(phone)}</div>`;
+  if (whatsapp) html += `<div class="hij-detail-gridItem"><strong>WhatsApp</strong>${escapeHtml(whatsapp)}</div>`;
+  if (email) html += `<div class="hij-detail-gridItem"><strong>Email</strong>${escapeHtml(email)}</div>`;
+  if (website) html += `<div class="hij-detail-gridItem" style="grid-column:1/-1;"><strong>Website</strong>${escapeHtml(website)}</div>`;
+  if (openTime) html += `<div class="hij-detail-gridItem"><strong>Opens</strong>${escapeHtml(openTime)}</div>`;
+  if (closeTime) html += `<div class="hij-detail-gridItem"><strong>Closes</strong>${escapeHtml(closeTime)}</div>`;
   html += '</div>';
 
   // Actions
@@ -293,8 +388,11 @@ function showBusinessDetails(business) {
   if (isLogin) {
     if (isOwner) {
       html += `
-        <div style="padding:12px;background:#fff3e0;border:1px solid #ffe0b2;border-radius:10px;color:#e65100;text-align:center;font-weight:600;font-size:14px;">
-          <i class="material-icons" style="font-size:18px;vertical-align:middle;">info</i> You are the owner of this business.
+        <div style="padding:12px;background:#fff3e0;border:1px solid #ffe0b2;border-radius:10px;color:#e65100;text-align:center;font-weight:600;font-size:14px;display:flex;flex-direction:column;gap:8px;align-items:center;">
+          <div><i class="material-icons" style="font-size:18px;vertical-align:middle;">info</i> You are the owner of this business.</div>
+          <button class="productCard-btnPrimary" onclick="openAddProductForBusiness('${businessId}')" style="width:100%;max-width:240px;padding:10px 16px;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+            <i class="material-icons" style="font-size:18px;">add_circle</i> Add Product
+          </button>
         </div>
       `;
     } else {

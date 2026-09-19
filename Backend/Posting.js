@@ -87,6 +87,17 @@ function createProduct(e) {
       return error(limitCheck.reason);
     }
 
+    // Business ownership verification
+    var businessId = (p.businessId || "").trim();
+    if (businessId) {
+      var business = getRowById("Businesses", "BusinessID", businessId);
+      if (!business) return error("Business not found");
+      var bizOwner = String(business.OwnerUserID || business.UserID || "").trim();
+      if (bizOwner !== String(userId).trim()) {
+        return error("Not authorized to post products for this business");
+      }
+    }
+
     const sheet = getSheet("Products");
     const productId = "P" + Utilities.getUuid().substring(0, 8);
 
@@ -669,26 +680,40 @@ function createBusiness(e) {
       status = "Pending";
     }
 
-    sheet.appendRow([
-      businessId,
-      userId,
-      p.title || "",
-      p.category || "",
-      p.description || "",
-      p.address || "",
-      p.city || "",
-      p.state || "",
-      p.pincode || "",
-      p.latitude || "",
-      p.longitude || "",
-      p.phone || "",
-      p.email || "",
-      p.website || "",
-      p.logo || "",
-      p.coverImage || "",
-      status,
-      new Date()
-    ]);
+    const headers = sheet.getDataRange().getValues()[0];
+    const newRow = new Array(headers.length).fill("");
+
+    function setCol(name, val) {
+      const idx = headers.indexOf(name);
+      if (idx >= 0) newRow[idx] = (val !== undefined && val !== null) ? val : "";
+    }
+
+    setCol("BusinessID", businessId);
+    setCol("OwnerUserID", userId);
+    setCol("UserID", userId);
+    setCol("BusinessName", p.title || p.businessName || p.name || "");
+    setCol("Category", p.category || "");
+    setCol("Description", p.description || "");
+    setCol("Logo", p.logo || "");
+    setCol("CoverImage", p.coverImage || "");
+    setCol("Phone", p.phone || p.mobile || "");
+    setCol("WhatsApp", p.whatsapp || "");
+    setCol("Email", p.email || "");
+    setCol("Website", p.website || "");
+    setCol("Address", p.address || "");
+    setCol("City", p.city || "");
+    setCol("District", p.district || "");
+    setCol("State", p.state || "");
+    setCol("Country", p.country || "India");
+    setCol("Pincode", p.pincode || "");
+    setCol("Latitude", p.latitude || p.lat || "");
+    setCol("Longitude", p.longitude || p.lng || "");
+    setCol("OpeningTime", p.openingTime || p.openTime || "");
+    setCol("ClosingTime", p.closingTime || p.closeTime || "");
+    setCol("Status", status);
+    setCol("CreatedDate", new Date());
+
+    sheet.appendRow(newRow);
 
     try {
       if (typeof trackEvent === "function") {
@@ -742,19 +767,29 @@ function updateBusiness(e) {
 
     // Ownership validation
     var ownerUserId = userIdIndex >= 0 ? String(businessRow[userIdIndex]) : "";
-    var requestingUserId = p.userId || "";
+    var requestingUserId = p.userId || auth.userId || "";
     if (requestingUserId && String(ownerUserId) !== String(requestingUserId)) {
       return error("Not authorized to update this business");
     }
 
     // Do not allow changing immutable fields
-    var protectedFields = ["BusinessID", "OwnerUserID", "CreatedDate"];
+    var protectedFields = ["BusinessID", "OwnerUserID", "UserID", "CreatedDate"];
 
     for (var j = 0; j < headers.length; j++) {
       var key = headers[j];
       if (protectedFields.indexOf(key) >= 0) continue;
-      if (p[key] === undefined || p[key] === "") continue;
-      sheet.getRange(rowIndex + 1, j + 1).setValue(p[key]);
+      var val = p[key] !== undefined ? p[key] : (p[key.toLowerCase()] !== undefined ? p[key.toLowerCase()] : undefined);
+      if (val === undefined || val === "") {
+        if (key === "BusinessName" && (p.title || p.name)) val = p.title || p.name;
+        if (key === "Title" && (p.title || p.name)) val = p.title || p.name;
+        if (key === "Latitude" && (p.lat !== undefined)) val = p.lat;
+        if (key === "Longitude" && (p.lng !== undefined)) val = p.lng;
+        if (key === "Phone" && (p.mobile !== undefined)) val = p.mobile;
+        if (key === "OpeningTime" && (p.openTime !== undefined)) val = p.openTime;
+        if (key === "ClosingTime" && (p.closeTime !== undefined)) val = p.closeTime;
+      }
+      if (val === undefined || val === "") continue;
+      sheet.getRange(rowIndex + 1, j + 1).setValue(val);
     }
 
     try {
