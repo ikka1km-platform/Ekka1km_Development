@@ -174,7 +174,7 @@ function addProduct(e) {
 /**
  * Update product
  */
-function updateProduct(e) {
+function legacyUpdateProduct(e) {
 
   try {
     const auth = requireAuthenticatedUser(e);
@@ -252,7 +252,7 @@ function updateProduct(e) {
 /**
  * Delete product
  */
-function deleteProduct(e) {
+function legacyDeleteProduct(e) {
 
   try {
     const auth = requireAuthenticatedUser(e);
