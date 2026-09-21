@@ -25,13 +25,17 @@ CLEAR NEWS FORM
 */
 
 function clearNewsForm() {
-  document.getElementById("newsTitle").value = "";
-  document.getElementById("newsContent").value = "";
-  document.getElementById("newsCategory").value = "";
-  document.getElementById("newsSource").value = "";
-  document.getElementById("newsAuthor").value = "";
-  document.getElementById("newsCity").value = "";
-  document.getElementById("newsState").value = "";
+  var setVal = function(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.value = val;
+  };
+  setVal("newsTitle", "");
+  setVal("newsContent", "");
+  setVal("newsCategory", "");
+  setVal("newsCity", "");
+  setVal("newsState", "");
+  setVal("newsImage", "");
+  setVal("newsVideoURL", "");
 }
 
 /*
@@ -47,8 +51,13 @@ function submitNews() {
     return;
   }
 
-  var title = document.getElementById("newsTitle").value.trim();
-  var content = document.getElementById("newsContent").value.trim();
+  var getVal = function(id) {
+    var el = document.getElementById(id);
+    return el ? el.value.trim() : "";
+  };
+
+  var title = getVal("newsTitle");
+  var content = getVal("newsContent");
 
   if (!title || !content) {
     alert("Title and Content are required");
@@ -64,11 +73,11 @@ function submitNews() {
     userId: userId,
     title: title,
     description: content,
-    category: document.getElementById("newsCategory").value.trim(),
-    source: document.getElementById("newsSource").value.trim(),
-    author: document.getElementById("newsAuthor").value.trim(),
-    city: document.getElementById("newsCity").value.trim(),
-    state: document.getElementById("newsState").value.trim(),
+    category: getVal("newsCategory"),
+    image: getVal("newsImage"),
+    videoUrl: getVal("newsVideoURL"),
+    city: getVal("newsCity"),
+    state: getVal("newsState"),
     latitude: getCenterLat(),
     longitude: getCenterLng(),
     status: "Pending"
@@ -126,13 +135,18 @@ function updateNewsForm(newsId) {
         var news = res.data;
         openPage("postNews");
         
-        document.getElementById("newsTitle").value = news.Title || "";
-        document.getElementById("newsContent").value = news.Description || "";
-        document.getElementById("newsCategory").value = news.Category || "";
-        document.getElementById("newsSource").value = news.Source || "";
-        document.getElementById("newsAuthor").value = news.Author || "";
-        document.getElementById("newsCity").value = news.City || "";
-        document.getElementById("newsState").value = news.State || "";
+        var setVal = function(id, val) {
+          var el = document.getElementById(id);
+          if (el) el.value = val;
+        };
+
+        setVal("newsTitle", news.Title || "");
+        setVal("newsContent", news.Description || "");
+        setVal("newsCategory", news.Category || "");
+        setVal("newsCity", news.City || "");
+        setVal("newsState", news.State || "");
+        setVal("newsImage", news.ImageURL || "");
+        setVal("newsVideoURL", news.VideoURL || "");
 
         // Ensure news ID is set for edit mode
         var container = document.getElementById("postNews");

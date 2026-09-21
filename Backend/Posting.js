@@ -897,22 +897,21 @@ function createNews(e) {
       userId,
       p.title || "",
       p.description || "",
-      p.category || "",
       p.image || "",
       p.videoUrl || "",
-      p.source || "",
-      p.author || "",
-      p.address || "",
+      p.category || "",
       p.city || "",
       p.district || "",
       p.state || "",
       p.country || "",
       p.latitude || "",
       p.longitude || "",
+      p.radius || "",
+      status,
+      new Date(),
       0,
       p.featured || "No",
-      status,
-      new Date()
+      p.campaignId || ""
     ]);
 
     try {

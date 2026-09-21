@@ -121,8 +121,8 @@ async function loadNews() {
       html += `<div class="heroNewsCard" style="position:relative;border-radius:16px;overflow:hidden;margin-bottom:15px;cursor:pointer;" onclick='showNewsDetails(${JSON.stringify(featured[0])})'>`;
       const hero = featured[0];
       html += `
-        ${hero.Image
-          ? `<img src="${hero.Image}" style="width:100%;height:200px;object-fit:cover;" onerror="this.style.display='none'">`
+        ${hero.ImageURL
+          ? `<img src="${hero.ImageURL}" style="width:100%;height:200px;object-fit:cover;" onerror="this.style.display='none'">`
           : `<div style="width:100%;height:200px;background:linear-gradient(135deg,var(--primary),#43a047);display:flex;align-items:center;justify-content:center;"><i class="material-icons" style="font-size:64px;color:#fff;">newspaper</i></div>`
         }
         <div style="position:absolute;bottom:0;left:0;right:0;padding:20px;background:linear-gradient(transparent,rgba(0,0,0,.8));">
@@ -142,7 +142,7 @@ async function loadNews() {
     html += '<div class="news-listing">';
 
     displayNews.forEach(item => {
-      const hasImage = item.Image && item.Image.trim();
+      const hasImage = item.ImageURL && item.ImageURL.trim();
       const hasVideo = item.VideoURL && item.VideoURL.trim();
       const isBreaking = (item.Category || "").toLowerCase() === "breaking";
       const category = newsSafeRender(item.Category);
@@ -159,7 +159,7 @@ async function loadNews() {
           </div>
           ${hasImage ? `
             <div class="newsCard-hij-img">
-              <img src="${item.Image}" alt="${title}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'newsCard-hij-img newsCard-hij-imgPlaceholder\\'><i class=\\'material-icons\\'>newspaper</i></div>'">
+              <img src="${item.ImageURL}" alt="${title}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'newsCard-hij-img newsCard-hij-imgPlaceholder\\'><i class=\\'material-icons\\'>newspaper</i></div>'">
             </div>
           ` : hasVideo ? `
             <div class="newsCard-hij-img" style="position:relative;">
@@ -225,7 +225,7 @@ function renderHomeNewsPreview(news) {
   let html = '<div class="homePreviewGrid">';
 
   preview.forEach(item => {
-    const hasImage = item.Image && item.Image.trim();
+    const hasImage = item.ImageURL && item.ImageURL.trim();
     const title = item.Title || "-";
     const timeAgoText = timeAgo(item.CreatedDate);
     const isBreaking = (item.Category || "").toLowerCase() === "breaking";
@@ -233,7 +233,7 @@ function renderHomeNewsPreview(news) {
     html += `
       <div class="homePreviewCard" onclick='showNewsDetailsFromHome(${JSON.stringify(item).replace(/'/g, "\\'")})'>
         ${hasImage
-          ? `<div class="homePreviewCard-img"><img src="${item.Image}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>newspaper</span></div>'"></div>`
+          ? `<div class="homePreviewCard-img"><img src="${item.ImageURL}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'homePreviewCard-img homePreviewCard-imgPlaceholder\\'><span class=\\'material-icons\\'>newspaper</span></div>'"></div>`
           : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">newspaper</span></div>`
         }
         <div class="homePreviewCard-wishlist" data-interest-type="News" data-interest-id="${item.NewsID || item.id || ""}" onclick='event.stopPropagation(); toggleInterest(this, "${item.NewsID || item.id || ""}", "News")'>
@@ -315,7 +315,7 @@ async function loadNewsByCategory(category) {
     html += `<div style="font-size:16px;font-weight:600;margin-bottom:12px;">${category} News</div>`;
 
     news.forEach(item => {
-      const hasImage = item.Image && item.Image.trim();
+      const hasImage = item.ImageURL && item.ImageURL.trim();
       const newsId = item.NewsID || item.id || "";
       html += `
         <div class="newsCard-hij" onclick='showNewsDetails(${JSON.stringify(item)})'>
@@ -324,7 +324,7 @@ async function loadNewsByCategory(category) {
           </div>
           ${hasImage ? `
             <div class="newsCard-hij-img">
-              <img src="${item.Image}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
+              <img src="${item.ImageURL}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
             </div>
           ` : `
             <div class="newsCard-hij-img newsCard-hij-imgPlaceholder">
@@ -366,7 +366,7 @@ function showNewsDetails(item) {
 
   const isOwner = userId && (String(item.UserID) === String(userId) || String(item.OwnerUserID) === String(userId));
 
-  const hasImage = item.Image && item.Image.trim();
+  const hasImage = item.ImageURL && item.ImageURL.trim();
   const hasVideo = item.VideoURL && item.VideoURL.trim();
   const title = newsSafeRender(item.Title) || "";
   const desc = newsSafeRender(item.Description) || "";
@@ -382,7 +382,7 @@ function showNewsDetails(item) {
     <div class="card" style="padding:0;overflow:hidden;">
       ${hasImage ? `
         <div style="position:relative;">
-          <img src="${item.Image}" style="width:100%;max-height:300px;object-fit:cover;" onerror="this.style.display='none'">
+          <img src="${item.ImageURL}" style="width:100%;max-height:300px;object-fit:cover;" onerror="this.style.display='none'">
           ${item.Featured === "Yes" ? `<span class="badge" style="position:absolute;top:10px;left:10px;background:#ff9800;color:#fff;">Featured</span>` : ""}
         </div>
       ` : ""}
@@ -497,7 +497,7 @@ async function loadRelatedNews(newsId) {
     related.forEach(item => {
       html += `
         <div style="display:flex;gap:10px;padding:10px;border-bottom:1px solid #eee;cursor:pointer;" onclick='showNewsDetails(${JSON.stringify(item)})'>
-          ${item.Image ? `<img src="${item.Image}" style="width:60px;height:60px;border-radius:8px;object-fit:cover;" onerror="this.style.display='none'">` : ""}
+          ${item.ImageURL ? `<img src="${item.ImageURL}" style="width:60px;height:60px;border-radius:8px;object-fit:cover;" onerror="this.style.display='none'">` : ""}
           <div style="flex:1;">
             <div style="font-size:13px;font-weight:500;">${newsSafeRender(item.Title) || ""}</div>
             <div style="font-size:10px;color:#888;margin-top:2px;">${timeAgo(item.CreatedDate)}</div>
