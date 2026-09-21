@@ -78,6 +78,8 @@ function submitBusiness() {
     city: document.getElementById("bizCity").value.trim(),
     state: document.getElementById("bizState").value.trim(),
     pincode: document.getElementById("bizPincode").value.trim(),
+    openingTime: document.getElementById("bizOpen").value.trim(),
+    closingTime: document.getElementById("bizClose").value.trim(),
     latitude: getCenterLat(),
     longitude: getCenterLng(),
     logo: document.getElementById("bizLogo").value.trim(),
