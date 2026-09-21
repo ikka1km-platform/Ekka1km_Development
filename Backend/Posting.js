@@ -204,11 +204,38 @@ function updateProduct(e) {
     // Do not allow changing immutable fields
     var protectedFields = ["ProductID", "UserID", "CreatedDate"];
 
+    var fieldMap = {
+      "BusinessID": "businessId",
+      "Title": "title",
+      "Description": "description",
+      "Price": "price",
+      "Category": "category",
+      "ImageURL": "imageURL",
+      "Condition": "condition",
+      "Brand": "brand",
+      "Model": "model",
+      "Image2": "image2",
+      "Image3": "image3",
+      "City": "city",
+      "State": "state",
+      "Pincode": "pincode",
+      "Latitude": "latitude",
+      "Longitude": "longitude",
+      "Phone": "phone",
+      "WhatsApp": "whatsapp",
+      "Delivery": "delivery",
+      "COD": "cod",
+      "Negotiable": "negotiable",
+      "Status": "status"
+    };
+
     for (var j = 0; j < headers.length; j++) {
       var key = headers[j];
       if (protectedFields.indexOf(key) >= 0) continue;
-      if (p[key] === undefined || p[key] === "") continue;
-      sheet.getRange(rowIndex + 1, j + 1).setValue(p[key]);
+      var paramKey = fieldMap[key];
+      var val = (paramKey && p[paramKey] !== undefined) ? p[paramKey] : p[key];
+      if (val === undefined || val === "") continue;
+      sheet.getRange(rowIndex + 1, j + 1).setValue(val);
     }
 
     // Track event
