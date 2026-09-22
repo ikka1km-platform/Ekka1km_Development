@@ -219,6 +219,9 @@ function registerUser(e) {
 
     sheet.appendRow(row);
 
+    // Phase 1: Provision corresponding Wallet row
+    ensureWalletRow(userId, walletId);
+
     return success(
       {
         userId: userId,

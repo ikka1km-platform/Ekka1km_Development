@@ -28,6 +28,12 @@ function getWallet(e) {
       }
     }
 
+    // Auto-recover existing user account if Wallet row was not created at signup
+    const provisioned = ensureWalletRow(userId);
+    if (provisioned) {
+      return success(provisioned);
+    }
+
     return error("Wallet not found");
 
   } catch (err) {
@@ -249,6 +255,66 @@ function getWalletRow(userId) {
 }
 
 
+function ensureWalletRow(userId, explicitWalletId) {
+  if (!userId) return null;
+
+  // 1. First check if wallet row already exists (fast path)
+  const existing = getWalletRow(userId);
+  if (existing) {
+    return existing;
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+
+  try {
+    // 2. Re-check under lock for idempotency
+    const doubleCheck = getWalletRow(userId);
+    if (doubleCheck) {
+      return doubleCheck;
+    }
+
+    const sheet = getSheet("Wallet");
+    if (!sheet) return null;
+
+    let walletId = explicitWalletId || "";
+    if (!walletId) {
+      const user = getRowById(CONFIG.SHEETS.USERS, "UserID", userId);
+      if (user && user.WalletID) {
+        walletId = user.WalletID;
+      } else {
+        walletId = "W" + Utilities.formatDate(
+          new Date(),
+          Session.getScriptTimeZone(),
+          "yyyyMMddHHmmss"
+        );
+      }
+    }
+
+    const now = new Date();
+    sheet.appendRow([
+      walletId,
+      userId,
+      0,
+      0,
+      0,
+      now
+    ]);
+
+    return {
+      WalletID: walletId,
+      UserID: userId,
+      Balance: 0,
+      TotalEarned: 0,
+      TotalSpent: 0,
+      LastUpdated: now
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+
 function creditWallet(
   userId,
   coins,
@@ -265,8 +331,12 @@ function creditWallet(
     return false;
   }
 
-  const wallet =
+  let wallet =
     getWalletRow(userId);
+
+  if (!wallet) {
+    wallet = ensureWalletRow(userId);
+  }
 
   if (!wallet) {
     return false;
@@ -354,7 +424,7 @@ function createWalletTransaction(
       new Date(),
       "SYSTEM"
     ]);
-    return true;
+    return transactionId;
   } catch (err) {
     return false;
   }
@@ -379,8 +449,12 @@ function debitWallet(
   reason,
   source
 ) {
-  const wallet =
+  let wallet =
     getWalletRow(userId);
+
+  if (!wallet) {
+    wallet = ensureWalletRow(userId);
+  }
 
   if (!wallet) {
     throw new Error("Wallet not found. Please create a wallet first.");
@@ -492,7 +566,10 @@ function compensateWallet(
       throw new Error("Compensation amount must be a positive value.");
     }
 
-    const wallet = getWalletRow(userId);
+    let wallet = getWalletRow(userId);
+    if (!wallet) {
+      wallet = ensureWalletRow(userId);
+    }
     if (!wallet) {
       throw new Error("Wallet not found. Please create a wallet first.");
     }
@@ -585,4 +662,96 @@ function hasWalletTransactionForReference(userId, referenceId) {
   }
 
   return false;
+}
+
+
+/**
+ * ============================================================
+ * USER WALLET REWARDS
+ * Retrieves active reward history for the authenticated user
+ * ?action=rewards
+ * Contract expected by Frontend/Wallet.js:
+ * [{ Title: "...", Coins: number, CreatedDate: "..." }]
+ * ============================================================
+ */
+function getRewards(e) {
+  try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+    const userId = auth.userId;
+
+    // Read active PIP rewards from AdRewards
+    const adRewardsSheet = getSheet("AdRewards");
+    if (!adRewardsSheet) {
+      return success([]);
+    }
+
+    const data = adRewardsSheet.getDataRange().getValues();
+    if (data.length <= 1) {
+      return success([]);
+    }
+
+    const headers = data[0];
+    const userRewards = [];
+
+    // Pre-cache campaign titles from PromotionCampaigns for friendly Title
+    const campaignMap = {};
+    const campaignsData = getSheetData("PromotionCampaigns");
+    campaignsData.forEach(function (c) {
+      if (c.CampaignID) {
+        campaignMap[String(c.CampaignID)] = c.CampaignTitle || c.Title || "";
+      }
+    });
+
+    for (let i = 1; i < data.length; i++) {
+      const row = {};
+      headers.forEach(function (h, j) {
+        row[h] = data[i][j];
+      });
+
+      if (String(row.UserID) === String(userId)) {
+        const campaignTitle = campaignMap[String(row.CampaignID)] || "Ad Reward";
+        const dateVal = row.CreatedAt;
+        let createdDate = "";
+        if (dateVal) {
+          try {
+            const d = new Date(dateVal);
+            if (!isNaN(d.getTime())) {
+              createdDate = Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm");
+            } else {
+              createdDate = String(dateVal);
+            }
+          } catch (err) {
+            createdDate = String(dateVal);
+          }
+        }
+
+        userRewards.push({
+          RewardID: row.RewardID || "",
+          Title: campaignTitle,
+          Coins: Number(row.Coins || 0),
+          CreatedDate: createdDate,
+          CampaignID: row.CampaignID || "",
+          WalletTransactionID: row.WalletTransactionID || "",
+          Status: row.Status || "paid",
+          _rawDate: dateVal ? new Date(dateVal).getTime() : 0
+        });
+      }
+    }
+
+    // Sort descending by date
+    userRewards.sort(function (a, b) {
+      return (b._rawDate || 0) - (a._rawDate || 0);
+    });
+
+    // Remove internal sorting helper
+    userRewards.forEach(function (r) {
+      delete r._rawDate;
+    });
+
+    return success(userRewards);
+
+  } catch (err) {
+    return exception(err);
+  }
 }

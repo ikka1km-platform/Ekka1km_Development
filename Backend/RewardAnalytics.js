@@ -45,23 +45,45 @@ function getRewardStats(e) {
 
 function getUserRewardStats(e) {
   try {
-    const userId = e.parameter.userId || "";
+    let targetUserId = (e.parameter.userId || "").trim();
 
-    if (!userId) {
+    const adminResult = requireAdminSession(e);
+    if (!adminResult.valid) {
+      const auth = requireAuthenticatedUser(e);
+      if (!auth.valid) return auth.response;
+      if (targetUserId && String(targetUserId) !== String(auth.userId)) {
+        return error("Unauthorized to view other user reward stats");
+      }
+      targetUserId = auth.userId;
+    }
+
+    if (!targetUserId) {
       return error("userId required");
     }
 
-    const rewards = getSheetData("AdRewardHistory");
+    const legacyRewards = getSheetData("AdRewardHistory") || [];
+    const activeRewards = getSheetData("AdRewards") || [];
 
     let totalCoins = 0;
     let rewardCount = 0;
     const ads = {};
 
-    rewards.forEach(function (r) {
-      if (String(r.UserID) === String(userId)) {
+    // Active PIP rewards
+    activeRewards.forEach(function (r) {
+      if (String(r.UserID) === String(targetUserId)) {
+        rewardCount++;
+        totalCoins += Number(r.Coins || 0);
+        if (r.CampaignID) {
+          ads[r.CampaignID] = true;
+        }
+      }
+    });
+
+    // Legacy rewards
+    legacyRewards.forEach(function (r) {
+      if (String(r.UserID) === String(targetUserId)) {
         rewardCount++;
         totalCoins += Number(r.CoinsEarned || 0);
-
         if (r.AdID) {
           ads[r.AdID] = true;
         }
@@ -69,7 +91,7 @@ function getUserRewardStats(e) {
     });
 
     return success({
-      userId: userId,
+      userId: targetUserId,
       totalCoins: totalCoins,
       rewardCount: rewardCount,
       adsWatched: Object.keys(ads).length

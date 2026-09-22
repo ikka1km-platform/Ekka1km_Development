@@ -432,6 +432,9 @@ function createNewUserByMobile(mobile, headers, sheet) {
 
   sheet.appendRow(row);
 
+  // Phase 1: Provision corresponding Wallet row
+  ensureWalletRow(userId, walletId);
+
   const user = {};
 
   headers.forEach((h, index) => {

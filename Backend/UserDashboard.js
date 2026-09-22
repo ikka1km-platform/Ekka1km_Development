@@ -16,15 +16,26 @@
  */
 function getUserDashboard(e) {
   try {
-    const userId = e && e.parameter ? e.parameter.userId || "" : "";
+    let targetUserId = e && e.parameter ? (e.parameter.userId || "").trim() : "";
     
-    if (!userId) {
+    // Require authenticated user or admin session
+    const adminResult = requireAdminSession(e);
+    if (!adminResult.valid) {
+      const auth = requireAuthenticatedUser(e);
+      if (!auth.valid) return auth.response;
+      if (targetUserId && String(targetUserId) !== String(auth.userId)) {
+        return error("Unauthorized to view other user dashboard");
+      }
+      targetUserId = auth.userId;
+    }
+
+    if (!targetUserId) {
       return error("userId required");
     }
 
     // Check cache
     var cache = CacheService.getScriptCache();
-    var cacheKey = "dashboard_" + userId;
+    var cacheKey = "dashboard_" + targetUserId;
     var cached = cache.get(cacheKey);
     
     if (cached) {
@@ -34,19 +45,26 @@ function getUserDashboard(e) {
       }
     }
 
-    var profile = getUserProfileSummary(userId);
-    var activity = getUserActivitySummary(userId);
-    var analytics = getUserAnalyticsSummary(userId);
-    var recent = getRecentDashboardActivity(userId);
-    var quickStats = getUserQuickStats(userId);
+    var profile = getUserProfileSummary(targetUserId);
+    var activity = getUserActivitySummary(targetUserId);
+    var analytics = getUserAnalyticsSummary(targetUserId);
+    var recent = getRecentDashboardActivity(targetUserId);
+    var quickStats = getUserQuickStats(targetUserId);
+
+    var walletObj = {
+      balance: profile ? profile.walletBalance : 0,
+      totalEarned: profile ? (profile.totalEarned || 0) : 0,
+      totalSpent: profile ? (profile.totalSpent || 0) : 0
+    };
 
     var result = {
       profile: profile,
+      wallet: walletObj,
       activity: activity,
       analytics: analytics,
       recentActivity: recent,
       quickStats: quickStats,
-      realCounts: getRealContentCounts(userId)
+      realCounts: getRealContentCounts(targetUserId)
     };
 
     // Cache for 60 seconds
@@ -89,14 +107,31 @@ function getUserProfileSummary(userId) {
     // Get wallet data - batch read once
     const walletData = getSheetData("Wallet");
     let walletBalance = 0;
-    let coins = 0;
+    let totalEarned = 0;
+    let totalSpent = 0;
+    let walletFound = false;
 
     walletData.forEach(function(w) {
       if (String(w.UserID) === String(userId)) {
         walletBalance = Number(w.Balance || 0);
-        coins = Number(w.TotalEarned || 0);
+        totalEarned = Number(w.TotalEarned || 0);
+        totalSpent = Number(w.TotalSpent || 0);
+        walletFound = true;
       }
     });
+
+    if (!walletFound) {
+      try {
+        const wRow = ensureWalletRow(userId);
+        if (wRow) {
+          walletBalance = Number(wRow.Balance || 0);
+          totalEarned = Number(wRow.TotalEarned || 0);
+          totalSpent = Number(wRow.TotalSpent || 0);
+        }
+      } catch (wErr) {
+        Logger.log("ensureWalletRow in getUserProfileSummary error: " + wErr.toString());
+      }
+    }
 
     return {
       userId: user.UserID || "",
@@ -106,7 +141,9 @@ function getUserProfileSummary(userId) {
       profilePhoto: user.ProfilePhoto || user.profilePhoto || "",
       verificationStatus: user.Status || user.VerificationStatus || "Pending",
       walletBalance: walletBalance,
-      coins: coins,
+      coins: walletBalance, // Current spendable coins (authoritative)
+      totalEarned: totalEarned,
+      totalSpent: totalSpent,
       memberSince: user.CreatedDate || user.CreatedAt || ""
     };
 

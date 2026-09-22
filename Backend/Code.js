@@ -20,6 +20,9 @@ function doGet(e) {
     // server-held session before reaching their legacy handlers.
     const userProtectedActions = {
       profile: true, updateprofile: true, wallet: true, wallettransactions: true,
+      rewards: true, dashboard: true,
+      completeadwatch: true, startadwatch: true, updateadprogress: true, skipadwatch: true,
+      rewardhistory: true, reward: true, userrewardstats: true,
       addproduct: true, updateproduct: true,
       deleteproduct: true, addbusiness: true, updatebusiness: true,
       deletebusiness: true, addproperty: true, updateproperty: true,
@@ -141,6 +144,9 @@ function doGet(e) {
 
       case "wallettransactions":
         return getWalletTransactions(e);
+
+      case "rewards":
+        return getRewards(e);
 
       // Orders
       case "orders":

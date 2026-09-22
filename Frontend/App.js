@@ -1650,8 +1650,8 @@ function renderDashboard(data) {
     : '<span class="dashboardBadge pending">Pending</span>';
 
   // Wallet derived values
-  var totalCoins = Number(profile.coins || 0);
-  var availableCoins = Number(wallet.balance || 0);
+  var availableCoins = Number((wallet && wallet.balance !== undefined) ? wallet.balance : (profile.walletBalance !== undefined ? profile.walletBalance : (profile.coins || 0)));
+  var totalCoins = Number(profile.coins !== undefined ? profile.coins : availableCoins);
   var reservedCoins = Math.max(0, totalCoins - availableCoins);
 
   var html = '';

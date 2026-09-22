@@ -130,10 +130,46 @@ function _signedTxCoins(tx) {
 function _buildIntegrityMaps() {
   const walletData = getSheetData("Wallet");
   const txData = getSheetData("WalletTransactions");
-  const rewardData = getSheetData("AdRewardHistory");
+  const legacyRewardData = getSheetData("AdRewardHistory");
+  const activeRewardData = getSheetData("AdRewards");
   const campaignData = getSheetData("PromotionCampaigns");
   const usersData = getSheetData(CONFIG.SHEETS.USERS);
   const adsData = getSheetData("Advertisements");
+
+  // Unify rewards: active PIP rewards (AdRewards) + legacy rewards (AdRewardHistory)
+  const rewardData = [];
+  (activeRewardData || []).forEach(function(r) {
+    rewardData.push({
+      RewardID: r.RewardID || "",
+      UserID: r.UserID || "",
+      AdID: r.CampaignID || "",
+      CampaignID: r.CampaignID || "",
+      CoinsEarned: Number(r.Coins || 0),
+      Coins: Number(r.Coins || 0),
+      Completed: (r.Status || "").toLowerCase() === "completed" ? "Yes" : (r.Status || "Yes"),
+      Status: r.Status || "Completed",
+      CreatedAt: r.CreatedAt || "",
+      LastWatchedAt: r.CreatedAt || "",
+      WalletTransactionID: r.WalletTransactionID || "",
+      Source: "AdRewards (PIP)"
+    });
+  });
+  (legacyRewardData || []).forEach(function(r) {
+    rewardData.push({
+      RewardID: r.RewardID || "",
+      UserID: r.UserID || "",
+      AdID: r.AdID || "",
+      CampaignID: r.AdID || "",
+      CoinsEarned: Number(r.CoinsEarned || 0),
+      Coins: Number(r.CoinsEarned || 0),
+      Completed: r.Completed || "No",
+      Status: r.Completed || "No",
+      CreatedAt: r.CreatedAt || r.LastWatchedAt || "",
+      LastWatchedAt: r.LastWatchedAt || r.CreatedAt || "",
+      WalletTransactionID: "",
+      Source: "AdRewardHistory (Legacy)"
+    });
+  });
 
   // User lookup
   const userMap = {};
@@ -262,7 +298,12 @@ function getEconomyIntegritySummary(e) {
     var duplicateRewards = 0;
     var rewardKeys = {};
     maps.rewardData.forEach(function(r) {
-      var key = String(r.UserID || "") + "|" + String(r.AdID || "");
+      var key;
+      if (r.Source === "AdRewardHistory (Legacy)") {
+        key = "LEGACY|" + String(r.UserID || "") + "|" + String(r.AdID || "");
+      } else {
+        key = "ACTIVE|" + String(r.RewardID || "");
+      }
       if (!rewardKeys[key]) rewardKeys[key] = 0;
       rewardKeys[key]++;
       if (rewardKeys[key] > 1) duplicateRewards++;
@@ -271,14 +312,19 @@ function getEconomyIntegritySummary(e) {
     // Reward/Transaction mismatches
     var rewardTxMismatches = 0;
     maps.rewardData.forEach(function(r) {
-      if (String(r.Completed || "") === "Yes") {
-        var ref = r.AdID || "";
-        var refTxs = maps.txByRef[ref] || [];
+      var isCompleted = (String(r.Completed || "").toLowerCase() === "yes" || String(r.Completed || "").toLowerCase() === "completed");
+      if (isCompleted) {
+        var rCoins = Number(r.CoinsEarned || r.Coins || 0);
         var found = false;
-        var rCoins = Number(r.CoinsEarned || 0);
-        refTxs.forEach(function(tx) {
-          if (Math.abs(_getTxCoins(tx) - rCoins) < 0.01) found = true;
-        });
+        if (r.WalletTransactionID && maps.txIdSet[r.WalletTransactionID]) {
+          found = true;
+        } else {
+          var ref = r.AdID || r.CampaignID || "";
+          var refTxs = maps.txByRef[ref] || [];
+          refTxs.forEach(function(tx) {
+            if (String(tx.UserID) === String(r.UserID) && Math.abs(_getTxCoins(tx) - rCoins) < 0.01) found = true;
+          });
+        }
         if (!found && rCoins > 0) rewardTxMismatches++;
       }
     });
@@ -793,10 +839,12 @@ function getRewardAnomalies(e) {
     const maps = _buildIntegrityMaps();
     var anomalies = [];
 
-    // 1. Duplicate reward records (same UserID + AdID)
+    // 1. Duplicate reward records (same UserID + AdID for legacy, duplicate RewardID for active)
     var seenKeys = {};
     maps.rewardData.forEach(function(r) {
-      var key = String(r.UserID || "") + "|" + String(r.AdID || "");
+      var isLegacy = (r.Source === "AdRewardHistory (Legacy)");
+      var key = isLegacy ? ("LEGACY|" + String(r.UserID || "") + "|" + String(r.AdID || "")) : ("ACTIVE|" + String(r.RewardID || ""));
+      if (!r.RewardID && !isLegacy) return;
       if (!seenKeys[key]) {
         seenKeys[key] = { count: 1, records: [r] };
       } else {
@@ -807,10 +855,10 @@ function getRewardAnomalies(e) {
             Severity: "HIGH",
             EntityID: r.RewardID || "",
             RelatedUser: r.UserID || "",
-            RelatedCampaign: r.AdID || "",
-            Issue: "Duplicate reward record - same UserID + AdID",
-            Expected: "Each UserID + AdID pair should have at most 1 reward record",
-            Actual: "Found " + seenKeys[key].count + " records for UserID=" + (r.UserID || "") + " AdID=" + (r.AdID || ""),
+            RelatedCampaign: r.AdID || r.CampaignID || "",
+            Issue: isLegacy ? "Duplicate reward record - same UserID + AdID" : "Duplicate RewardID in AdRewards",
+            Expected: isLegacy ? "Each UserID + AdID pair should have at most 1 reward record" : "Each RewardID should be unique",
+            Actual: "Found " + seenKeys[key].count + " records for " + (isLegacy ? ("UserID=" + (r.UserID || "") + " AdID=" + (r.AdID || "")) : ("RewardID=" + r.RewardID)),
             Difference: "",
             Timestamp: r.CreatedAt || r.LastWatchedAt || ""
           });
@@ -826,7 +874,7 @@ function getRewardAnomalies(e) {
           Severity: "HIGH",
           EntityID: r.RewardID || "",
           RelatedUser: r.UserID,
-          RelatedCampaign: r.AdID || "",
+          RelatedCampaign: r.AdID || r.CampaignID || "",
           Issue: "Reward for unknown UserID",
           Expected: "UserID should exist in Users sheet",
           Actual: "UserID '" + r.UserID + "' not found",
@@ -838,25 +886,31 @@ function getRewardAnomalies(e) {
 
     // 3. Reward without corresponding wallet transaction
     maps.rewardData.forEach(function(r) {
-      if (String(r.Completed || "") === "Yes" && Number(r.CoinsEarned || 0) > 0) {
-        var ref = r.AdID || "";
-        var refTxs = maps.txByRef[ref] || [];
+      var isCompleted = (String(r.Completed || "").toLowerCase() === "yes" || String(r.Completed || "").toLowerCase() === "completed");
+      if (isCompleted && Number(r.CoinsEarned || r.Coins || 0) > 0) {
+        var rCoins = Number(r.CoinsEarned || r.Coins || 0);
         var foundCorresponding = false;
-        refTxs.forEach(function(tx) {
-          if (String(tx.UserID) === String(r.UserID) &&
-              Math.abs(_getTxCoins(tx) - Number(r.CoinsEarned || 0)) < 0.01) {
-            foundCorresponding = true;
-          }
-        });
+        if (r.WalletTransactionID && maps.txIdSet[r.WalletTransactionID]) {
+          foundCorresponding = true;
+        } else {
+          var ref = r.AdID || r.CampaignID || "";
+          var refTxs = maps.txByRef[ref] || [];
+          refTxs.forEach(function(tx) {
+            if (String(tx.UserID) === String(r.UserID) &&
+                Math.abs(_getTxCoins(tx) - rCoins) < 0.01) {
+              foundCorresponding = true;
+            }
+          });
+        }
         if (!foundCorresponding) {
           anomalies.push({
             Category: "REWARD",
             Severity: "MEDIUM",
             EntityID: r.RewardID || "",
             RelatedUser: r.UserID || "",
-            RelatedCampaign: r.AdID || "",
+            RelatedCampaign: r.AdID || r.CampaignID || "",
             Issue: "Completed reward without matching wallet transaction",
-            Expected: "A WalletTransaction with ReferenceID=" + (r.AdID || "") + " and Amount=" + (r.CoinsEarned || 0) + " should exist",
+            Expected: r.WalletTransactionID ? ("Transaction " + r.WalletTransactionID + " should exist") : ("A WalletTransaction with ReferenceID=" + (r.AdID || r.CampaignID || "") + " and Amount=" + rCoins + " should exist"),
             Actual: "No matching transaction found",
             Difference: "",
             Timestamp: r.CreatedAt || r.LastWatchedAt || ""
@@ -1216,18 +1270,28 @@ function getRewardReconciliation(e) {
       var txs = maps.txByRef[adId] || [];
       var txFound = false;
       var txCoins = 0;
-      txs.forEach(function(tx) {
-        if (String(tx.UserID) === String(userId)) {
+      if (r.WalletTransactionID) {
+        var directTx = maps.txData.find(function(t) { return String(t.TransactionID) === String(r.WalletTransactionID); });
+        if (directTx) {
           txFound = true;
-          txCoins = _getTxCoins(tx);
+          txCoins = _getTxCoins(directTx);
         }
-      });
+      }
+      if (!txFound) {
+        txs.forEach(function(tx) {
+          if (String(tx.UserID) === String(userId)) {
+            txFound = true;
+            txCoins = _getTxCoins(tx);
+          }
+        });
+      }
 
       // Determine status
       var rewardStatus = "OK";
       var issues = [];
 
-      if (completed === "yes" && !txFound) {
+      var isComp = (completed === "yes" || completed === "completed");
+      if (isComp && !txFound) {
         rewardStatus = "MISSING_TRANSACTION";
         issues.push("Completed reward without wallet transaction");
       }
@@ -1247,7 +1311,7 @@ function getRewardReconciliation(e) {
         issues.push("Campaign has negative RemainingFuel");
       }
 
-      if (coinsEarned <= 0 && completed === "yes") {
+      if (coinsEarned <= 0 && isComp) {
         rewardStatus = "ZERO_REWARD";
         issues.push("Completed reward with zero or negative coins");
       }
@@ -1259,6 +1323,8 @@ function getRewardReconciliation(e) {
         UserName: user.FullName || user.Name || "",
         AdID: adId,
         CampaignID: adId,
+        Source: r.Source || "",
+        WalletTransactionID: r.WalletTransactionID || "",
         CoinsEarned: coinsEarned,
         Completed: completed,
         CampaignStatus: campaignStatus,

@@ -113,6 +113,7 @@ function getAdminEconomySummary(e) {
     const walletData = getSheetData("Wallet");
     const walletTxData = getSheetData("WalletTransactions");
     const rewardData = getSheetData("AdRewardHistory");
+    const pipRewardData = getSheetData("AdRewards") || [];
     const campaignData = getSheetData("PromotionCampaigns");
     const usersData = getSheetData(CONFIG.SHEETS.USERS);
 
@@ -141,9 +142,13 @@ function getAdminEconomySummary(e) {
       }
     });
 
-    // Reward counts
+    // Reward counts - combine active PIP AdRewards and legacy AdRewardHistory
     let totalRewardCoins = 0;
     let rewardCount = 0;
+    pipRewardData.forEach(function(r) {
+      totalRewardCoins += Number(r.Coins || 0);
+      rewardCount++;
+    });
     rewardData.forEach(function(r) {
       totalRewardCoins += Number(r.CoinsEarned || 0);
       rewardCount++;
@@ -218,6 +223,7 @@ function getAdminWalletExplorer(e) {
     const usersData = getSheetData(CONFIG.SHEETS.USERS);
     const walletTxData = getSheetData("WalletTransactions");
     const rewardData = getSheetData("AdRewardHistory");
+    const pipRewardData = getSheetData("AdRewards") || [];
 
     // Build user lookup map
     const userMap = {};
@@ -239,8 +245,14 @@ function getAdminWalletExplorer(e) {
       }
     });
 
-    // Build reward count per user
+    // Build reward count per user (active PIP + legacy)
     const rewardCountMap = {};
+    pipRewardData.forEach(function(r) {
+      const uid = r.UserID;
+      if (uid) {
+        rewardCountMap[uid] = (rewardCountMap[uid] || 0) + 1;
+      }
+    });
     rewardData.forEach(function(r) {
       const uid = r.UserID;
       if (uid) {
@@ -352,15 +364,50 @@ function getAdminWalletDetail(e) {
       );
     });
 
-    // Get rewards for this user
-    const rewardData = getSheetData("AdRewardHistory");
-    const rewards = rewardData.filter(function(r) {
-      return String(r.UserID) === String(userId);
+    // Get rewards for this user (active PIP + legacy)
+    const legacyRewardData = getSheetData("AdRewardHistory") || [];
+    const pipRewardData = getSheetData("AdRewards") || [];
+
+    const rewards = [];
+    pipRewardData.forEach(function(r) {
+      if (String(r.UserID) === String(userId)) {
+        rewards.push({
+          RewardID: r.RewardID || "",
+          UserID: r.UserID || "",
+          AdID: r.CampaignID || "",
+          CampaignID: r.CampaignID || "",
+          Coins: Number(r.Coins || 0),
+          CoinsEarned: Number(r.Coins || 0),
+          WalletTransactionID: r.WalletTransactionID || "",
+          Status: r.Status || "paid",
+          Completed: "Yes",
+          CreatedAt: r.CreatedAt || "",
+          Source: "AdRewards (PIP)"
+        });
+      }
     });
+    legacyRewardData.forEach(function(r) {
+      if (String(r.UserID) === String(userId)) {
+        rewards.push({
+          RewardID: r.RewardID || "",
+          UserID: r.UserID || "",
+          AdID: r.AdID || "",
+          CampaignID: r.AdID || "",
+          Coins: Number(r.CoinsEarned || r.Coins || 0),
+          CoinsEarned: Number(r.CoinsEarned || r.Coins || 0),
+          WalletTransactionID: "",
+          Status: r.Completed === "Yes" ? "paid" : "in_progress",
+          Completed: r.Completed || "",
+          CreatedAt: r.CreatedAt || r.LastWatchedAt || "",
+          Source: "AdRewardHistory (Legacy)"
+        });
+      }
+    });
+
     rewards.sort(function(a, b) {
       return compareDatesDesc(
-        a.CreatedAt || a.LastWatchedAt,
-        b.CreatedAt || b.LastWatchedAt
+        a.CreatedAt,
+        b.CreatedAt
       );
     });
 
@@ -483,24 +530,61 @@ function getAdminRewardActivity(e) {
 
     const search = (e.parameter.search || "").trim().toLowerCase();
     const page = parseInt(e.parameter.page || "1");
-    const limit = parseInt(e.parameter.limit || "50");
+    const legacyRewardData = getSheetData("AdRewardHistory") || [];
+    const pipRewardData = getSheetData("AdRewards") || [];
 
-    let rewardData = getSheetData("AdRewardHistory");
+    let rewardData = [];
+
+    // Active PIP rewards
+    pipRewardData.forEach(function(r) {
+      rewardData.push({
+        RewardID: r.RewardID || "",
+        UserID: r.UserID || "",
+        AdID: r.CampaignID || "",
+        CampaignID: r.CampaignID || "",
+        Coins: Number(r.Coins || 0),
+        CoinsEarned: Number(r.Coins || 0),
+        WalletTransactionID: r.WalletTransactionID || "",
+        Status: r.Status || "paid",
+        Completed: "Yes",
+        CreatedAt: r.CreatedAt || "",
+        Source: "AdRewards (PIP)"
+      });
+    });
+
+    // Legacy rewards
+    legacyRewardData.forEach(function(r) {
+      rewardData.push({
+        RewardID: r.RewardID || "",
+        UserID: r.UserID || "",
+        AdID: r.AdID || "",
+        CampaignID: r.AdID || "",
+        Coins: Number(r.CoinsEarned || r.Coins || 0),
+        CoinsEarned: Number(r.CoinsEarned || r.Coins || 0),
+        WalletTransactionID: "",
+        Status: r.Completed === "Yes" ? "paid" : "in_progress",
+        Completed: r.Completed || "",
+        CreatedAt: r.CreatedAt || r.LastWatchedAt || "",
+        Source: "AdRewardHistory (Legacy)"
+      });
+    });
 
     // Apply search filter
     if (search) {
       rewardData = rewardData.filter(function(r) {
         return (r.RewardID || "").toLowerCase().indexOf(search) !== -1 ||
                (r.UserID || "").toLowerCase().indexOf(search) !== -1 ||
-               (r.AdID || "").toLowerCase().indexOf(search) !== -1;
+               (r.AdID || "").toLowerCase().indexOf(search) !== -1 ||
+               (r.CampaignID || "").toLowerCase().indexOf(search) !== -1 ||
+               (r.Source || "").toLowerCase().indexOf(search) !== -1;
       });
     }
 
     // Sort by date descending
     rewardData.sort(function(a, b) {
       return compareDatesDesc(
-        a.CreatedAt || a.LastWatchedAt,
-        b.CreatedAt || b.LastWatchedAt
+        a.CreatedAt,
+        b.CreatedAt
       );
     });
 

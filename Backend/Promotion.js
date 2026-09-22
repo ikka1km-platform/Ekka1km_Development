@@ -943,13 +943,16 @@ function debugPip(e) {
  */
 function startAdWatch(e) {
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+    const userId = auth.userId;
+
     ensurePromotionSheets();
     var p = e.parameter;
-    var userId = p.userId || "";
     var campaignId = p.campaignId || "";
 
-    if (!userId || !campaignId) {
-      return error("userId and campaignId required");
+    if (!campaignId) {
+      return error("campaignId required");
     }
 
     var campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
@@ -1119,14 +1122,17 @@ function updateAdProgress(e) {
   lock.waitLock(30000);
 
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+    const userId = auth.userId;
+
     ensurePromotionSheets();
     var p = e.parameter;
-    var userId = p.userId || "";
     var campaignId = p.campaignId || "";
     var watchedSeconds = Number(p.watchedSeconds || 0);
 
-    if (!userId || !campaignId) {
-      return error("userId and campaignId required");
+    if (!campaignId) {
+      return error("campaignId required");
     }
 
     var campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
@@ -1221,13 +1227,16 @@ function completeAdWatch(e) {
   lock.waitLock(30000);
 
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+    const userId = auth.userId;
+
     ensurePromotionSheets();
     var p = e.parameter;
-    var userId = p.userId || "";
     var campaignId = p.campaignId || "";
 
-    if (!userId || !campaignId) {
-      return error("userId and campaignId required");
+    if (!campaignId) {
+      return error("campaignId required");
     }
 
     var existingRewards = getSheetData("AdRewards");
@@ -1314,8 +1323,9 @@ function completeAdWatch(e) {
       }
     }
 
+    var walletTxId = "";
     if (finalReward > 0) {
-      creditWallet(userId, finalReward, campaignId, "Ad Reward - " + (campaign.Title || ""));
+      walletTxId = creditWallet(userId, finalReward, campaignId, "Ad Reward - " + (campaign.Title || ""));
     }
 
     // V2: Calculate new RemainingFuel instead of RemainingRewardCoins
@@ -1351,7 +1361,7 @@ function completeAdWatch(e) {
       userId,
       campaignId,
       finalReward,
-      "WT" + Utilities.getUuid().substring(0, 8),
+      walletTxId || ("WT" + Utilities.getUuid().substring(0, 8)),
       "paid",
       new Date()
     ]);
@@ -1388,14 +1398,17 @@ function skipAdWatch(e) {
   lock.waitLock(30000);
 
   try {
+    const auth = requireAuthenticatedUser(e);
+    if (!auth.valid) return auth.response;
+    const userId = auth.userId;
+
     ensurePromotionSheets();
     var p = e.parameter;
-    var userId = p.userId || "";
     var campaignId = p.campaignId || "";
     var watchedSeconds = Number(p.watchedSeconds || 0);
 
-    if (!userId || !campaignId) {
-      return error("userId and campaignId required");
+    if (!campaignId) {
+      return error("campaignId required");
     }
 
     var campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);

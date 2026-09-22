@@ -7,6 +7,17 @@
 
 function getRewardHistory(e) {
   try {
+    let targetUserId = "";
+    // Admin override check
+    const adminResult = requireAdminSession(e);
+    if (adminResult.valid) {
+      targetUserId = (e.parameter.userId || "").trim();
+    } else {
+      const auth = requireAuthenticatedUser(e);
+      if (!auth.valid) return auth.response;
+      targetUserId = auth.userId;
+    }
+
     const sheet = getSheet("AdRewardHistory");
     const data = sheet.getDataRange().getValues();
 
@@ -24,6 +35,11 @@ function getRewardHistory(e) {
         row[h] = data[i][j];
       });
 
+      // Scope to target user when specified/enforced
+      if (targetUserId && String(row.UserID) !== String(targetUserId)) {
+        continue;
+      }
+
       rewards.push(row);
     }
 
@@ -38,7 +54,18 @@ function getRewardHistory(e) {
 function getReward(e) {
   try {
     const adId = e.parameter.adId || "";
-    const userId = e.parameter.userId || "";
+    let userId = (e.parameter.userId || "").trim();
+
+    const adminResult = requireAdminSession(e);
+    if (!adminResult.valid) {
+      const auth = requireAuthenticatedUser(e);
+      if (!auth.valid) return auth.response;
+      userId = auth.userId;
+    }
+
+    if (!userId) {
+      return error("userId required");
+    }
 
     const sheet = getSheet("AdRewardHistory");
     const data = sheet.getDataRange().getValues();
