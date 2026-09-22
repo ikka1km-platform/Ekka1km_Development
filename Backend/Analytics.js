@@ -49,7 +49,21 @@ function trackEvent(e) {
       var isSelfInteraction = false;
 
       // Determine the owner of the entity being interacted with
-      if (entityType === "Product" && entityId) {
+      if (eventType === "PromotionClick" || entityType === "Promotion") {
+        var campaignIdToLookup = entityId;
+        if (eventData) {
+          try {
+            var ed = typeof eventData === "string" ? JSON.parse(eventData) : eventData;
+            if (ed && ed.campaignId) campaignIdToLookup = ed.campaignId;
+          } catch (edErr) {}
+        }
+        if (campaignIdToLookup) {
+          var promoCamp = getRowById("PromotionCampaigns", "CampaignID", campaignIdToLookup);
+          if (promoCamp) {
+            ownerUserId = promoCamp.OwnerUserID || promoCamp.UserID || "";
+          }
+        }
+      } else if (entityType === "Product" && entityId) {
         var product = getRowById("Products", "ProductID", entityId);
         if (product) {
           ownerUserId = product.UserID || product.OwnerUserID || "";

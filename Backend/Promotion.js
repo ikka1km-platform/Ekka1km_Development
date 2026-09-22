@@ -561,8 +561,7 @@ function getPipCreativeData(e) {
  */
 function trackPipClick(e) {
   try {
-    var p = e.parameter;
-    var userId = p.userId || "";
+    var p = (e && e.parameter) ? e.parameter : {};
     var campaignId = p.campaignId || "";
     var destinationType = p.destinationType || "";
     var entityType = p.entityType || "";
@@ -573,21 +572,88 @@ function trackPipClick(e) {
       return error("campaignId required");
     }
     
-    // Update the campaign click counter
     var campaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
-    if (campaign) {
-      var currentClicks = Number(campaign.Clicks || 0);
+    if (!campaign) {
+      return error("Campaign not found");
+    }
+
+    // 1. Attempt to resolve a valid authenticated session using existing auth architecture
+    var trustedUserId = "";
+    if (typeof requireUserSession === "function") {
+      try {
+        var sessResult = requireUserSession(e);
+        if (sessResult && sessResult.valid && sessResult.userId) {
+          trustedUserId = String(sessResult.userId);
+        }
+      } catch (sessErr) {
+        trustedUserId = "";
+      }
+    }
+
+    // 2. Self-promotion protection: compare trustedUserId VS OwnerUserID (NEVER unverified query parameter userId)
+    var ownerUserId = campaign.OwnerUserID || campaign.UserID || "";
+    if (trustedUserId && ownerUserId && String(trustedUserId) === String(ownerUserId)) {
+      // Delegate to trackEvent to preserve self-interaction skip behavior,
+      // but do NOT increment the PromotionCampaigns.Clicks counter.
+      if (typeof trackEvent === "function") {
+        var syntheticSelfE = {
+          parameter: {
+            eventType: "PromotionClick",
+            userId: trustedUserId,
+            entityType: entityType || "Promotion",
+            entityId: campaignId,
+            eventData: JSON.stringify({
+              destinationType: destinationType,
+              destinationEntityType: entityType,
+              destinationEntityId: entityId,
+              destinationUrl: destinationUrl,
+              campaignId: campaignId
+            })
+          }
+        };
+        trackEvent(syntheticSelfE);
+      }
+      return success({
+        campaignId: campaignId,
+        skipped: true
+      }, "Self-promotion click skipped");
+    }
+    
+    // 3. Concurrency protection on the authoritative campaign click counter
+    var lock = LockService.getScriptLock();
+    var hasLock = false;
+    try {
+      hasLock = lock.tryLock(5000);
+    } catch (lockErr) {
+      Logger.log("trackPipClick lock error: " + lockErr.toString());
+    }
+
+    // Lock failure MUST NOT fall through to unlocked read-modify-write
+    if (!hasLock) {
+      return error("Server busy: click counter lock acquisition timeout");
+    }
+
+    try {
+      var freshCampaign = getRowById("PromotionCampaigns", "CampaignID", campaignId);
+      var currentClicks = Number((freshCampaign && freshCampaign.Clicks) || campaign.Clicks || 0);
       updateRow("PromotionCampaigns", "CampaignID", campaignId, {
         Clicks: currentClicks + 1
       });
+    } finally {
+      try {
+        lock.releaseLock();
+      } catch (relErr) {
+        // ignore release error
+      }
     }
     
-    // Track via analytics engine (existing)
+    // 4. Track via analytics engine (telemetry stream using validated identity when available, blank for guests)
+    var telemetryUserId = trustedUserId || "";
     if (typeof trackEvent === "function") {
       var syntheticE = {
         parameter: {
           eventType: "PromotionClick",
-          userId: userId,
+          userId: telemetryUserId,
           entityType: entityType || "Promotion",
           entityId: campaignId,
           eventData: JSON.stringify({
@@ -600,13 +666,6 @@ function trackPipClick(e) {
         }
       };
       trackEvent(syntheticE);
-    }
-    
-    // Track in AdAnalytics
-    try {
-      trackAdAnalytics(campaignId, "click");
-    } catch (trackErr) {
-      Logger.log("trackPipClick analytics error: " + trackErr.toString());
     }
     
     return success({
@@ -1757,7 +1816,10 @@ function getAvailableRewardCoins(e) {
  */
 function getCampaignAnalytics(e) {
   try {
-    var campaignId = e.parameter.campaignId || "";
+    var campaignId = (e && e.parameter && e.parameter.campaignId) ? e.parameter.campaignId : "";
+
+    var campaign = campaignId ? getRowById("PromotionCampaigns", "CampaignID", campaignId) : null;
+    var campaignClicks = campaign ? Number(campaign.Clicks || 0) : 0;
 
     var analytics = getSheetData("AdAnalytics");
     var result = null;
@@ -1783,7 +1845,8 @@ function getCampaignAnalytics(e) {
         remainingRewardPool: 0,
         remainingFuel: 0,
         rewardedUsersCount: 0,
-        ctr: 0
+        ctr: 0,
+        clicks: campaignClicks
       }, "No analytics yet");
     }
 
@@ -1804,7 +1867,8 @@ function getCampaignAnalytics(e) {
       remainingRewardPool: remainingFuel,
       remainingFuel: remainingFuel,
       rewardedUsersCount: Number(result.RewardedUsersCount || 0),
-      ctr: Number(result.CTR || 0)
+      ctr: Number(result.CTR || 0),
+      clicks: campaignClicks
     }, "Campaign analytics loaded");
 
   } catch (err) {
@@ -2738,8 +2802,6 @@ function trackAdAnalytics(campaignId, eventType) {
         } else if (eventType === "reward") {
           sheet.getRange(i + 1, 8).setValue(Number(data[i][7] || 0) + 1);
           sheet.getRange(i + 1, 9).setValue(Number(data[i][8] || 0) + 1);
-        } else if (eventType === "click") {
-          sheet.getRange(i + 1, 8).setValue(Number(data[i][10] || 0) + 1);
         }
         sheet.getRange(i + 1, 14).setValue(new Date());
         return;

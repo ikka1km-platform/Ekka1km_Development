@@ -279,7 +279,9 @@ function handlePipAdClick(campaign) {
   var targetType = campaign.TargetType || campaign.targetType || "";
   var targetId = campaign.TargetID || campaign.targetId || "";
   if (campaignId) {
+    var sessionToken = (typeof getSessionToken === "function" && getSessionToken()) ? ("&session=" + encodeURIComponent(getSessionToken())) : "";
     fetch(getApiUrl() + "?action=trackpipclick&userId=" + encodeURIComponent(userId || "") +
+      sessionToken +
       "&campaignId=" + encodeURIComponent(campaignId) +
       "&destinationType=" + encodeURIComponent(destinationType) +
       "&entityType=" + encodeURIComponent(targetType) +

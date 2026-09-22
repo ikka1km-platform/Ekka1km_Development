@@ -706,7 +706,7 @@ function getPromotionAnalytics(e) {
     var interested = 0;
 
     events.forEach(function(ev) {
-      if (String(ev.EntityID) === String(promotion.TargetID)) {
+      if (String(ev.EntityID) === String(promotion.TargetID) || String(ev.EntityID) === String(promotion.PromotionID)) {
         var et = String(ev.EventType);
         if (et === "PromotionClick" || et === "ProductView" || et === "StoreView") { clicks++; views++; }
         if (et === "ProductInterested" || et === "PropertyInterested") { interested++; }

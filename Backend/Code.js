@@ -1218,6 +1218,9 @@ case "onboarding":
       case "getadcenter":
         return getAdvertisementCenter(e);
 
+      case "trackpipclick":
+        return trackPipClick(e);
+
       case "startadwatch":
         return startAdWatch(e);
 

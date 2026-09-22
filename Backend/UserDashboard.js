@@ -241,10 +241,12 @@ function getUserAnalyticsSummary(userId) {
     var products = getSheetData("Products");
     var businesses = getSheetData("Businesses");
     var properties = getSheetData("Properties");
+    var campaigns = getSheetData("PromotionCampaigns");
     
     var userProductIds = {};
     var userBusinessIds = {};
     var userPropertyIds = {};
+    var userCampaignIds = {};
     
     products.forEach(function(p) {
       if (String(p.UserID) === String(userId)) userProductIds[p.ProductID] = true;
@@ -258,12 +260,18 @@ function getUserAnalyticsSummary(userId) {
       if (String(p.OwnerUserID) === String(userId)) userPropertyIds[p.PropertyID] = true;
     });
 
+    campaigns.forEach(function(c) {
+      if (String(c.OwnerUserID || c.UserID) === String(userId)) {
+        userCampaignIds[c.CampaignID] = true;
+      }
+    });
+
     // Single pass through events
     events.forEach(function(ev) {
       var entityId = String(ev.EntityID || "");
       var eventType = String(ev.EventType || "");
       
-      var isUserEntity = userProductIds[entityId] || userBusinessIds[entityId] || userPropertyIds[entityId];
+      var isUserEntity = userProductIds[entityId] || userBusinessIds[entityId] || userPropertyIds[entityId] || userCampaignIds[entityId];
       if (!isUserEntity) return;
 
       if (eventType === "ProductView" || eventType === "BusinessView" || eventType === "NewsView" || eventType === "StoreView") {
