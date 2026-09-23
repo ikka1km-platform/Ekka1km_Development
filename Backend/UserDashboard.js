@@ -263,6 +263,9 @@ function getUserAnalyticsSummary(userId) {
     campaigns.forEach(function(c) {
       if (String(c.OwnerUserID || c.UserID) === String(userId)) {
         userCampaignIds[c.CampaignID] = true;
+        promotionPerformance.views += Number(c.Views || 0);
+        promotionPerformance.clicks += Number(c.Clicks || 0);
+        promotionPerformance.interested += Number(c.Interested || 0);
       }
     });
 
@@ -292,15 +295,11 @@ function getUserAnalyticsSummary(userId) {
       if (eventType === "LeadCreated" || eventType === "BusinessEnquiry") {
         totalEnquiries++;
       }
-      if (eventType === "PromotionClick") {
-        promotionPerformance.clicks++;
-        promotionPerformance.views++;
-      }
     });
 
-    if (promotionPerformance.views > 0) {
-      promotionPerformance.ctr = ((promotionPerformance.clicks / promotionPerformance.views) * 100).toFixed(2);
-    }
+    promotionPerformance.ctr = promotionPerformance.views > 0
+      ? ((promotionPerformance.clicks / promotionPerformance.views) * 100).toFixed(2)
+      : 0;
 
     // Count interests on user's items (only Active status)
     var interests = getSheetData("UserInterests") || [];
