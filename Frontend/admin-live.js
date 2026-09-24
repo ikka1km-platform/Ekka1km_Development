@@ -836,8 +836,11 @@ moderator management, and stream lifecycle controls
 
     window._modDeleteChatMessage = async function (messageId) {
       if (!confirm("Purge this chat message from live viewers?")) return;
+      const session = AdminAuth.getSession();
+      if (!session) return;
+
       try {
-        const url = getApiUrl() + "?action=deletelivemessage&messageId=" + encodeURIComponent(messageId);
+        const url = getApiUrl() + "?action=deletelivemessage&messageId=" + encodeURIComponent(messageId) + "&session=" + encodeURIComponent(session);
         const res = await fetch(url);
         const json = await res.json();
         if (json && json.success) {
@@ -852,8 +855,11 @@ moderator management, and stream lifecycle controls
     };
 
     window._modPinChatMessage = async function (messageId) {
+      const session = AdminAuth.getSession();
+      if (!session) return;
+
       try {
-        const url = getApiUrl() + "?action=pinlivemessage&messageId=" + encodeURIComponent(messageId);
+        const url = getApiUrl() + "?action=pinlivemessage&messageId=" + encodeURIComponent(messageId) + "&session=" + encodeURIComponent(session);
         const res = await fetch(url);
         const json = await res.json();
         if (json && json.success) {
@@ -866,8 +872,11 @@ moderator management, and stream lifecycle controls
     };
 
     window._modUnpinChatMessage = async function (messageId) {
+      const session = AdminAuth.getSession();
+      if (!session) return;
+
       try {
-        const url = getApiUrl() + "?action=unpinlivemessage&messageId=" + encodeURIComponent(messageId);
+        const url = getApiUrl() + "?action=unpinlivemessage&messageId=" + encodeURIComponent(messageId) + "&session=" + encodeURIComponent(session);
         const res = await fetch(url);
         const json = await res.json();
         if (json && json.success) {
@@ -921,8 +930,11 @@ moderator management, and stream lifecycle controls
         return;
       }
 
+      const session = AdminAuth.getSession();
+      if (!session) return;
+
       try {
-        const url = getApiUrl() + "?action=addlivemoderator&liveId=" + encodeURIComponent(liveId) + "&userId=" + encodeURIComponent(userId);
+        const url = getApiUrl() + "?action=addlivemoderator&liveId=" + encodeURIComponent(liveId) + "&userId=" + encodeURIComponent(userId) + "&session=" + encodeURIComponent(session);
         const res = await fetch(url);
         const json = await res.json();
         if (json && json.success) {
@@ -940,8 +952,11 @@ moderator management, and stream lifecycle controls
     window._removeModeratorFromStream = async function (moderatorId) {
       if (!confirm("Revoke moderator status for this user?")) return;
 
+      const session = AdminAuth.getSession();
+      if (!session) return;
+
       try {
-        const url = getApiUrl() + "?action=removelivemoderator&moderatorId=" + encodeURIComponent(moderatorId);
+        const url = getApiUrl() + "?action=removelivemoderator&moderatorId=" + encodeURIComponent(moderatorId) + "&session=" + encodeURIComponent(session);
         const res = await fetch(url);
         const json = await res.json();
         if (json && json.success) {

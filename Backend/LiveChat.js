@@ -16,22 +16,29 @@ function sendLiveMessage(e) {
 }
 
 function deleteLiveMessage(e) {
-  const id = e.parameter.messageId;
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
 
-  const sheet =
-    getSheet(CONFIG.SHEETS.LIVE_CHAT);
+    const id = e && e.parameter ? e.parameter.messageId : "";
+    if (!id) return error("messageId is required");
 
-  const data = sheet.getDataRange().getValues();
+    const sheet = getSheet(CONFIG.SHEETS.LIVE_CHAT);
+    if (!sheet) return error("LiveChat sheet not found");
 
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === id) {
-      sheet.getRange(i + 1, 5)
-        .setValue(true);
-      break;
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(id)) {
+        sheet.getRange(i + 1, 5).setValue(true);
+        return success({}, "Message deleted");
+      }
     }
-  }
 
-  return success({}, "Message deleted");
+    return error("Chat message not found");
+  } catch (err) {
+    return exception(err);
+  }
 }
 
 function pinLiveMessage(e) {
@@ -43,22 +50,29 @@ function unpinLiveMessage(e) {
 }
 
 function setPin(e, value) {
-  const id = e.parameter.messageId;
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
 
-  const sheet =
-    getSheet(CONFIG.SHEETS.LIVE_CHAT);
+    const id = e && e.parameter ? e.parameter.messageId : "";
+    if (!id) return error("messageId is required");
 
-  const data = sheet.getDataRange().getValues();
+    const sheet = getSheet(CONFIG.SHEETS.LIVE_CHAT);
+    if (!sheet) return error("LiveChat sheet not found");
 
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === id) {
-      sheet.getRange(i + 1, 6)
-        .setValue(value);
-      break;
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(id)) {
+        sheet.getRange(i + 1, 6).setValue(value);
+        return success({}, "Updated");
+      }
     }
-  }
 
-  return success({}, "Updated");
+    return error("Chat message not found");
+  } catch (err) {
+    return exception(err);
+  }
 }
 
 function getLiveChat(e) {
@@ -137,6 +151,9 @@ function getAdminLiveChat(e) {
 
 function addLiveModerator(e) {
   try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
     const p = e.parameter || {};
     const userId = p.userId || "";
     const liveId = p.liveId || "";
@@ -172,6 +189,9 @@ function addLiveModerator(e) {
 
 function removeLiveModerator(e) {
   try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
     const p = e.parameter || {};
     const liveId = p.liveId || "";
     const userId = p.userId || "";

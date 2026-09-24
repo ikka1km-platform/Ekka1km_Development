@@ -499,6 +499,12 @@ case "notification_sent":
       case "adminupdatelivestatus":
         return adminUpdateLiveStatus(e);
 
+      case "adminaddlive":
+        return adminAddLive(e);
+
+      case "adminlivechat":
+        return getAdminLiveChat(e);
+
       // Live - Stage 7 Live History, Locations & Events
       case "adminlivehistory":
         return getAdminLiveHistory(e);

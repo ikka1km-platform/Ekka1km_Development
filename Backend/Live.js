@@ -698,8 +698,12 @@ function getAdminLiveStreams(e) {
 
 /**
  * ============================================================
- * ADMIN UPDATE LIVE STATUS (Phase 5.8)
- * ?action=adminupdatelivestatus&liveId=L001&isLive=No&status=Suspended
+ * ADMIN UPDATE LIVE STATUS (Phase 5.8 / Stage 6 CCTV & Moderation)
+ * ?action=adminupdatelivestatus&liveId=LS_...&isLive=No&status=Suspended&session=TOKEN
+ * Authoritative: Updates LiveSessions record when LiveSessionID is provided.
+ * Distinguishes LiveSessions from legacy Live sheet.
+ * Enforces terminal Ended state (cannot reactivate Ended session).
+ * Concurrency: Protected with LockService script lock.
  * ============================================================
  */
 function adminUpdateLiveStatus(e) {
@@ -708,29 +712,146 @@ function adminUpdateLiveStatus(e) {
     if (!admin.valid) return admin.response;
 
     const p = e.parameter || {};
-    const liveId = p.liveId || "";
+    const liveId = String(p.liveId || "").trim();
 
     if (!liveId) {
       return error("liveId is required");
     }
 
-    const updates = {};
-    if (p.status !== undefined) updates.Status = p.status;
-    if (p.isLive !== undefined) updates.IsLive = p.isLive;
-    if (p.isFeatured !== undefined) updates.IsFeatured = p.isFeatured;
-    if (p.allowPip !== undefined) updates.AllowPIP = p.allowPip;
-    updates.UpdatedDate = new Date();
-
-    const updated = updateRow(CONFIG.SHEETS.LIVE, "LiveID", liveId, updates);
-    if (!updated) {
-      return error("Live channel not found");
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(5000)) {
+      return error("Server busy: lock timeout");
     }
 
-    return success({
-      liveId: liveId,
-      updates: updates
-    }, "Live stream status updated successfully");
+    try {
+      // 1. Check if ID belongs to authoritative LiveSessions
+      ensureLiveSessionsSheet();
+      const session = findLiveSessionById(liveId);
 
+      if (session) {
+        // Target: LiveSessions
+        // Handle Featured toggle request
+        if (p.isFeatured !== undefined && p.status === undefined && p.isLive === undefined && p.allowPip === undefined) {
+          return error("Featured toggle deferred: LiveSessions schema does not contain an IsFeatured column. Schema modification required.");
+        }
+
+        // Handle PIP toggle request
+        if (p.allowPip !== undefined && p.status === undefined && p.isLive === undefined && p.isFeatured === undefined) {
+          return error("PIP toggle deferred: LiveSessions schema does not contain an AllowPIP column. Schema modification required.");
+        }
+
+        const currentStatus = String(session.Status || "").trim().toLowerCase();
+        const reqStatus = p.status !== undefined ? String(p.status).trim() : "";
+        const reqIsLive = p.isLive !== undefined ? String(p.isLive).trim().toLowerCase() : "";
+
+        // Determine target status
+        let targetStatus = "";
+        if (reqStatus) {
+          targetStatus = reqStatus;
+        } else if (reqIsLive === "no") {
+          targetStatus = "Suspended";
+        } else if (reqIsLive === "yes") {
+          targetStatus = "Active";
+        }
+
+        const nowIso = new Date().toISOString();
+        const updates = {};
+
+        if (targetStatus) {
+          const targetLower = targetStatus.toLowerCase();
+
+          // Rule A3: Terminal check — Ended is terminal
+          if (targetLower === "active") {
+            if (currentStatus === "ended" || currentStatus === "complete" || currentStatus === "completed") {
+              return error("Cannot reactivate live session: session is already ended/completed and cannot be restarted.");
+            }
+            updates.Status = "Active";
+          } else if (targetLower === "suspended") {
+            updates.Status = "Suspended";
+            updates.TerminationReason = "Admin Suspended";
+          } else if (targetLower === "completed" || targetLower === "ended") {
+            updates.Status = "Ended";
+            if (!session.EndedAt) updates.EndedAt = nowIso;
+            updates.TerminationReason = "Admin Force Stop";
+
+            // Attempt graceful YouTube broadcast completion if still open
+            const channelId = String(session.YouTubeChannelID || "").trim();
+            const broadcastId = String(session.YouTubeBroadcastID || "").trim();
+            if (channelId && broadcastId && typeof endYouTubeLiveBroadcast === "function") {
+              try {
+                const tRes = getOrRefreshYouTubeAccessToken(channelId);
+                if (tRes && tRes.success) {
+                  endYouTubeLiveBroadcast(tRes.accessToken, broadcastId);
+                }
+              } catch (ytErr) {}
+            }
+          } else {
+            updates.Status = targetStatus;
+          }
+        }
+
+        updates.UpdatedAt = nowIso;
+
+        const updated = updateLiveSession(liveId, updates);
+        if (!updated) {
+          return error("Failed to update live session: " + liveId);
+        }
+
+        return success({
+          liveId: liveId,
+          updates: updates
+        }, "Live stream status updated successfully");
+      }
+
+      // 2. Check if ID belongs to legacy Live sheet
+      const legacyRow = getRowById(CONFIG.SHEETS.LIVE, "LiveID", liveId);
+      if (legacyRow) {
+        const legacyUpdates = {};
+        if (p.status !== undefined) legacyUpdates.Status = p.status;
+        if (p.isLive !== undefined) legacyUpdates.IsLive = p.isLive;
+        if (p.isFeatured !== undefined) legacyUpdates.IsFeatured = p.isFeatured;
+        if (p.allowPip !== undefined) legacyUpdates.AllowPIP = p.allowPip;
+        legacyUpdates.UpdatedDate = new Date();
+
+        const updatedLegacy = updateRow(CONFIG.SHEETS.LIVE, "LiveID", liveId, legacyUpdates);
+        if (!updatedLegacy) {
+          return error("Failed to update legacy live channel: " + liveId);
+        }
+
+        return success({
+          liveId: liveId,
+          updates: legacyUpdates
+        }, "Legacy live stream status updated successfully");
+      }
+
+      // 3. ID not found in either store
+      return error("Live session not found: " + liveId);
+
+    } finally {
+      lock.releaseLock();
+    }
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * ADMIN ADD LIVE
+ * ?action=adminaddlive&session=TOKEN
+ * Admin stream creation handler.
+ * Validates admin session. Enforces architecture boundary:
+ * Direct stream creation is not supported without allocated camera
+ * person and authoritative GPS lock (ADMIN CREATE STREAM REQUIRES LIFECYCLE DECISION).
+ * ============================================================
+ */
+function adminAddLive(e) {
+  try {
+    const admin = requireAdminSession(e);
+    if (!admin.valid) return admin.response;
+
+    return error("Admin direct broadcast creation is not supported in the current YouTube Live broadcaster engine. Broadcasts must be launched by allocated camera persons via the GoLive studio. (ADMIN CREATE STREAM REQUIRES LIFECYCLE DECISION)");
   } catch (err) {
     return exception(err);
   }
