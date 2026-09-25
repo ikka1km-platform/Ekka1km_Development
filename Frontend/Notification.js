@@ -158,7 +158,7 @@ async function loadNotifications() {
           <li>Wallet notifications</li>
         </ul>
         <button onclick="openPage('login')">Login</button>
-        <button onclick="openPage('register')" style="background:#666;">Register</button>
+        <button onclick="openPage('login')" style="background:#666;">Login / Register</button>
       </div>
       `;
 

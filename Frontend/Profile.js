@@ -69,9 +69,9 @@ async function loadProfile() {
             <span class="profileNavLabel">Login</span>
             <span class="material-icons profileNavChevron">chevron_right</span>
           </div>
-          <div class="profileNavRow" onclick="openPage('register')">
+          <div class="profileNavRow" onclick="openPage('login')">
             <span class="material-icons profileNavIcon">person_add</span>
-            <span class="profileNavLabel">Create Account</span>
+            <span class="profileNavLabel">Login / Register</span>
             <span class="material-icons profileNavChevron">chevron_right</span>
           </div>
           <div class="profileNavRow" onclick="openPage('home')">

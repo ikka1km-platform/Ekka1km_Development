@@ -1609,7 +1609,7 @@ function renderGuestDashboard() {
   html += '<h3 style="margin-bottom:10px;">My Dashboard</h3>';
   html += '<p style="color:#666;margin-bottom:20px;">Please login to access your personal dashboard, view your activity, and manage your content.</p>';
   html += '<button onclick="openPage(\'login\')">Login</button>';
-  html += '<button onclick="openPage(\'register\')" class="btn-gray" style="margin-top:10px;">Create Account</button>';
+  html += '<button onclick="openPage(\'login\')" class="btn-gray" style="margin-top:10px;">Login / Register</button>';
   html += '<button onclick="openPage(\'home\')" class="btn-gray" style="margin-top:10px;">Continue As Guest</button>';
   html += '</div>';
 

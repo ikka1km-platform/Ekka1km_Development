@@ -242,9 +242,9 @@ async function loadWallet() {
         </button>
 
         <button
-          onclick="openPage('register')"
+          onclick="openPage('login')"
           style="background:#666;">
-          Register
+          Login / Register
         </button>
 
       </div>

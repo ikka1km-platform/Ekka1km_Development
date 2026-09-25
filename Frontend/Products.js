@@ -590,7 +590,7 @@ function showProductDetails(product) {
       <div class="hij-detail-guest">
         <p>Login to contact seller or show your interest.</p>
         <button class="btnLogin" onclick="openPage('login')">Login</button>
-        <button class="btnRegister" onclick="openPage('register')">Register</button>
+        <button class="btnRegister" onclick="openPage('login')">Login / Register</button>
       </div>
     `;
   }

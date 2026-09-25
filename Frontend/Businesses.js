@@ -415,7 +415,7 @@ function showBusinessDetails(rawBiz) {
       <div class="hij-detail-guest">
         <p>Login to contact this business.</p>
         <button class="btnLogin" onclick="openPage('login')">Login</button>
-        <button class="btnRegister" onclick="openPage('register')">Register</button>
+        <button class="btnRegister" onclick="openPage('login')">Login / Register</button>
       </div>
     `;
   }

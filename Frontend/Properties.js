@@ -408,7 +408,7 @@ function showPropertyDetails(property) {
     html += '<div class="hij-detail-guest">';
     html += '<p>Login to contact the owner.</p>';
     html += '<button class="btnLogin" onclick="openPage(\'login\')">Login</button>';
-    html += '<button class="btnRegister" onclick="openPage(\'register\')">Register</button>';
+    html += '<button class="btnRegister" onclick="openPage(\'login\')">Login / Register</button>';
     html += '</div>';
   }
 
