@@ -1641,3 +1641,260 @@ function getAdminWalletDetailIntegrity(e) {
     return exception(err);
   }
 }
+
+
+/**
+ * ============================================================
+ * ADMIN: CONSOLIDATED ANOMALY EXPLORER
+ * Aggregates, deduplicates, filters, and paginates anomalies across
+ * TRANSACTION, REWARD, WALLET, and CAMPAIGN integrity domains.
+ * Composes authoritative anomaly and reconciliation generators:
+ * - getTransactionAnomalies
+ * - getRewardAnomalies
+ * - getWalletReconciliation
+ * - getCampaignReconciliation
+ *
+ * ?action=anomalyexplorer&session=TOKEN&page=1&limit=25
+ * Filters: search, category, severity, userId, walletId, campaignId
+ * ============================================================
+ */
+function getAnomalyExplorer(e) {
+  try {
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+
+    const page = Math.max(1, parseInt(e.parameter.page || "1", 10) || 1);
+    const limit = Math.max(1, parseInt(e.parameter.limit || "25", 10) || 25);
+    const search = (e.parameter.search || "").trim().toLowerCase();
+    const category = (e.parameter.category || "").trim().toUpperCase();
+    const severity = (e.parameter.severity || "").trim().toUpperCase();
+    const userId = (e.parameter.userId || "").trim().toLowerCase();
+    const walletId = (e.parameter.walletId || "").trim().toLowerCase();
+    const campaignId = (e.parameter.campaignId || "").trim().toLowerCase();
+
+    // Helper to safely extract records array from authoritative GAS responses
+    function _extractResponseList(res) {
+      if (!res) return [];
+      try {
+        if (typeof res.getContent === "function") {
+          var json = JSON.parse(res.getContent());
+          return (json && json.success && json.data && Array.isArray(json.data.data)) ? json.data.data : [];
+        }
+        if (res && res.data && Array.isArray(res.data.data)) {
+          return res.data.data;
+        }
+        return [];
+      } catch (err) {
+        return [];
+      }
+    }
+
+    const subE = {
+      parameter: {
+        session: (e.parameter && e.parameter.session) || "",
+        page: "1",
+        limit: "10000"
+      }
+    };
+
+    const allAnomalies = [];
+
+    // 1. Transaction Domain Anomalies
+    const rawTx = _extractResponseList(getTransactionAnomalies(subE));
+    rawTx.forEach(function(a) {
+      allAnomalies.push({
+        Severity: a.Severity || "HIGH",
+        Category: a.Category || "TRANSACTION",
+        EntityID: a.EntityID || "",
+        RelatedUser: a.RelatedUser || "",
+        RelatedWallet: a.RelatedWallet || "",
+        RelatedCampaign: a.RelatedCampaign || "",
+        Issue: a.Issue || "",
+        Expected: a.Expected || "",
+        Actual: a.Actual || "",
+        Difference: a.Difference != null ? String(a.Difference) : "",
+        Timestamp: a.Timestamp || ""
+      });
+    });
+
+    // 2. Reward Domain Anomalies
+    const rawReward = _extractResponseList(getRewardAnomalies(subE));
+    rawReward.forEach(function(a) {
+      allAnomalies.push({
+        Severity: a.Severity || "HIGH",
+        Category: a.Category || "REWARD",
+        EntityID: a.EntityID || "",
+        RelatedUser: a.RelatedUser || "",
+        RelatedWallet: a.RelatedWallet || "",
+        RelatedCampaign: a.RelatedCampaign || "",
+        Issue: a.Issue || "",
+        Expected: a.Expected || "",
+        Actual: a.Actual || "",
+        Difference: a.Difference != null ? String(a.Difference) : "",
+        Timestamp: a.Timestamp || ""
+      });
+    });
+
+    // 3. Wallet Domain Reconciliation Anomalies
+    const rawWallets = _extractResponseList(getWalletReconciliation(subE));
+    rawWallets.forEach(function(w) {
+      var stored = Number(w.StoredBalance || 0);
+      var derived = Number(w.DerivedBalance || 0);
+      var variance = Number(w.Variance || 0);
+      var wid = w.WalletID || "";
+      var uid = w.UserID || "";
+      var ts = w.LastTransaction || "";
+
+      if (w.Status === "MISMATCH") {
+        allAnomalies.push({
+          Severity: "HIGH",
+          Category: "WALLET",
+          EntityID: wid,
+          RelatedUser: uid,
+          RelatedWallet: wid,
+          RelatedCampaign: "",
+          Issue: "Stored balance does not match derived balance",
+          Expected: "StoredBalance (" + stored + ") = DerivedBalance (" + derived + ")",
+          Actual: "StoredBalance = " + stored + ", DerivedBalance = " + derived,
+          Difference: String(variance),
+          Timestamp: ts
+        });
+      } else if (w.Status === "INSUFFICIENT_DATA") {
+        allAnomalies.push({
+          Severity: "HIGH",
+          Category: "WALLET",
+          EntityID: wid,
+          RelatedUser: uid,
+          RelatedWallet: wid,
+          RelatedCampaign: "",
+          Issue: "Stored balance without any transaction history",
+          Expected: "StoredBalance (" + stored + ") should be 0 when 0 transactions exist",
+          Actual: "StoredBalance = " + stored + ", TransactionCount = 0",
+          Difference: String(stored),
+          Timestamp: ts
+        });
+      }
+
+      if (stored < 0) {
+        allAnomalies.push({
+          Severity: "HIGH",
+          Category: "WALLET",
+          EntityID: wid,
+          RelatedUser: uid,
+          RelatedWallet: wid,
+          RelatedCampaign: "",
+          Issue: "Negative stored wallet balance: " + stored,
+          Expected: "Balance >= 0",
+          Actual: "Balance = " + stored,
+          Difference: String(stored),
+          Timestamp: ts
+        });
+      }
+    });
+
+    // 4. Campaign Domain Reconciliation Anomalies
+    const rawCampaigns = _extractResponseList(getCampaignReconciliation(subE));
+    rawCampaigns.forEach(function(c) {
+      if (c.HealthStatus && c.HealthStatus !== "HEALTHY") {
+        var cid = c.CampaignID || "";
+        var uid = c.OwnerUserID || "";
+        var ts = c.CreatedDate || "";
+        var sev = c.HealthStatus === "MISMATCH" ? "HIGH" : "MEDIUM";
+        var issues = Array.isArray(c.Issues) ? c.Issues : [c.Issues || "Accounting mismatch"];
+
+        issues.forEach(function(iss) {
+          if (!iss || iss === "No issues detected") return;
+          var diffVal = Number(c.RemainingFuel || 0) < 0 ?
+            c.RemainingFuel :
+            (Number(c.PromotionFuel || 0) - (Number(c.CoinsConsumed || 0) + Number(c.RemainingFuel || 0)));
+
+          allAnomalies.push({
+            Severity: sev,
+            Category: "CAMPAIGN",
+            EntityID: cid,
+            RelatedUser: uid,
+            RelatedWallet: "",
+            RelatedCampaign: cid,
+            Issue: iss,
+            Expected: "Healthy campaign accounting",
+            Actual: iss,
+            Difference: String(diffVal),
+            Timestamp: ts
+          });
+        });
+      }
+    });
+
+    // 5. Deduplicate across domains (Exact contract: Category + EntityID + Issue)
+    const seenMap = {};
+    const dedupedAnomalies = [];
+    allAnomalies.forEach(function(a) {
+      const dedupKey = (a.Category || "") + "|" + (a.EntityID || "") + "|" + (a.Issue || "");
+      if (!seenMap[dedupKey]) {
+        seenMap[dedupKey] = true;
+        dedupedAnomalies.push(a);
+      }
+    });
+
+    // 6. Collect available categories and severities for filters
+    const availableCategories = [...new Set(dedupedAnomalies.map(function(a) { return a.Category; }))].sort();
+    const availableSeverities = [...new Set(dedupedAnomalies.map(function(a) { return a.Severity; }))].sort();
+
+    // 7. Apply filtering
+    const filtered = dedupedAnomalies.filter(function(a) {
+      if (category && a.Category.toUpperCase() !== category) return false;
+      if (severity && a.Severity.toUpperCase() !== severity) return false;
+      if (userId && a.RelatedUser.toLowerCase().indexOf(userId) === -1) return false;
+      if (walletId && a.RelatedWallet.toLowerCase().indexOf(walletId) === -1) return false;
+      if (campaignId && a.RelatedCampaign.toLowerCase().indexOf(campaignId) === -1) return false;
+
+      if (search) {
+        var match = (
+          (a.EntityID && a.EntityID.toLowerCase().indexOf(search) !== -1) ||
+          (a.Issue && a.Issue.toLowerCase().indexOf(search) !== -1) ||
+          (a.RelatedUser && a.RelatedUser.toLowerCase().indexOf(search) !== -1) ||
+          (a.RelatedWallet && a.RelatedWallet.toLowerCase().indexOf(search) !== -1) ||
+          (a.RelatedCampaign && a.RelatedCampaign.toLowerCase().indexOf(search) !== -1) ||
+          (a.Expected && a.Expected.toLowerCase().indexOf(search) !== -1) ||
+          (a.Actual && a.Actual.toLowerCase().indexOf(search) !== -1) ||
+          (a.Category && a.Category.toLowerCase().indexOf(search) !== -1)
+        );
+        if (!match) return false;
+      }
+      return true;
+    });
+
+    // 8. Sort: Severity HIGH (0) -> MEDIUM (1) -> LOW (2), then Timestamp descending
+    const severityOrder = { "HIGH": 0, "MEDIUM": 1, "LOW": 2 };
+    filtered.sort(function(a, b) {
+      var sA = severityOrder[a.Severity] !== undefined ? severityOrder[a.Severity] : 99;
+      var sB = severityOrder[b.Severity] !== undefined ? severityOrder[b.Severity] : 99;
+      if (sA !== sB) return sA - sB;
+      var tA = a.Timestamp ? new Date(a.Timestamp).getTime() : 0;
+      var tB = b.Timestamp ? new Date(b.Timestamp).getTime() : 0;
+      return tB - tA;
+    });
+
+    // 9. Paginate
+    const total = filtered.length;
+    const totalPages = Math.ceil(total / limit) || 1;
+    const offset = (page - 1) * limit;
+    const paged = filtered.slice(offset, offset + limit);
+
+    // 10. Return established contract
+    return success({
+      count: total,
+      totalPages: totalPages,
+      page: page,
+      limit: limit,
+      filters: {
+        categories: availableCategories,
+        severities: availableSeverities
+      },
+      data: paged
+    }, "Anomaly Explorer Loaded");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
