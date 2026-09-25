@@ -1373,3 +1373,271 @@ function getRewardReconciliation(e) {
     return exception(err);
   }
 }
+
+
+/**
+ * ============================================================
+ * ADMIN: WALLET DETAIL INTEGRITY
+ * Computes reconciliation, transaction chain continuity, reward consistency,
+ * and detected anomalies for a specific user's wallet.
+ * ?action=adminwalletdetailintegrity&session=TOKEN&userId=USERID
+ * ============================================================
+ */
+function getAdminWalletDetailIntegrity(e) {
+  try {
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+
+    const userId = (e.parameter.userId || "").trim();
+    if (!userId) {
+      return error("userId required");
+    }
+
+    const maps = _buildIntegrityMaps();
+    const wallet = maps.walletMap[userId] || null;
+
+    if (!wallet) {
+      return error("Wallet not found for user: " + userId);
+    }
+
+    const wid = wallet.WalletID || "";
+    const storedBalance = Number(wallet.Balance || 0);
+
+    // 1. Gather all transactions belonging to this wallet/user
+    const txs = maps.txByWallet[wid] || [];
+    const txCount = txs.length;
+
+    var credits = 0;
+    var debits = 0;
+    var txDerived = 0;
+
+    txs.forEach(function(tx) {
+      var signed = _signedTxCoins(tx);
+      txDerived += signed;
+      if (signed > 0) credits += signed;
+      else debits += Math.abs(signed);
+    });
+
+    var variance = txDerived - storedBalance;
+
+    var status = "INSUFFICIENT_DATA";
+    if (txCount === 0) {
+      status = storedBalance === 0 ? "MATCHED" : "INSUFFICIENT_DATA";
+    } else if (Math.abs(variance) < 0.01) {
+      status = "MATCHED";
+    } else {
+      status = "MISMATCH";
+    }
+
+    // 2. Transaction Chain Continuity & Validation
+    var chainIssues = [];
+    var anomalies = [];
+
+    // Wallet-level anomalies
+    if (status === "MISMATCH") {
+      anomalies.push({
+        Category: "WALLET",
+        Severity: "HIGH",
+        EntityID: wid,
+        RelatedUser: userId,
+        Issue: "Stored balance (" + storedBalance + ") does not match derived balance (" + txDerived + ") [Variance: " + variance + "]"
+      });
+    }
+    if (storedBalance < 0) {
+      anomalies.push({
+        Category: "WALLET",
+        Severity: "HIGH",
+        EntityID: wid,
+        RelatedUser: userId,
+        Issue: "Negative stored wallet balance: " + storedBalance
+      });
+    }
+
+    // Check individual transactions for before/after relationship and validity
+    txs.forEach(function(tx) {
+      var tid = tx.TransactionID || "MISSING";
+      var amt = Number(tx.Coins !== undefined && tx.Coins !== "" ? tx.Coins : tx.Amount);
+
+      if (isNaN(amt) || !isFinite(amt)) {
+        anomalies.push({
+          Category: "TRANSACTION",
+          Severity: "MEDIUM",
+          EntityID: tid,
+          RelatedUser: userId,
+          Issue: "Invalid transaction amount: '" + (tx.Coins || tx.Amount) + "'"
+        });
+      }
+
+      var before = Number(tx.BalanceBefore || tx.Before || 0);
+      var after = Number(tx.BalanceAfter || tx.After || 0);
+      var signedAmt = _signedTxCoins(tx);
+
+      if (before !== 0 || after !== 0) {
+        if (Math.abs(after - (before + signedAmt)) > 0.01) {
+          var issueMsg = "Broken Before→After balance relationship: After (" + after + ") ≠ Before (" + before + ") + Coins (" + signedAmt + ")";
+          chainIssues.push({
+            TransactionID: tid,
+            Issue: issueMsg
+          });
+          anomalies.push({
+            Category: "TRANSACTION",
+            Severity: "HIGH",
+            EntityID: tid,
+            RelatedUser: userId,
+            Issue: issueMsg
+          });
+        }
+      }
+
+      // Check transaction status / type validity
+      var validTypes = { "REWARD": true, "PURCHASE": true, "REDEMPTION": true, "DEBIT": true, "CREDIT": true };
+      var txType = (tx.Type || "").toUpperCase();
+      if (txType && !validTypes[txType]) {
+        anomalies.push({
+          Category: "TRANSACTION",
+          Severity: "LOW",
+          EntityID: tid,
+          RelatedUser: userId,
+          Issue: "Unrecognized transaction type: '" + tx.Type + "'"
+        });
+      }
+
+      var validStatuses = { "SUCCESS": true, "PENDING": true, "FAILED": true };
+      var txStatus = (tx.Status || "").toUpperCase();
+      if (txStatus && !validStatuses[txStatus]) {
+        anomalies.push({
+          Category: "TRANSACTION",
+          Severity: "LOW",
+          EntityID: tid,
+          RelatedUser: userId,
+          Issue: "Unrecognized transaction status: '" + tx.Status + "'"
+        });
+      }
+    });
+
+    // Check balance chain continuity across chronological transactions (oldest to newest)
+    var sortedTxsAsc = txs.slice().sort(function(a, b) {
+      return _safeTimestamp(a.CreatedDate || a.CreatedAt || a.Timestamp || a.Date) -
+             _safeTimestamp(b.CreatedDate || b.CreatedAt || b.Timestamp || b.Date);
+    });
+
+    for (var ci = 0; ci < sortedTxsAsc.length - 1; ci++) {
+      var cur = sortedTxsAsc[ci];
+      var next = sortedTxsAsc[ci + 1];
+      var curAfter = Number(cur.BalanceAfter || cur.After || 0);
+      var nxtBefore = Number(next.BalanceBefore || next.Before || 0);
+
+      if (curAfter !== 0 || nxtBefore !== 0) {
+        if (Math.abs(nxtBefore - curAfter) > 0.01) {
+          var chainGapMsg = "Balance chain gap: previous BalanceAfter (" + curAfter + ") ≠ next BalanceBefore (" + nxtBefore + ")";
+          chainIssues.push({
+            TransactionID: next.TransactionID || "UNKNOWN",
+            Issue: chainGapMsg
+          });
+          anomalies.push({
+            Category: "TRANSACTION",
+            Severity: "MEDIUM",
+            EntityID: next.TransactionID || "UNKNOWN",
+            RelatedUser: userId,
+            Issue: chainGapMsg
+          });
+        }
+      }
+    }
+
+    var chainStatus = chainIssues.length === 0 ? "OK" : "BROKEN";
+
+    // 3. Reward Consistency Validation
+    var userRewards = maps.rewardByUser[userId] || [];
+    var rewardIssues = [];
+
+    // Check for duplicate reward records
+    var seenRewardKeys = {};
+    userRewards.forEach(function(r) {
+      var isLegacy = (r.Source === "AdRewardHistory (Legacy)");
+      var key = isLegacy ? ("LEGACY|" + String(r.UserID || "") + "|" + String(r.AdID || "")) : ("ACTIVE|" + String(r.RewardID || ""));
+      if (!r.RewardID && !isLegacy) return;
+      if (!seenRewardKeys[key]) {
+        seenRewardKeys[key] = 1;
+      } else {
+        seenRewardKeys[key]++;
+        if (seenRewardKeys[key] === 2) {
+          var dupMsg = isLegacy ? "Duplicate reward record for UserID and AdID: " + (r.AdID || "") : "Duplicate RewardID in AdRewards: " + r.RewardID;
+          rewardIssues.push(dupMsg);
+          anomalies.push({
+            Category: "REWARD",
+            Severity: "HIGH",
+            EntityID: r.RewardID || "",
+            RelatedUser: userId,
+            Issue: dupMsg
+          });
+        }
+      }
+    });
+
+    // Check completed rewards have matching wallet transactions
+    userRewards.forEach(function(r) {
+      var isCompleted = (String(r.Completed || "").toLowerCase() === "yes" || String(r.Completed || "").toLowerCase() === "completed");
+      var rCoins = Number(r.CoinsEarned || r.Coins || 0);
+
+      if (isCompleted && rCoins > 0) {
+        var foundTx = false;
+        if (r.WalletTransactionID && maps.txIdSet[r.WalletTransactionID]) {
+          foundTx = true;
+        } else {
+          var ref = r.AdID || r.CampaignID || "";
+          var refTxs = maps.txByRef[ref] || [];
+          refTxs.forEach(function(tx) {
+            if (String(tx.UserID) === String(userId) && Math.abs(_getTxCoins(tx) - rCoins) < 0.01) {
+              foundTx = true;
+            }
+          });
+        }
+
+        if (!foundTx) {
+          var missMsg = "Completed reward without matching wallet transaction (RewardID: " + (r.RewardID || "UNKNOWN") + ", Coins: " + rCoins + ")";
+          rewardIssues.push(missMsg);
+          anomalies.push({
+            Category: "REWARD",
+            Severity: "MEDIUM",
+            EntityID: r.RewardID || "",
+            RelatedUser: userId,
+            Issue: missMsg
+          });
+        }
+      }
+    });
+
+    var rewardConsistency = rewardIssues.length === 0 ? "CONSISTENT" : "INCONSISTENT";
+
+    // Deduplicate anomalies by Category + EntityID + Issue
+    var uniqueAnomalyKeys = {};
+    var dedupedAnomalies = [];
+    anomalies.forEach(function(a) {
+      var aKey = a.Category + "|" + (a.EntityID || "") + "|" + (a.Issue || "").substring(0, 40);
+      if (!uniqueAnomalyKeys[aKey]) {
+        uniqueAnomalyKeys[aKey] = true;
+        dedupedAnomalies.push(a);
+      }
+    });
+
+    return success({
+      reconciliation: {
+        Status: status,
+        StoredBalance: storedBalance,
+        DerivedBalance: txDerived,
+        Variance: variance,
+        Credits: credits,
+        Debits: debits,
+        TransactionCount: txCount,
+        ChainStatus: chainStatus,
+        RewardConsistency: rewardConsistency,
+        ChainIssues: chainIssues
+      },
+      anomalies: dedupedAnomalies
+    }, "Wallet Detail Integrity Loaded");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
