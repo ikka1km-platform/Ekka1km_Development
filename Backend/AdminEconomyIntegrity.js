@@ -1898,3 +1898,278 @@ function getAnomalyExplorer(e) {
     return exception(err);
   }
 }
+
+
+/**
+ * ============================================================
+ * ADMIN: CAMPAIGN ECONOMY INTEGRITY
+ * Provides per-campaign detailed accounting integrity analysis
+ * as well as paginated multi-campaign integrity list views.
+ * Reuses authoritative maps and V2 Promotion Fuel normalizer.
+ *
+ * ?action=campaigneconomyintegrity&session=TOKEN
+ * Optional parameters:
+ * - campaignId: Specific campaign ID for detailed single-campaign view
+ * - search: Search by CampaignID, OwnerUserID, CampaignType, OwnerName
+ * - status: Filter by Status or AccountingStatus
+ * - page: 1-based page index (default: 1)
+ * - limit: Records per page (default: 25, max: 100)
+ * ============================================================
+ */
+function getCampaignEconomyIntegrity(e) {
+  try {
+    const sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) return sessionResult.response;
+
+    const targetId = (e.parameter && e.parameter.campaignId || "").trim();
+    const search = (e.parameter && e.parameter.search || "").trim().toLowerCase();
+    const statusFilter = (e.parameter && e.parameter.status || "").trim().toUpperCase();
+    const page = Math.max(1, parseInt(e.parameter && e.parameter.page || "1", 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(e.parameter && e.parameter.limit || "25", 10) || 25));
+
+    const maps = _buildIntegrityMaps();
+
+    // Helper for single campaign analysis using authoritative integrity logic
+    function analyzeCampaign(rawC) {
+      const c = normalizeCampaignForIntegrity(rawC);
+      const cid = c.CampaignID || "";
+      const promotionFuel = Number(c.PromotionFuel || 0);
+      const remainingFuel = Number(c.RemainingFuel || 0);
+      const coinsConsumed = Number(c.CoinsConsumed || 0);
+      const rewardCoins = Number(c.RewardCoins || 0);
+      const views = Number(c.Views || 0);
+      const owner = maps.userMap[c.OwnerUserID] || null;
+
+      // Expected Remaining = max(0, PromotionFuel - CoinsConsumed)
+      const expectedRemaining = Math.max(0, promotionFuel - coinsConsumed);
+      const variance = remainingFuel - expectedRemaining;
+
+      // Rewards aggregation
+      const campaignRewards = maps.rewardByAd[cid] || [];
+      var rewardsDistributed = 0;
+      var uniqueUsersSet = {};
+      campaignRewards.forEach(function(r) {
+        var cStatus = String(r.Completed || r.Status || "").toLowerCase();
+        var isCompleted = (cStatus === "yes" || cStatus === "completed" || cStatus === "paid");
+        var coins = Number(r.CoinsEarned || r.Coins || 0);
+        if (isCompleted && coins > 0) {
+          rewardsDistributed += coins;
+          if (r.UserID) uniqueUsersSet[r.UserID] = true;
+        }
+      });
+      var uniqueUsersRewarded = Object.keys(uniqueUsersSet).length;
+
+      // Transactions aggregation
+      const campaignTxs = maps.txByRef[cid] || [];
+
+      // Accounting & Health status determination
+      var campStatus = "HEALTHY";
+      var campIssues = [];
+
+      if (remainingFuel < 0) {
+        campIssues.push("RemainingFuel below zero: " + remainingFuel);
+        campStatus = "MISMATCH";
+      }
+      if (remainingFuel > promotionFuel && promotionFuel > 0) {
+        campIssues.push("RemainingFuel (" + remainingFuel + ") > PromotionFuel (" + promotionFuel + ")");
+        campStatus = "MISMATCH";
+      }
+      if (coinsConsumed > promotionFuel && promotionFuel > 0) {
+        campIssues.push("CoinsConsumed (" + coinsConsumed + ") > PromotionFuel (" + promotionFuel + ")");
+        campStatus = "MISMATCH";
+      }
+      var fuelBalance = coinsConsumed + remainingFuel;
+      if (Math.abs(fuelBalance - promotionFuel) > 0.01 && promotionFuel > 0) {
+        campIssues.push("Fuel balance mismatch: CoinsConsumed (" + coinsConsumed + ") + RemainingFuel (" + remainingFuel + ") ≠ PromotionFuel (" + promotionFuel + ")");
+        campStatus = "MISMATCH";
+      }
+      if (views < 0) {
+        campIssues.push("Negative views: " + views);
+        if (campStatus === "HEALTHY") campStatus = "WARNING";
+      }
+      if (rewardCoins < 0) {
+        campIssues.push("Negative RewardCoins: " + rewardCoins);
+        if (campStatus === "HEALTHY") campStatus = "WARNING";
+      }
+      if (promotionFuel === 0 && coinsConsumed === 0 && remainingFuel === 0) {
+        if (campIssues.length === 0) campStatus = "INSUFFICIENT_DATA";
+      }
+      if (campIssues.length === 0) {
+        campIssues.push("No issues detected");
+      }
+
+      return {
+        c: c,
+        cid: cid,
+        owner: owner,
+        promotionFuel: promotionFuel,
+        remainingFuel: remainingFuel,
+        coinsConsumed: coinsConsumed,
+        rewardCoins: rewardCoins,
+        views: views,
+        expectedRemaining: expectedRemaining,
+        variance: variance,
+        rewardsDistributed: rewardsDistributed,
+        uniqueUsersRewarded: uniqueUsersRewarded,
+        campaignRewards: campaignRewards,
+        campaignTxs: campaignTxs,
+        campStatus: campStatus,
+        campIssues: campIssues
+      };
+    }
+
+    // 1. DETAIL MODE: campaignId is supplied
+    if (targetId) {
+      let campaign = maps.campaignMap[targetId];
+      if (!campaign) {
+        const targetLower = targetId.toLowerCase();
+        campaign = (maps.campaignData || []).find(function(c) {
+          return String(c.CampaignID || "").toLowerCase() === targetLower;
+        });
+      }
+      if (!campaign) {
+        return error("Campaign not found: " + targetId);
+      }
+
+      const a = analyzeCampaign(campaign);
+
+      return success({
+        campaign: {
+          CampaignID: a.cid,
+          CampaignType: a.c.CampaignType || "",
+          OwnerUserID: a.c.OwnerUserID || "",
+          OwnerName: a.owner ? (a.owner.FullName || a.owner.Name || "") : "",
+          Status: a.c.Status || "Active",
+          CreatedDate: a.c.CreatedDate || "",
+          StartDate: a.c.StartDate || "",
+          EndDate: a.c.EndDate || "",
+          City: a.c.City || "",
+          State: a.c.State || "",
+          Country: a.c.Country || "",
+          Radius: a.c.Radius || "",
+          Latitude: a.c.Latitude || "",
+          Longitude: a.c.Longitude || "",
+          Views: Number(a.c.Views || 0),
+          Clicks: Number(a.c.Clicks || 0),
+          Interested: Number(a.c.Interested || 0),
+          Shares: Number(a.c.Shares || 0)
+        },
+        accounting: {
+          PromotionFuel: a.promotionFuel,
+          RemainingFuel: a.remainingFuel,
+          CoinsConsumed: a.coinsConsumed,
+          RewardRatePerSecond: Number(a.c.RewardRatePerSecond || 0),
+          EstimatedViewSeconds: Number(a.c.EstimatedViewSeconds || 0),
+          EstimatedViews: Number(a.c.EstimatedViews || 0),
+          RewardCoins: Number(a.c.RewardCoins || 0),
+          Duration: Number(a.c.Duration || a.c.DurationSeconds || 0),
+          RewardPool: a.promotionFuel,
+          RemainingRewardCoins: a.remainingFuel,
+          CoinsSpent: a.coinsConsumed,
+          PlatformReserve: Number(a.c.PlatformReserve || 0)
+        },
+        reconciliation: {
+          RewardsDistributed: a.rewardsDistributed,
+          UniqueUsersRewarded: a.uniqueUsersRewarded,
+          ExpectedRemaining: a.expectedRemaining,
+          Variance: a.variance,
+          AccountingStatus: a.campStatus,
+          HealthStatus: a.campStatus,
+          Issues: a.campIssues
+        },
+        rewards: {
+          count: a.campaignRewards.length,
+          totalCoins: a.rewardsDistributed,
+          uniqueUsersRewarded: a.uniqueUsersRewarded,
+          records: a.campaignRewards.slice(0, 100)
+        },
+        transactions: {
+          count: a.campaignTxs.length,
+          records: a.campaignTxs.slice(0, 100)
+        }
+      }, "Campaign Economy Integrity Loaded");
+    }
+
+    // 2. LIST MODE: campaignId is NOT supplied
+    const results = [];
+    (maps.campaignData || []).forEach(function(rawC) {
+      const a = analyzeCampaign(rawC);
+
+      // Filter by search
+      if (search) {
+        var matchSearch = (
+          (a.cid && a.cid.toLowerCase().indexOf(search) !== -1) ||
+          (a.c.OwnerUserID && a.c.OwnerUserID.toLowerCase().indexOf(search) !== -1) ||
+          (a.c.CampaignType && a.c.CampaignType.toLowerCase().indexOf(search) !== -1) ||
+          (a.owner && a.owner.FullName && a.owner.FullName.toLowerCase().indexOf(search) !== -1)
+        );
+        if (!matchSearch) return;
+      }
+
+      // Filter by status (matches Status OR AccountingStatus/HealthStatus)
+      if (statusFilter) {
+        var matchStatus = (
+          String(a.c.Status || "").toUpperCase() === statusFilter ||
+          String(a.campStatus || "").toUpperCase() === statusFilter
+        );
+        if (!matchStatus) return;
+      }
+
+      results.push({
+        CampaignID: a.cid,
+        CampaignType: a.c.CampaignType || "",
+        OwnerUserID: a.c.OwnerUserID || "",
+        OwnerName: a.owner ? (a.owner.FullName || a.owner.Name || "") : "",
+        PromotionFuel: a.promotionFuel,
+        RemainingFuel: a.remainingFuel,
+        CoinsConsumed: a.coinsConsumed,
+        RewardRatePerSecond: Number(a.c.RewardRatePerSecond || 0),
+        EstimatedViewSeconds: Number(a.c.EstimatedViewSeconds || 0),
+        EstimatedViews: Number(a.c.EstimatedViews || 0),
+        RewardCoins: Number(a.c.RewardCoins || 0),
+        RewardPool: a.promotionFuel,
+        RemainingRewardCoins: a.remainingFuel,
+        CoinsSpent: a.coinsConsumed,
+        PlatformReserve: Number(a.c.PlatformReserve || 0),
+        Views: Number(a.c.Views || 0),
+        Clicks: Number(a.c.Clicks || 0),
+        Status: a.c.Status || "",
+        RewardsDistributed: a.rewardsDistributed,
+        UniqueUsersRewarded: a.uniqueUsersRewarded,
+        ExpectedRemaining: a.expectedRemaining,
+        Variance: a.variance,
+        AccountingStatus: a.campStatus,
+        HealthStatus: a.campStatus,
+        Issues: a.campIssues,
+        StartDate: a.c.StartDate || "",
+        EndDate: a.c.EndDate || "",
+        CreatedDate: a.c.CreatedDate || ""
+      });
+    });
+
+    // Sort: MISMATCH (0), WARNING (1), INSUFFICIENT_DATA (2), HEALTHY (3), then date desc
+    results.sort(function(a, b) {
+      var sev = { "MISMATCH": 0, "WARNING": 1, "INSUFFICIENT_DATA": 2, "HEALTHY": 3 };
+      var sa = sev[a.HealthStatus] !== undefined ? sev[a.HealthStatus] : 9;
+      var sb = sev[b.HealthStatus] !== undefined ? sev[b.HealthStatus] : 9;
+      if (sa !== sb) return sa - sb;
+      return _compareDatesDesc(a.CreatedDate, b.CreatedDate);
+    });
+
+    const total = results.length;
+    const totalPages = Math.ceil(total / limit) || 1;
+    const start = (page - 1) * limit;
+    const paged = results.slice(start, start + limit);
+
+    return success({
+      count: total,
+      totalPages: totalPages,
+      page: page,
+      limit: limit,
+      data: paged
+    }, "Campaign Economy Integrity Loaded");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
