@@ -390,7 +390,8 @@ const NavigationManager = (() => {
   const PAGE_ALIASES = {
     "propertydetails": "properties",
     "businessprofile": "businesses",
-    "userprofile": "profile"
+    "userprofile": "profile",
+    "register": "login"
   };
 
   function resolvePageAlias(pageId) {
