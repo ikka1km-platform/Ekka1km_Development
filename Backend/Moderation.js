@@ -161,8 +161,8 @@ function ensureReportsSheet() {
   var sheet = ss.getSheetByName("Reports");
   if (!sheet) {
     sheet = ss.insertSheet("Reports");
-    sheet.appendRow(["ReportID", "ReporterUserID", "TargetType", "TargetID", "Reason", "Details", "Status", "CreatedDate", "ResolvedDate", "ResolvedBy"]);
-    Logger.log("Sheet created: Reports with headers: ReportID, ReporterUserID, TargetType, TargetID, Reason, Details, Status, CreatedDate, ResolvedDate, ResolvedBy");
+    sheet.appendRow(["ReportID", "ReporterUserID", "TargetType", "TargetID", "Reason", "Status", "CreatedAt", "ResolvedAt"]);
+    Logger.log("Sheet created: Reports with headers: ReportID, ReporterUserID, TargetType, TargetID, Reason, Status, CreatedAt, ResolvedAt");
   }
   return sheet;
 }
@@ -192,7 +192,7 @@ function getReports(e) {
     }
 
     reports.sort(function(a, b) {
-      return new Date(b.CreatedDate || 0) - new Date(a.CreatedDate || 0);
+      return new Date(b.CreatedAt || 0) - new Date(a.CreatedAt || 0);
     });
 
     return success({ count: reports.length, data: reports }, "Reports loaded successfully");
