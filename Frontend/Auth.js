@@ -372,6 +372,7 @@ async function verifyLoginOTP() {
 
         console.log("LOGIN SUCCESS - Session saved:", result.session);
         console.log("LOGIN SUCCESS - User saved:", result.user);
+        console.log("LOGIN SUCCESS - isNewUser:", Boolean(result.isNewUser));
         console.log("LOGIN SUCCESS - isLoggedIn:", isLoggedIn());
         console.log("LOGIN SUCCESS - getCurrentUser:", getCurrentUser());
       } else {
@@ -401,9 +402,15 @@ async function verifyLoginOTP() {
       // Update UI
       refreshLoginUI();
 
-      alert(
-        "Login Successful!"
-      );
+      if (result.isNewUser) {
+        alert(
+          "Welcome to Ekka1km! Registration Successful."
+        );
+      } else {
+        alert(
+          "Login Successful!"
+        );
+      }
 
       openPage("home");
 

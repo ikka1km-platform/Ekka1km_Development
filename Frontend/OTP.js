@@ -47,7 +47,7 @@ const OTP = {
   /*
   ============================================================
   VERIFY OTP
-  Returns: { success, message, session?, user?, mobile? }
+  Returns: { success, message, session?, user?, mobile?, isNewUser? }
   ============================================================
   */
 
@@ -458,7 +458,11 @@ const OTP = {
             json.data
               ? json.data.user
               : null,
-          mobile: mobile
+          mobile: mobile,
+          isNewUser: Boolean(
+            json.data &&
+            json.data.isNewUser
+          )
         };
       }
 
@@ -489,7 +493,15 @@ OTP._serverOtpRequest = async function(action, mobile, otp) {
       return { success: false, message: (json && json.message) || "OTP request failed" };
     }
     const data = json.data || {};
-    return { success: true, message: json.message || "OTP verified", session: data.session || null, user: data.user || null, mobile: data.mobile || mobile, devOtp: data.devOtp || null };
+    return {
+      success: true,
+      message: json.message || "OTP verified",
+      session: data.session || null,
+      user: data.user || null,
+      mobile: data.mobile || mobile,
+      devOtp: data.devOtp || null,
+      isNewUser: Boolean(data.isNewUser)
+    };
   } catch (err) { return { success: false, message: "OTP request failed: " + err.message }; }
 };
 
