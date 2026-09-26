@@ -293,7 +293,7 @@ function renderOrdersContent() {
   html += '</div>';
 
   // Summary Cards
-  html += renderSummaryCards();
+  html += renderOrdersSummaryCards();
 
   // Tabs
   html += '<div class="ordersTabs">';
@@ -323,7 +323,7 @@ RENDER SUMMARY CARDS
 ============================================================
 */
 
-function renderSummaryCards() {
+function renderOrdersSummaryCards() {
   var inquiriesCount = ORDERS_INQUIRIES_DATA.length;
   var activeCount = 0;
   ORDERS_INQUIRIES_DATA.forEach(function(item) {

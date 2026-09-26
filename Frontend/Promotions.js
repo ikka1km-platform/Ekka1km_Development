@@ -243,7 +243,7 @@ function renderCampaignList(container) {
   var html = "";
 
   // Summary Cards
-  html += renderSummaryCards();
+  html += renderPromoSummaryCards();
 
   // Action Bar
   html += '<div class="promo-action-bar">';
@@ -286,7 +286,7 @@ function renderCampaignList(container) {
 /* ==========================================================
    RENDER SUMMARY CARDS
    ========================================================== */
-function renderSummaryCards() {
+function renderPromoSummaryCards() {
   var active = 0, scheduled = 0, completed = 0;
   var coinsSpent = 0, rewardPool = 0, remainingPool = 0;
 
