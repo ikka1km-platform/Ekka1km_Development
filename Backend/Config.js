@@ -60,6 +60,7 @@ const CONFIG = {
     ANNOUNCERS: "Announcers",
 
     MEDIA: "Media",
+    MEDIA_ASSETS: "MediaAssets",
 
     ADVERTISEMENTS: "Advertisements",
 

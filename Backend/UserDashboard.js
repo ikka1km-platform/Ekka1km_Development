@@ -189,7 +189,7 @@ function getUserActivitySummary(userId) {
     });
 
     news.forEach(function(n) {
-      if (String(n.UserID) === String(userId)) newsCount++;
+      if (String(n.PublisherUserID || n.UserID || "") === String(userId)) newsCount++;
     });
 
     interests.forEach(function(i) {
@@ -385,7 +385,7 @@ function getRealContentCounts(userId) {
     });
 
     news.forEach(function(n) {
-      if (String(n.UserID) === String(userId)) newsCount++;
+      if (String(n.PublisherUserID || n.UserID || "") === String(userId)) newsCount++;
     });
 
     return {
@@ -458,7 +458,7 @@ function getRecentDashboardActivity(userId) {
     // Latest News by user
     var userNews = [];
     news.forEach(function(n) {
-      if (String(n.UserID) === String(userId)) {
+      if (String(n.PublisherUserID || n.UserID || "") === String(userId)) {
         userNews.push({ id: n.NewsID, title: n.Title, status: n.Status, date: n.CreatedDate });
       }
     });

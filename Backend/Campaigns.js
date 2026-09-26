@@ -4,10 +4,19 @@
  * ============================================================
  */
 
+function getCampaignsSheetName_() {
+  try {
+    var ss = getSpreadsheet();
+    if (ss && ss.getSheetByName("Campaigns")) return "Campaigns";
+    if (ss && ss.getSheetByName("Campaingns")) return "Campaingns";
+  } catch (e) {}
+  return "Campaigns";
+}
+
 function getCampaigns(e) {
   try {
     return success(
-      getSheetData("Campaigns")
+      getSheetData(getCampaignsSheetName_())
     );
   } catch (err) {
     return exception(err);
@@ -21,7 +30,7 @@ function getCampaign(e) {
       e.parameter.campaignId || "";
 
     const row = getRowById(
-      "Campaigns",
+      getCampaignsSheetName_(),
       "CampaignID",
       id
     );
@@ -46,7 +55,7 @@ function addCampaign(e) {
       e.parameter;
 
     const sheet =
-      getSheet("Campaigns");
+      getSheet(getCampaignsSheetName_());
 
     const id =
       "CP" +
@@ -83,7 +92,7 @@ function updateCampaign(e) {
       e.parameter;
 
     updateRow(
-      "Campaigns",
+      getCampaignsSheetName_(),
       "CampaignID",
       p.campaignId,
       {
@@ -128,7 +137,7 @@ function deleteCampaign(e) {
 function getCampaignStats(e) {
   try {
     const data =
-      getSheetData("Campaigns");
+      getSheetData(getCampaignsSheetName_());
 
     let active = 0;
     let paused = 0;

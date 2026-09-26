@@ -974,7 +974,7 @@ function updateNews(e) {
     var data = sheet.getDataRange().getValues();
     var headers = data[0];
 
-    var userIdIndex = headers.indexOf("UserID");
+    var userIdIndex = headers.indexOf("PublisherUserID") >= 0 ? headers.indexOf("PublisherUserID") : headers.indexOf("UserID");
     var newsRow = null;
     var rowIndex = -1;
 
@@ -998,7 +998,7 @@ function updateNews(e) {
     }
 
     // Do not allow changing immutable fields
-    var protectedFields = ["NewsID", "UserID", "CreatedDate"];
+    var protectedFields = ["NewsID", "PublisherUserID", "UserID", "CreatedDate"];
 
     for (var j = 0; j < headers.length; j++) {
       var key = headers[j];
@@ -1034,7 +1034,7 @@ function deleteNews(e) {
     var newsId = e && e.parameter ? e.parameter.newsId || e.parameter.id || "" : "";
     if (!newsId) return error("newsId required");
     var news = getRowById("News", "NewsID", newsId);
-    if (!news || String(news.UserID || "") !== auth.userId) return error("Forbidden");
+    if (!news || String(news.PublisherUserID || news.UserID || "") !== auth.userId) return error("Forbidden");
 
     var updated = updateRow("News", "NewsID", newsId, {
       Status: "Deleted",

@@ -121,40 +121,84 @@ function addProduct(e) {
       Utilities.getUuid()
         .substring(0, 8);
 
-    sheet.appendRow([
-      productId,               // ProductID
-      auth.userId,              // UserID
-      businessId,              // BusinessID
-      p.title || "",           // Title
-      p.description || "",     // Description
-      p.price || "",           // Price
-      p.category || "",        // Category
-      p.imageURL || "",        // ImageURL
-      p.lat || "",             // Latitude
-      p.lng || "",             // Longitude
-      "Pending",               // Status
-      new Date(),              // CreatedDate
-      0,                       // Views
-      0,                       // Reports
-      "No",                    // Featured
-      p.sellerName || "",      // SellerName
-      p.phone || "",           // Phone
-      p.whatsapp || "",        // WhatsApp
-      p.address || "",         // Address
-      p.city || "",            // City
-      p.state || "",           // State
-      p.pincode || "",         // Pincode
-      p.condition || "",       // Condition
-      p.brand || "",           // Brand
-      p.model || "",           // Model
-      p.image2 || "",          // Image2
-      p.image3 || "",          // Image3
-      p.videoUrl || "",        // VideoURL
-      p.delivery || "No",      // Delivery
-      p.cod || "No",           // COD
-      p.negotiable || "No",    // Negotiable
-      ""                       // FeaturedTill
-    ]);
+    const data = sheet.getDataRange().getValues();
+    const headers = data.length > 0 ? data[0] : null;
+
+    if (headers && headers.length > 0) {
+      const row = headers.map(function(h) {
+        switch (h) {
+          case "ProductID": return productId;
+          case "UserID": return auth.userId;
+          case "BusinessID": return businessId || "";
+          case "Title": return p.title || "";
+          case "Description": return p.description || "";
+          case "Price": return p.price || "";
+          case "Category": return p.category || "";
+          case "ImageURL": return p.imageURL || "";
+          case "Latitude": return p.lat || "";
+          case "Longitude": return p.lng || "";
+          case "Status": return "Pending";
+          case "CreatedDate": return new Date();
+          case "Views": return 0;
+          case "Reports": return 0;
+          case "Featured": return "No";
+          case "SellerName": return p.sellerName || "";
+          case "Phone": return p.phone || "";
+          case "WhatsApp": return p.whatsapp || "";
+          case "Address": return p.address || "";
+          case "City": return p.city || "";
+          case "State": return p.state || "";
+          case "Pincode": return p.pincode || "";
+          case "Condition": return p.condition || "";
+          case "Brand": return p.brand || "";
+          case "Model": return p.model || "";
+          case "Image2": return p.image2 || "";
+          case "Image3": return p.image3 || "";
+          case "VideoURL": return p.videoUrl || "";
+          case "Delivery": return p.delivery || "No";
+          case "COD": return p.cod || "No";
+          case "Negotiable": return p.negotiable || "No";
+          case "FeaturedTill": return "";
+          default: return p[h] !== undefined ? p[h] : "";
+        }
+      });
+      sheet.appendRow(row);
+    } else {
+      sheet.appendRow([
+        productId,               // ProductID
+        auth.userId,              // UserID
+        businessId,              // BusinessID
+        p.title || "",           // Title
+        p.description || "",     // Description
+        p.price || "",           // Price
+        p.category || "",        // Category
+        p.imageURL || "",        // ImageURL
+        p.lat || "",             // Latitude
+        p.lng || "",             // Longitude
+        "Pending",               // Status
+        new Date(),              // CreatedDate
+        0,                       // Views
+        0,                       // Reports
+        "No",                    // Featured
+        p.sellerName || "",      // SellerName
+        p.phone || "",           // Phone
+        p.whatsapp || "",        // WhatsApp
+        p.address || "",         // Address
+        p.city || "",            // City
+        p.state || "",           // State
+        p.pincode || "",         // Pincode
+        p.condition || "",       // Condition
+        p.brand || "",           // Brand
+        p.model || "",           // Model
+        p.image2 || "",          // Image2
+        p.image3 || "",          // Image3
+        p.videoUrl || "",        // VideoURL
+        p.delivery || "No",      // Delivery
+        p.cod || "No",           // COD
+        p.negotiable || "No",    // Negotiable
+        ""                       // FeaturedTill
+      ]);
+    }
 
     return success(
       {
@@ -194,37 +238,48 @@ function legacyUpdateProduct(e) {
       sheet.getDataRange()
         .getValues();
 
+    if (data.length <= 1) {
+      return error("Product not found");
+    }
+
+    const headers = data[0];
+    const userCol = headers.indexOf("UserID") >= 0 ? headers.indexOf("UserID") : 1;
+    const titleIdx = headers.indexOf("Title");
+    const descIdx = headers.indexOf("Description");
+    const priceIdx = headers.indexOf("Price");
+    const catIdx = headers.indexOf("Category");
+
     for (let i = 1; i < data.length; i++) {
 
       if (
         String(data[i][0]).trim() ===
         String(id).trim()
       ) {
-        if (String(data[i][1] || "") !== auth.userId) return error("Forbidden");
+        if (String(data[i][userCol] || "") !== auth.userId) return error("Forbidden");
 
-        if (e.parameter.title) {
-          sheet.getRange(i + 1, 4)
+        if (e.parameter.title && titleIdx >= 0) {
+          sheet.getRange(i + 1, titleIdx + 1)
             .setValue(
               e.parameter.title
             );
         }
 
-        if (e.parameter.description) {
-          sheet.getRange(i + 1, 5)
+        if (e.parameter.description && descIdx >= 0) {
+          sheet.getRange(i + 1, descIdx + 1)
             .setValue(
               e.parameter.description
             );
         }
 
-        if (e.parameter.price) {
-          sheet.getRange(i + 1, 6)
+        if (e.parameter.price && priceIdx >= 0) {
+          sheet.getRange(i + 1, priceIdx + 1)
             .setValue(
               e.parameter.price
             );
         }
 
-        if (e.parameter.category) {
-          sheet.getRange(i + 1, 7)
+        if (e.parameter.category && catIdx >= 0) {
+          sheet.getRange(i + 1, catIdx + 1)
             .setValue(
               e.parameter.category
             );

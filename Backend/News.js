@@ -52,16 +52,19 @@ function getNews(e) {
         }
       );
 
+      if (!row.UserID && row.PublisherUserID) {
+        row.UserID = row.PublisherUserID;
+      }
       news.push(row);
     }
 
-    // Filter by userId if provided (News use UserID)
+    // Filter by userId if provided (News use PublisherUserID / UserID)
     const userId = e && e.parameter ? e.parameter.userId || "" : "";
     if (userId) {
       const auth = requireAuthenticatedUser(e);
       if (!auth.valid) return auth.response;
       news = news.filter(function(n) {
-        return String(n.UserID) === auth.userId;
+        return String(n.PublisherUserID || n.UserID || "") === auth.userId;
       });
     }
 
@@ -191,27 +194,60 @@ function addNews(e) {
       Utilities.getUuid()
         .substring(0, 8);
 
-    sheet.appendRow([
-      newsId,
-      auth.userId,
-      p.Title || "",
-      p.Description || "",
-      p.Category || "",
-      p.Image || "",
-      p.VideoURL || "",
-      p.Source || "",
-      p.Address || "",
-      p.City || "",
-      p.District || "",
-      p.State || "",
-      p.Country || "",
-      p.Latitude || "",
-      p.Longitude || "",
-      0,
-      p.Featured || "No",
-      p.Status || "Active",
-      new Date()
-    ]);
+    const data = sheet.getDataRange().getValues();
+    const headers = data.length > 0 ? data[0] : null;
+
+    if (headers && headers.length > 0) {
+      const row = headers.map(function(h) {
+        switch (h) {
+          case "NewsID": return newsId;
+          case "PublisherUserID":
+          case "UserID": return auth.userId;
+          case "Title": return p.Title || p.title || "";
+          case "Description": return p.Description || p.description || "";
+          case "ImageURL":
+          case "Image": return p.ImageURL || p.Image || p.image || "";
+          case "VideoURL": return p.VideoURL || p.videoUrl || "";
+          case "Category": return p.Category || p.category || "";
+          case "City": return p.City || p.city || "";
+          case "District": return p.District || p.district || "";
+          case "State": return p.State || p.state || "";
+          case "Country": return p.Country || p.country || "";
+          case "Latitude": return p.Latitude || p.latitude || "";
+          case "Longitude": return p.Longitude || p.longitude || "";
+          case "Radius": return p.Radius || p.radius || "";
+          case "Status": return p.Status || p.status || "Active";
+          case "CreatedDate": return new Date();
+          case "Views": return 0;
+          case "Featured": return p.Featured || p.featured || "No";
+          case "PromotionCampaignID": return p.PromotionCampaignID || p.campaignId || "";
+          default: return p[h] !== undefined ? p[h] : "";
+        }
+      });
+      sheet.appendRow(row);
+    } else {
+      sheet.appendRow([
+        newsId,
+        auth.userId,
+        p.Title || p.title || "",
+        p.Description || p.description || "",
+        p.ImageURL || p.Image || p.image || "",
+        p.VideoURL || p.videoUrl || "",
+        p.Category || p.category || "",
+        p.City || p.city || "",
+        p.District || p.district || "",
+        p.State || p.state || "",
+        p.Country || p.country || "",
+        p.Latitude || p.latitude || "",
+        p.Longitude || p.longitude || "",
+        p.Radius || p.radius || "",
+        p.Status || p.status || "Active",
+        new Date(),
+        0,
+        p.Featured || p.featured || "No",
+        p.PromotionCampaignID || p.campaignId || ""
+      ]);
+    }
 
     return success(
       {
@@ -253,6 +289,16 @@ function updateNews(e) {
       sheet.getDataRange()
         .getValues();
 
+    if (data.length <= 1) {
+      return error("Article not found");
+    }
+
+    const headers = data[0];
+    const publisherCol = headers.indexOf("PublisherUserID");
+    const userCol = headers.indexOf("UserID");
+    const ownerCol = publisherCol >= 0 ? publisherCol : (userCol >= 0 ? userCol : 1);
+    const protectedFields = ["NewsID", "PublisherUserID", "UserID", "CreatedDate"];
+
     for (
       let i = 1;
       i < data.length;
@@ -263,10 +309,7 @@ function updateNews(e) {
         String(data[i][0]) ===
         String(id)
       ) {
-        if (String(data[i][1] || "") !== auth.userId) return error("Forbidden");
-
-        const headers =
-          data[0];
+        if (String(data[i][ownerCol] || "") !== auth.userId) return error("Forbidden");
 
         for (
           let j = 0;
@@ -276,6 +319,8 @@ function updateNews(e) {
 
           const key =
             headers[j];
+
+          if (protectedFields.indexOf(key) >= 0) continue;
 
           if (
             p[key] !== undefined &&
@@ -333,6 +378,15 @@ function deleteNews(e) {
       sheet.getDataRange()
         .getValues();
 
+    if (data.length <= 1) {
+      return error("Article not found");
+    }
+
+    const headers = data[0];
+    const publisherCol = headers.indexOf("PublisherUserID");
+    const userCol = headers.indexOf("UserID");
+    const ownerCol = publisherCol >= 0 ? publisherCol : (userCol >= 0 ? userCol : 1);
+
     for (
       let i = 1;
       i < data.length;
@@ -343,7 +397,7 @@ function deleteNews(e) {
         String(data[i][0]) ===
         String(id)
       ) {
-        if (String(data[i][1] || "") !== auth.userId) return error("Forbidden");
+        if (String(data[i][ownerCol] || "") !== auth.userId) return error("Forbidden");
 
         sheet.deleteRow(
           i + 1
@@ -587,6 +641,9 @@ function loadAllNews() {
     var row = {};
     for (var j = 0; j < headers.length; j++) {
       row[headers[j]] = values[i][j];
+    }
+    if (!row.UserID && row.PublisherUserID) {
+      row.UserID = row.PublisherUserID;
     }
     news.push(row);
   }

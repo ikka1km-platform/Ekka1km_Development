@@ -64,7 +64,7 @@ function markInterested(e) {
     } else if (targetType === "News") {
       var news = getRowById("News", "NewsID", targetId);
       if (!news) return error("News not found");
-      ownerUserId = news.UserID || "";
+      ownerUserId = news.PublisherUserID || news.UserID || "";
     }
 
     // Seller cannot mark own items

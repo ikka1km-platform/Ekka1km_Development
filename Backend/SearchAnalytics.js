@@ -4,8 +4,46 @@
  * ============================================================
  */
 
+function getSearchAnalyticsSheetName_() {
+  try {
+    var ss = getSpreadsheet();
+    if (ss && ss.getSheetByName("SearchAnalytics")) return "SearchAnalytics";
+    if (ss && ss.getSheetByName("SearchAnalystics")) return "SearchAnalystics";
+  } catch (e) {}
+  return "SearchAnalytics";
+}
+
+function getSearchAnalyticsSheet_() {
+  try {
+    var ss = getSpreadsheet();
+    if (!ss) return null;
+    return ss.getSheetByName("SearchAnalytics") || ss.getSheetByName("SearchAnalystics") || ss.getSheetByName(getSearchAnalyticsSheetName_());
+  } catch (e) {
+    return null;
+  }
+}
+
+function ensureSearchHistoryHeaders_(sheet) {
+  if (!sheet) return;
+  var lastRow = sheet.getLastRow();
+  if (lastRow === 0) {
+    sheet.appendRow(["SearchID", "UserID", "Keyword", "Timestamp"]);
+    return;
+  }
+  var firstRowValues = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 4)).getValues()[0];
+  var firstCell = String(firstRowValues[0] || "").trim();
+  if (firstCell !== "SearchID") {
+    sheet.insertRowBefore(1);
+    sheet.getRange(1, 1, 1, 4).setValues([["SearchID", "UserID", "Keyword", "Timestamp"]]);
+  }
+}
+
 function getSearchHistory(e) {
   try {
+    var sheet = getSheet("SearchHistory");
+    if (sheet) {
+      ensureSearchHistoryHeaders_(sheet);
+    }
     return success(
       getSheetData("SearchHistory")
     );
@@ -18,7 +56,7 @@ function getSearchHistory(e) {
 function getPopularSearches(e) {
   try {
     const data =
-      getSheetData("SearchAnalytics");
+      getSheetData(getSearchAnalyticsSheetName_());
 
     const result =
       data.sort(function (a, b) {
@@ -50,7 +88,7 @@ function getSearchAnalytics(e) {
   try {
     return success(
       getSheetData(
-        "SearchAnalytics"
+        getSearchAnalyticsSheetName_()
       )
     );
 
@@ -70,21 +108,23 @@ function saveSearchHistory(
       return;
     }
 
-    getSheet(
-      "SearchHistory"
-    ).appendRow([
-      "SH" +
-        Utilities.getUuid()
-          .substring(0, 8),
-      userId || "",
-      keyword,
-      new Date()
-    ]);
+    var histSheet = getSheet("SearchHistory");
+    if (histSheet) {
+      ensureSearchHistoryHeaders_(histSheet);
+      histSheet.appendRow([
+        "SH" +
+          Utilities.getUuid()
+            .substring(0, 8),
+        userId || "",
+        keyword,
+        new Date()
+      ]);
+    }
 
     const sheet =
-      getSheet(
-        "SearchAnalytics"
-      );
+      getSearchAnalyticsSheet_();
+
+    if (!sheet) return;
 
     const data =
       sheet

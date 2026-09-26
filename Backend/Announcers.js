@@ -65,6 +65,47 @@ function isRadiusAllowed(selectedRadius, maxRadius) {
 
 /**
  * ============================================================
+ * HELPER: LOG ANNOUNCER AUDIT ACTIVITY
+ * Writes canonical ActivityLogs entries:
+ * [LogID, UserID, Activity, ReferenceID, IPAddress, Device, CreatedDate]
+ * ============================================================
+ */
+function logAnnouncerActivity_(activitySheet, userId, activity, referenceId, description) {
+  try {
+    if (!activitySheet) return;
+    var headers = activitySheet.getDataRange().getValues()[0];
+    if (headers && headers.length > 0) {
+      var row = headers.map(function(h) {
+        switch (h) {
+          case "LogID": return Utilities.getUuid().substring(0, 8);
+          case "UserID": return String(userId || "");
+          case "Activity": return String(activity || "");
+          case "ReferenceID": return String(referenceId || description || "");
+          case "IPAddress": return "";
+          case "Device": return "";
+          case "CreatedDate": return new Date();
+          default: return "";
+        }
+      });
+      activitySheet.appendRow(row);
+    } else {
+      activitySheet.appendRow([
+        Utilities.getUuid().substring(0, 8),
+        String(userId || ""),
+        String(activity || ""),
+        String(referenceId || description || ""),
+        "",
+        "",
+        new Date()
+      ]);
+    }
+  } catch (alErr) {
+    Logger.log("logAnnouncerActivity_ error: " + alErr);
+  }
+}
+
+/**
+ * ============================================================
  * APPLY FOR ANNOUNCER
  * ?action=applyannouncer
  *   &userId=U001
@@ -154,13 +195,13 @@ function applyAnnouncer(e) {
     try {
       var activitySheet = getSheet(CONFIG.SHEETS.ACTIVITY_LOGS);
       if (activitySheet) {
-        activitySheet.appendRow([
-          Utilities.getUuid().substring(0, 8),
-          "AnnouncerApplication",
+        logAnnouncerActivity_(
+          activitySheet,
           userId,
-          "Announcer application submitted: " + departmentName + " (" + announcerId + ")",
-          new Date()
-        ]);
+          "AnnouncerApplication",
+          announcerId,
+          "Announcer application submitted: " + departmentName + " (" + announcerId + ")"
+        );
       }
     } catch (alErr) {
       Logger.log("Audit log error: " + alErr);
@@ -341,13 +382,13 @@ function adminVerifyAnnouncer(e) {
     try {
       var activitySheet = getSheet(CONFIG.SHEETS.ACTIVITY_LOGS);
       if (activitySheet) {
-        activitySheet.appendRow([
-          Utilities.getUuid().substring(0, 8),
-          "AnnouncerVerified",
+        logAnnouncerActivity_(
+          activitySheet,
           announcer.UserID,
-          "Announcer " + announcerId + " (" + announcer.DepartmentName + ") verified by " + sessionResult.adminId,
-          new Date()
-        ]);
+          "AnnouncerVerified",
+          announcerId,
+          "Announcer " + announcerId + " (" + announcer.DepartmentName + ") verified by " + sessionResult.adminId
+        );
       }
     } catch (alErr) {
       Logger.log("Audit log error: " + alErr);
@@ -396,13 +437,13 @@ function adminSuspendAnnouncer(e) {
     try {
       var activitySheet = getSheet(CONFIG.SHEETS.ACTIVITY_LOGS);
       if (activitySheet) {
-        activitySheet.appendRow([
-          Utilities.getUuid().substring(0, 8),
-          "AnnouncerSuspended",
+        logAnnouncerActivity_(
+          activitySheet,
           announcer.UserID,
-          "Announcer " + announcerId + " (" + announcer.DepartmentName + ") suspended by " + sessionResult.adminId,
-          new Date()
-        ]);
+          "AnnouncerSuspended",
+          announcerId,
+          "Announcer " + announcerId + " (" + announcer.DepartmentName + ") suspended by " + sessionResult.adminId
+        );
       }
     } catch (alErr) {
       Logger.log("Audit log error: " + alErr);
@@ -489,13 +530,13 @@ function adminRevokeAnnouncer(e) {
     try {
       var activitySheet = getSheet(CONFIG.SHEETS.ACTIVITY_LOGS);
       if (activitySheet) {
-        activitySheet.appendRow([
-          Utilities.getUuid().substring(0, 8),
-          "AnnouncerRevoked",
+        logAnnouncerActivity_(
+          activitySheet,
           announcer.UserID,
-          "Announcer " + announcerId + " (" + announcer.DepartmentName + ") revoked by " + sessionResult.adminId,
-          new Date()
-        ]);
+          "AnnouncerRevoked",
+          announcerId,
+          "Announcer " + announcerId + " (" + announcer.DepartmentName + ") revoked by " + sessionResult.adminId
+        );
       }
     } catch (alErr) {
       Logger.log("Audit log error: " + alErr);
@@ -579,13 +620,13 @@ function adminToggleAutoPublish(e) {
     try {
       var activitySheet = getSheet(CONFIG.SHEETS.ACTIVITY_LOGS);
       if (activitySheet) {
-        activitySheet.appendRow([
-          Utilities.getUuid().substring(0, 8),
-          "AnnouncerAutoPublishUpdated",
+        logAnnouncerActivity_(
+          activitySheet,
           announcer.UserID,
-          "Announcer " + announcerId + " (" + announcer.DepartmentName + ") Auto-Publish set to " + autoPublishVal + " by " + sessionResult.adminId,
-          new Date()
-        ]);
+          "AnnouncerAutoPublishUpdated",
+          announcerId,
+          "Announcer " + announcerId + " (" + announcer.DepartmentName + ") Auto-Publish set to " + autoPublishVal + " by " + sessionResult.adminId
+        );
       }
     } catch (alErr) {
       Logger.log("Audit log error: " + alErr);

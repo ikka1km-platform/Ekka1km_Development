@@ -150,3 +150,86 @@ function updateModeration(e) {
     return exception(err);
   }
 }
+
+/**
+ * ============================================================
+ * ENSURE REPORTS SHEET EXISTS
+ * ============================================================
+ */
+function ensureReportsSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName("Reports");
+  if (!sheet) {
+    sheet = ss.insertSheet("Reports");
+    sheet.appendRow(["ReportID", "ReporterUserID", "TargetType", "TargetID", "Reason", "Details", "Status", "CreatedDate", "ResolvedDate", "ResolvedBy"]);
+    Logger.log("Sheet created: Reports with headers: ReportID, ReporterUserID, TargetType, TargetID, Reason, Details, Status, CreatedDate, ResolvedDate, ResolvedBy");
+  }
+  return sheet;
+}
+
+/**
+ * ============================================================
+ * GET REPORTS (Admin)
+ * ?action=reports&session=TOKEN&status=Pending
+ * ============================================================
+ */
+function getReports(e) {
+  try {
+    var sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) {
+      return sessionResult.response;
+    }
+
+    ensureReportsSheet();
+
+    var reports = getSheetData("Reports") || [];
+    var status = e && e.parameter ? e.parameter.status || "" : "";
+
+    if (status) {
+      reports = reports.filter(function(r) {
+        return String(r.Status || "").toLowerCase() === status.toLowerCase();
+      });
+    }
+
+    reports.sort(function(a, b) {
+      return new Date(b.CreatedDate || 0) - new Date(a.CreatedDate || 0);
+    });
+
+    return success({ count: reports.length, data: reports }, "Reports loaded successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}
+
+/**
+ * ============================================================
+ * GET SINGLE REPORT (Admin)
+ * ?action=report&session=TOKEN&reportId=RP001
+ * ============================================================
+ */
+function getReport(e) {
+  try {
+    var sessionResult = requireAdminSession(e);
+    if (!sessionResult.valid) {
+      return sessionResult.response;
+    }
+
+    var reportId = e && e.parameter ? e.parameter.reportId || e.parameter.id || "" : "";
+    if (!reportId) {
+      return error("reportId required");
+    }
+
+    ensureReportsSheet();
+
+    var report = getRowById("Reports", "ReportID", reportId);
+    if (!report) {
+      return error("Report not found");
+    }
+
+    return success(report, "Report retrieved successfully");
+
+  } catch (err) {
+    return exception(err);
+  }
+}

@@ -8,6 +8,11 @@
  */
 
 
+function getMediaAssetsSheetName() {
+  return (CONFIG.SHEETS && CONFIG.SHEETS.MEDIA_ASSETS) || "MediaAssets";
+}
+
+
 /**
  * ============================================================
  * GET ALL MEDIA
@@ -17,7 +22,7 @@
 function getMedia(e) {
   try {
     var sheet = getSheet(
-      CONFIG.SHEETS.MEDIA
+      getMediaAssetsSheetName()
     );
 
     if (!sheet) {
@@ -115,12 +120,12 @@ function handleAddMedia(e) {
   try {
     var p = e.parameter;
 
-    var sheet = getSheet(CONFIG.SHEETS.MEDIA);
+    var sheet = getSheet(getMediaAssetsSheetName());
 
     if (!sheet) {
       // Auto-create Media sheet if not found
       var ss = getSpreadsheet();
-      sheet = ss.insertSheet(CONFIG.SHEETS.MEDIA);
+      sheet = ss.insertSheet(getMediaAssetsSheetName());
       sheet.appendRow([
         "MediaID",
         "OwnerUserID",
@@ -192,7 +197,7 @@ function handleGetMyMedia(e) {
       return error("Owner UserID required");
     }
 
-    var sheet = getSheet(CONFIG.SHEETS.MEDIA);
+    var sheet = getSheet(getMediaAssetsSheetName());
 
     if (!sheet) {
       return success({
@@ -256,7 +261,7 @@ function handleSearchMedia(e) {
       return handleGetMyMedia(e);
     }
 
-    var sheet = getSheet(CONFIG.SHEETS.MEDIA);
+    var sheet = getSheet(getMediaAssetsSheetName());
 
     if (!sheet) {
       return success({
@@ -335,7 +340,7 @@ function handleDeleteMedia(e) {
       return error("MediaID required");
     }
 
-    var sheet = getSheet(CONFIG.SHEETS.MEDIA);
+    var sheet = getSheet(getMediaAssetsSheetName());
 
     if (!sheet) {
       return error("Media sheet not found");
@@ -444,7 +449,7 @@ function handleMediaAnalytics(e) {
     var ownerUserId =
       e.parameter.ownerUserId || "";
 
-    var sheet = getSheet(CONFIG.SHEETS.MEDIA);
+    var sheet = getSheet(getMediaAssetsSheetName());
 
     if (!sheet) {
       return success({
