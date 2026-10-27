@@ -606,6 +606,8 @@ function getAdminLiveStreams(e) {
 
     const filtered = [];
     let totalConcurrentViewers = 0;
+    const seenSessionIds = {};
+    const seenVideoIds = {};
 
     activeSessions.forEach(function (s) {
       const sessionLat = Number(s.Latitude || s.latitude);
@@ -619,11 +621,11 @@ function getAdminLiveStreams(e) {
         }
       }
 
-      // Check radius filter if radius is specified and not "all" or "all india"
+      // Check radius filter if radius is specified and not "all" or "all india" or >= 9000
       const isAll = !radiusParam || radiusParam.toLowerCase() === "all" || radiusParam.toLowerCase() === "all india";
       if (!isAll && radiusParam) {
         const radNum = Number(radiusParam);
-        if (!isNaN(radNum) && distance !== null && distance > radNum) {
+        if (!isNaN(radNum) && radNum < 9000 && distance !== null && distance > radNum) {
           return; // Outside Admin monitoring radius
         }
       }
@@ -640,10 +642,16 @@ function getAdminLiveStreams(e) {
         embedUrl += sep + "mute=1&enablejsapi=1&playsinline=1&modestbranding=1&rel=0";
       }
 
+      const watchUrl = String(s.WatchUrl || (videoId ? ("https://www.youtube.com/watch?v=" + videoId) : "")).trim();
+      const sId = String(s.LiveSessionID || "");
+
+      if (sId) seenSessionIds[sId] = true;
+      if (videoId) seenVideoIds[videoId] = true;
+
       // Construct enriched CCTV feed object (NEVER leak YouTubeStreamID or tokens)
       filtered.push({
-        LiveSessionID: String(s.LiveSessionID || ""),
-        LiveID: String(s.LiveSessionID || ""), // backward compatibility alias
+        LiveSessionID: sId,
+        LiveID: sId, // backward compatibility alias
         Title: String(s.Title || "Live Broadcast"),
         Description: String(s.Description || ""),
         CameraPersonID: String(s.CameraPersonID || ""),
@@ -651,27 +659,126 @@ function getAdminLiveStreams(e) {
         Streamer: String(s.CameraPersonName || "Broadcaster"), // alias
         LocationEventID: String(s.LocationEventID || ""),
         LocationEventName: String(s.LocationEventName || ""),
-        City: String(s.LocationEventName || ""), // alias
+        City: String(s.LocationEventName || s.City || ""),
         Latitude: sessionLat || 0,
         Longitude: sessionLng || 0,
         DistanceKm: distance,
         YouTubeChannelID: String(s.YouTubeChannelID || ""),
-        YouTubeBroadcastID: String(s.YouTubeBroadcastID || ""),
+        YouTubeBroadcastID: String(s.YouTubeBroadcastID || videoId),
         YouTubeVideoID: videoId,
+        YouTubeLiveVideoId: videoId, // alias for admin-live CCTV
+        StreamID: videoId, // alias for admin-live CCTV
         StartedAt: s.StartedAt || "",
+        StartTime: s.StartedAt || "", // alias
         CurrentViewers: viewers,
         ViewerCount: viewers, // alias
-        WatchUrl: String(s.WatchUrl || ""),
+        ConcurrentViewers: viewers, // alias
+        WatchUrl: watchUrl,
         EmbedUrl: embedUrl,
         Status: "Active",
         IsLive: "Yes",
-        CreatedDate: s.CreatedAt || s.StartedAt || ""
+        CreatedDate: s.CreatedAt || s.StartedAt || "",
+        Source: "modern"
+      });
+    });
+
+    // Also include eligible active feeds from legacy Live sheet (preserving legacy configured CCTV feeds)
+    let legacyData = [];
+    try {
+      legacyData = getSheetData(CONFIG.SHEETS.LIVE || "Live") || [];
+    } catch (eLegacy) {
+      legacyData = [];
+    }
+
+    legacyData.forEach(function (r) {
+      const isLive = String(r.IsLive || "").trim().toLowerCase() === "yes";
+      const status = String(r.Status || "").trim().toLowerCase();
+      if (!isLive || status === "deleted" || status === "ended") return;
+
+      const rLiveId = String(r.LiveID || "").trim();
+      const streamUrl = String(r.StreamUrl || "").trim();
+
+      // Extract YouTube video ID if streamUrl points to YouTube
+      let legacyVideoId = "";
+      const match = streamUrl.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
+      if (match) {
+        legacyVideoId = match[1];
+      } else if (r.YouTubeVideoID) {
+        legacyVideoId = String(r.YouTubeVideoID).trim();
+      }
+
+      // Avoid duplicate feeds if already present from modern LiveSessions
+      if (rLiveId && seenSessionIds[rLiveId]) return;
+      if (legacyVideoId && seenVideoIds[legacyVideoId]) return;
+
+      const legLat = Number(r.Latitude || 0);
+      const legLng = Number(r.Longitude || 0);
+      let distance = null;
+      if (adminLat && adminLng && legLat && legLng) {
+        if (typeof calculateDistance === "function") {
+          distance = calculateDistance(adminLat, adminLng, legLat, legLng);
+          distance = Number(distance.toFixed(2));
+        }
+      }
+
+      const isAll = !radiusParam || radiusParam.toLowerCase() === "all" || radiusParam.toLowerCase() === "all india";
+      if (!isAll && radiusParam) {
+        const radNum = Number(radiusParam);
+        if (!isNaN(radNum) && radNum < 9000 && distance !== null && distance > radNum) {
+          return;
+        }
+      }
+
+      let embedUrl = "";
+      let watchUrl = "";
+      if (legacyVideoId) {
+        embedUrl = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(legacyVideoId) + "?autoplay=1&mute=1&enablejsapi=1&playsinline=1&modestbranding=1&rel=0";
+        watchUrl = "https://www.youtube.com/watch?v=" + legacyVideoId;
+      } else if (streamUrl) {
+        embedUrl = streamUrl;
+        watchUrl = streamUrl;
+      }
+
+      const viewers = Number(r.ViewerCount || r.Viewers || 0);
+      totalConcurrentViewers += viewers;
+
+      filtered.push({
+        LiveSessionID: rLiveId,
+        LiveID: rLiveId,
+        Title: String(r.Title || "Live Stream"),
+        Description: String(r.Description || ""),
+        CameraPersonID: String(r.UserID || ""),
+        CameraPersonName: String(r.Streamer || "Host"),
+        Streamer: String(r.Streamer || "Host"),
+        LocationEventID: "",
+        LocationEventName: String(r.City || ""),
+        City: String(r.City || ""),
+        Latitude: legLat || 0,
+        Longitude: legLng || 0,
+        DistanceKm: distance,
+        YouTubeChannelID: String(r.YouTubeChannelID || ""),
+        YouTubeBroadcastID: legacyVideoId,
+        YouTubeVideoID: legacyVideoId,
+        YouTubeLiveVideoId: legacyVideoId,
+        StreamID: legacyVideoId,
+        StartedAt: r.CreatedDate || "",
+        StartTime: r.CreatedDate || "",
+        CurrentViewers: viewers,
+        ViewerCount: viewers,
+        ConcurrentViewers: viewers,
+        WatchUrl: watchUrl,
+        EmbedUrl: embedUrl,
+        Status: "Active",
+        IsLive: "Yes",
+        CreatedDate: r.CreatedDate || "",
+        Source: "legacy"
       });
     });
 
     // Sort by nearest distance if Admin coordinates are available
     if (adminLat && adminLng) {
       filtered.sort(function (a, b) {
+        if (a.DistanceKm === null && b.DistanceKm === null) return 0;
         if (a.DistanceKm === null) return 1;
         if (b.DistanceKm === null) return -1;
         return a.DistanceKm - b.DistanceKm;
@@ -680,7 +787,7 @@ function getAdminLiveStreams(e) {
 
     return success({
       summary: {
-        totalStreams: allSessions.length,
+        totalStreams: allSessions.length + legacyData.length,
         activeLiveStreams: filtered.length,
         totalConcurrentViewers: totalConcurrentViewers,
         adminLat: adminLat,
@@ -1842,6 +1949,7 @@ function createYouTubeLiveBroadcast(accessToken, title, description) {
       selfDeclaredMadeForKids: false
     },
     contentDetails: {
+      enableEmbed: true,
       enableAutoStart: true,
       enableAutoStop: true,
       recordFromStart: true,

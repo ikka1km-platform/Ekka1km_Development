@@ -63,7 +63,7 @@ moderator management, and stream lifecycle controls
         if (!isNaN(val) && val > 0) return val;
       }
     } catch (e) {}
-    return 50;
+    return 9999;
   }
 
   function _saveAdminRadius(radius) {
@@ -313,11 +313,16 @@ moderator management, and stream lifecycle controls
         streams.forEach(function (s, idx) {
           const camIndex = idx + 1;
           const camTag = "CAM " + (camIndex < 10 ? "0" + camIndex : camIndex);
-          const videoId = s.YouTubeLiveVideoId || s.StreamID;
+          const videoId = s.YouTubeVideoID || s.YouTubeBroadcastID || s.YouTubeLiveVideoId || s.StreamID || "";
           const isAudible = (_activeAudibleSessionId === s.LiveID);
 
-          // YouTube embed URL with autoplay=1&mute=1&enablejsapi=1
-          const embedUrl = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(videoId) + '?autoplay=1&mute=1&enablejsapi=1&playsinline=1&modestbranding=1&rel=0';
+          let embedUrl = String(s.EmbedUrl || "").trim();
+          if (!embedUrl && videoId) {
+            embedUrl = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(videoId) + '?autoplay=1&mute=1&enablejsapi=1&playsinline=1&modestbranding=1&rel=0';
+          } else if (embedUrl && embedUrl.indexOf('enablejsapi=1') === -1) {
+            const sep = embedUrl.indexOf('?') === -1 ? '?' : '&';
+            embedUrl += sep + 'mute=1&enablejsapi=1&playsinline=1&modestbranding=1&rel=0';
+          }
 
           html += '  <div class="cctv-card' + (isAudible ? ' cctv-audio-active' : '') + '" id="cctv-card-' + escapeHtml(s.LiveID) + '">';
 
@@ -334,7 +339,11 @@ moderator management, and stream lifecycle controls
 
           // Video wrap with iframe
           html += '    <div class="cctv-video-wrap">';
-          html += '      <iframe class="cctv-iframe" id="cctv-iframe-' + escapeHtml(s.LiveID) + '" src="' + embedUrl + '" title="' + escapeHtml(s.Title) + '" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
+          if (embedUrl) {
+            html += '      <iframe class="cctv-iframe" id="cctv-iframe-' + escapeHtml(s.LiveID) + '" src="' + embedUrl + '" title="' + escapeHtml(s.Title) + '" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
+          } else {
+            html += '      <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;font-size:12px;background:#09090b;"><span>📡 Video Feed Unavailable</span></div>';
+          }
           html += '    </div>';
 
           // Info area
@@ -358,11 +367,15 @@ moderator management, and stream lifecycle controls
           html += '      </div>';
           html += '    </div>';
 
-          // Action buttons: Audio toggle, Moderate modal
+          // Action buttons: Audio toggle, YouTube direct link, Moderate modal
+          const watchUrl = s.WatchUrl || (videoId ? ('https://www.youtube.com/watch?v=' + encodeURIComponent(videoId)) : '');
           html += '    <div class="cctv-card-actions">';
           html += '      <button class="cctv-audio-btn' + (isAudible ? ' active' : '') + '" id="cctv-audio-btn-' + escapeHtml(s.LiveID) + '" onclick="window._toggleCctvAudio(\'' + escapeHtml(s.LiveID) + '\')">';
           html +=          (isAudible ? '🔊 Listening' : '🔇 Audio Off');
           html += '      </button>';
+          if (watchUrl) {
+            html += '      <a href="' + escapeHtml(watchUrl) + '" target="_blank" rel="noopener noreferrer" class="module-btn module-btn-sm module-btn-secondary" style="text-decoration:none;" title="Watch directly on YouTube">📺 YouTube</a>';
+          }
           html += '      <button class="module-btn module-btn-sm module-btn-primary" onclick="window._openLiveDetailModal(\'' + escapeHtml(s.LiveID) + '\')" title="Inspect Chat & Moderate">🛡️ Mod</button>';
           html += '    </div>';
 

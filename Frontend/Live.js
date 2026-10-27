@@ -316,8 +316,12 @@ function renderHomeLivePreview(items) {
     } else if (locationName) {
       html += '    <div class="liveCard-meta">' + locationName + '</div>';
     }
-    html += '    <div class="liveCard-actions">';
-    html += '      <button onclick="event.stopPropagation();watchLiveStream(\'' + liveId + '\')">Watch Live</button>';
+    const watchUrl = item.WatchUrl || (item.YouTubeVideoID ? ('https://www.youtube.com/watch?v=' + encodeURIComponent(item.YouTubeVideoID)) : '');
+    html += '    <div class="liveCard-actions" style="display:flex;gap:6px;">';
+    html += '      <button style="flex:1;" onclick="event.stopPropagation();watchLiveStream(\'' + liveId + '\')">Watch Live</button>';
+    if (watchUrl) {
+      html += '      <a href="' + escapeHtml(watchUrl) + '" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;background:#f1f5f9;border-radius:6px;color:#374151;text-decoration:none;" title="Watch directly on YouTube" onclick="event.stopPropagation();"><i class="material-icons" style="font-size:16px;">open_in_new</i></a>';
+    }
     html += '    </div>';
     html += '  </div>';
     html += '</div>';
@@ -388,9 +392,17 @@ function renderLivePage(items) {
     }
     html += '    </div>';
 
-    html += '    <button class="liveNow-btnWatch" onclick="watchLiveStream(\'' + liveId + '\')">';
-    html += '      <i class="material-icons" style="font-size:16px;">play_arrow</i> Watch Live';
-    html += '    </button>';
+    const watchUrl = item.WatchUrl || (item.YouTubeVideoID ? ('https://www.youtube.com/watch?v=' + encodeURIComponent(item.YouTubeVideoID)) : '');
+    html += '    <div style="display:flex;gap:8px;margin-top:12px;">';
+    html += '      <button class="liveNow-btnWatch" style="flex:1;margin-top:0;" onclick="watchLiveStream(\'' + liveId + '\')">';
+    html += '        <i class="material-icons" style="font-size:16px;">play_arrow</i> Watch Live';
+    html += '      </button>';
+    if (watchUrl) {
+      html += '      <a href="' + escapeHtml(watchUrl) + '" target="_blank" rel="noopener noreferrer" class="liveNow-btnWatch" style="width:auto;padding:10px 14px;background:#27272a;margin-top:0;text-decoration:none;" title="Watch directly on YouTube" onclick="event.stopPropagation();">';
+      html += '        <i class="material-icons" style="font-size:16px;">open_in_new</i>';
+      html += '      </a>';
+    }
+    html += '    </div>';
     html += '  </div>';
     html += '</div>';
   });
@@ -460,9 +472,20 @@ function watchLiveStream(sessionId) {
   const titleEl = document.getElementById("livePipTitle");
   const broadcasterEl = document.getElementById("livePipBroadcaster");
   const distanceEl = document.getElementById("livePipDistance");
+  const externalBtn = document.getElementById("livePipExternalBtn");
 
   if (titleEl) titleEl.textContent = session.Title || "Live Stream";
   if (broadcasterEl) broadcasterEl.textContent = session.CameraPersonName || "Broadcaster";
+
+  const watchUrl = String(session.WatchUrl || (videoId ? ("https://www.youtube.com/watch?v=" + videoId) : "")).trim();
+  if (externalBtn) {
+    if (watchUrl) {
+      externalBtn.href = watchUrl;
+      externalBtn.style.display = "inline-flex";
+    } else {
+      externalBtn.style.display = "none";
+    }
+  }
 
   if (distanceEl) {
     if (session.DistanceKm !== null && session.DistanceKm !== undefined) {
@@ -529,6 +552,12 @@ function stopAndDestroyLivePlayer() {
   if (container) {
     container.style.display = "none";
     container.classList.remove("live-pip-minimized");
+  }
+
+  const externalBtn = document.getElementById("livePipExternalBtn");
+  if (externalBtn) {
+    externalBtn.href = "#";
+    externalBtn.style.display = "none";
   }
 
   CURRENT_ACTIVE_PIP_SESSION = null;
