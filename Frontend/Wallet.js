@@ -197,7 +197,12 @@ async function loadWallet() {
     return;
 
   const userId =
-    getUserId();
+    typeof getUserId === "function" ? getUserId() : "";
+
+  const session =
+    typeof getSessionToken === "function"
+      ? getSessionToken()
+      : (localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION) || "");
 
   /*
   ============================================================
@@ -205,7 +210,7 @@ async function loadWallet() {
   ============================================================
   */
 
-  if (!userId) {
+  if (!userId || !session) {
 
     const guestId =
       localStorage.getItem(
@@ -275,11 +280,24 @@ async function loadWallet() {
 
     const response =
       await fetch(
-        `${getApiUrl()}?action=wallet&userId=${userId}`
+        `${getApiUrl()}?action=wallet&userId=${encodeURIComponent(userId)}&session=${encodeURIComponent(session)}`
       );
 
     const json =
       await response.json();
+
+    if (json && !json.success && (json.message === "Authentication required" || json.message === "Invalid or expired session" || json.message === "Invalid session")) {
+      container.innerHTML =
+        `
+        <div class="card walletGuestState">
+          <h2>🔒 Wallet Locked</h2>
+          <p>Your session has expired. Please log in again to access your wallet.</p>
+          <button onclick="openPage('login')">Login</button>
+          <button onclick="openPage('login')" style="background:#666;">Login / Register</button>
+        </div>
+        `;
+      return;
+    }
 
     CURRENT_WALLET =
       json.data || {};
@@ -376,9 +394,14 @@ async function loadTransactions() {
     );
 
   const userId =
-    getUserId();
+    typeof getUserId === "function" ? getUserId() : "";
 
-  if (!userId) {
+  const session =
+    typeof getSessionToken === "function"
+      ? getSessionToken()
+      : (localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION) || "");
+
+  if (!userId || !session) {
     loadWallet();
     return;
   }
@@ -390,7 +413,7 @@ async function loadTransactions() {
 
     const response =
       await fetch(
-        `${getApiUrl()}?action=wallettransactions&userId=${userId}`
+        `${getApiUrl()}?action=wallettransactions&userId=${encodeURIComponent(userId)}&session=${encodeURIComponent(session)}`
       );
 
     const json =
@@ -446,9 +469,14 @@ async function loadRewards() {
     );
 
   const userId =
-    getUserId();
+    typeof getUserId === "function" ? getUserId() : "";
 
-  if (!userId) {
+  const session =
+    typeof getSessionToken === "function"
+      ? getSessionToken()
+      : (localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION) || "");
+
+  if (!userId || !session) {
     loadWallet();
     return;
   }
@@ -460,7 +488,7 @@ async function loadRewards() {
 
     const response =
       await fetch(
-        `${getApiUrl()}?action=rewards&userId=${userId}`
+        `${getApiUrl()}?action=rewards&userId=${encodeURIComponent(userId)}&session=${encodeURIComponent(session)}`
       );
 
     const json =

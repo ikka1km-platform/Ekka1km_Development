@@ -88,6 +88,86 @@ try {
   window.EkkaLiveBroadcaster = getEkkaLiveBroadcaster();
 }
 
+const _originalBrowserShare = (typeof navigator !== "undefined" && typeof navigator.share === "function")
+  ? navigator.share.bind(navigator)
+  : null;
+
+function getEkkaNativeShare() {
+  if (typeof window === "undefined") return null;
+  if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
+    return window.Capacitor.Plugins.Share;
+  }
+  if (window.__ekkaNativeShareInstance) {
+    return window.__ekkaNativeShareInstance;
+  }
+  if (window.Capacitor && typeof window.Capacitor.registerPlugin === "function") {
+    try {
+      window.__ekkaNativeShareInstance = window.Capacitor.registerPlugin("Share");
+      return window.__ekkaNativeShareInstance;
+    } catch (e) {}
+  }
+  return null;
+}
+
+async function ekkaNativeShare(data) {
+  const payload = {
+    title: (data && data.title) || "Ekka1km",
+    text: (data && data.text) || "",
+    url: (data && data.url) || (typeof window !== "undefined" && window.location && window.location.href) || "",
+    dialogTitle: (data && data.dialogTitle) || (data && data.title) || "Share via"
+  };
+
+  // 1. Capacitor Android App (via @capacitor/share plugin)
+  let capShare = getEkkaNativeShare();
+  if (!capShare && typeof window !== "undefined" && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+    await new Promise(r => setTimeout(r, 50));
+    capShare = getEkkaNativeShare();
+  }
+
+  if (capShare && typeof capShare.share === "function") {
+    try {
+      return await capShare.share(payload);
+    } catch (err) {
+      const msg = String(err && (err.message || err)).toLowerCase();
+      if (msg.includes("abort") || msg.includes("cancel") || msg.includes("dismiss")) {
+        return { canceled: true };
+      }
+      throw err;
+    }
+  }
+
+  // 2. Standard Web Share API (mobile Chrome / Safari)
+  if (_originalBrowserShare) {
+    try {
+      return await _originalBrowserShare({
+        title: payload.title,
+        text: payload.text,
+        url: payload.url
+      });
+    } catch (err) {
+      if (err && (err.name === "AbortError" || String(err).indexOf("AbortError") !== -1)) {
+        return { canceled: true };
+      }
+      throw err;
+    }
+  }
+
+  // 3. Fallback when neither is available
+  const err = new Error("NativeShareUnavailable");
+  err.name = "NativeShareUnavailable";
+  throw err;
+}
+
+window.ekkaNativeShare = ekkaNativeShare;
+
+try {
+  if (typeof navigator !== "undefined" && !navigator.share) {
+    navigator.share = function(data) {
+      return ekkaNativeShare(data);
+    };
+  }
+} catch (_) {}
+
 /*
 ============================================================
 LOGIN UI
@@ -391,7 +471,10 @@ const NavigationManager = (() => {
     "propertydetails": "properties",
     "businessprofile": "businesses",
     "userprofile": "profile",
-    "register": "login"
+    "register": "login",
+    "product": "products",
+    "property": "properties",
+    "article": "news"
   };
 
   function resolvePageAlias(pageId) {
@@ -445,6 +528,7 @@ const NavigationManager = (() => {
       case "products":   return typeof showProductDetailsById   === "function" ? showProductDetailsById   : null;
       case "properties": return typeof showPropertyDetailsById  === "function" ? showPropertyDetailsById  : null;
       case "news":       return typeof showNewsDetailsById      === "function" ? showNewsDetailsById      : null;
+      case "store":      return typeof openStore                === "function" ? openStore                : null;
       default:           return null;
     }
   }
@@ -457,6 +541,7 @@ const NavigationManager = (() => {
         case "products":   ent = (typeof CURRENT_PRODUCT   !== "undefined" && CURRENT_PRODUCT)   ? CURRENT_PRODUCT   : null; break;
         case "properties": ent = (typeof CURRENT_PROPERTY  !== "undefined" && CURRENT_PROPERTY)  ? CURRENT_PROPERTY  : null; break;
         case "news":       ent = (typeof CURRENT_NEWS      !== "undefined" && CURRENT_NEWS)      ? CURRENT_NEWS      : null; break;
+        case "store":      ent = (typeof CURRENT_STORE     !== "undefined" && CURRENT_STORE)     ? CURRENT_STORE     : null; break;
         default:           return null;
       }
     } catch (e) {
@@ -468,6 +553,12 @@ const NavigationManager = (() => {
       case "products":   return ent.ProductID   || ent.productId   || null;
       case "properties": return ent.PropertyID  || ent.propertyId  || null;
       case "news":       return ent.NewsID      || ent.newsId      || ent.id || null;
+      case "store": {
+        if (ent.business && (ent.business.BusinessID || ent.business.businessId)) {
+          return ent.business.BusinessID || ent.business.businessId;
+        }
+        return ent.businessId || ent.BusinessID || null;
+      }
       default:           return null;
     }
   }
@@ -487,11 +578,29 @@ const NavigationManager = (() => {
   NavigationManager for reconcile/restore.
   ============================================================
   */
-  function buildStageHash(descriptor) {
+  function buildStageUrl(descriptor) {
     const d = descriptor || {};
+    if (d.stage === "detail" && d.entityId) {
+      if (d.pageId === "store") {
+        return "/store/" + encodeURIComponent(d.entityId);
+      }
+      if (d.pageId === "products" || d.pageId === "product") {
+        return "/product/" + encodeURIComponent(d.entityId);
+      }
+      if (d.pageId === "properties" || d.pageId === "property") {
+        return "/property/" + encodeURIComponent(d.entityId);
+      }
+      if (d.pageId === "news" || d.pageId === "article") {
+        return "/news/" + encodeURIComponent(d.entityId);
+      }
+    }
     let hash = "#" + (d.pageId || "home");
     if (d.stage === "detail" && d.entityId) {
       hash += "/" + encodeURIComponent(d.entityId);
+    }
+    if (window.location && window.location.pathname &&
+        /^\/(?:store|product|products|property|properties|news|article)\//i.test(window.location.pathname)) {
+      return "/" + hash;
     }
     return hash;
   }
@@ -499,7 +608,12 @@ const NavigationManager = (() => {
   function pushHistoryState(state) {
     if (window.history && window.history.pushState) {
       try {
-        history.pushState(state, "", buildStageHash(state));
+        const targetUrl = buildStageUrl(state);
+        if (window.location.pathname === targetUrl || window.location.hash === targetUrl) {
+          history.replaceState(state, "", targetUrl);
+        } else {
+          history.pushState(state, "", targetUrl);
+        }
       } catch (e) {
         // silent
       }
@@ -509,7 +623,7 @@ const NavigationManager = (() => {
   function replaceHistoryState(state) {
     if (window.history && window.history.replaceState) {
       try {
-        history.replaceState(state, "", buildStageHash(state));
+        history.replaceState(state, "", buildStageUrl(state));
       } catch (e) {
         // silent
       }
@@ -623,6 +737,12 @@ const NavigationManager = (() => {
       loadDashboard();
     }
 
+    if (pageId === "wallet") {
+      if (typeof loadWallet === "function") {
+        loadWallet();
+      }
+    }
+
     if (pageId === "myContent") {
       if (typeof loadMyContent === "function") {
         loadMyContent();
@@ -712,7 +832,11 @@ const NavigationManager = (() => {
 
     // Push the list/parent stage beneath if the stack is out of sync.
     if (navStack.length === 0 || !stageEquals(top, currentStage)) {
-      pushStage(currentStage.pageId, currentStage.stage, currentStage.entityId);
+      if (navStack.length === 0 && (!currentStage || !currentStage.pageId)) {
+        pushStage("home", "root", null);
+      } else {
+        pushStage(currentStage.pageId, currentStage.stage, currentStage.entityId);
+      }
     }
 
     // Push the detail stage (entity-aware).
@@ -1569,28 +1693,51 @@ LOAD DASHBOARD
 */
 
 function loadDashboard() {
-  const userId = getUserId();
-  if (!userId) {
+  const userId = typeof getUserId === "function" ? getUserId() : "";
+  const session = typeof getSessionToken === "function"
+    ? getSessionToken()
+    : (localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION) || "");
+
+  if (!userId || !session) {
     renderGuestDashboard();
     return;
   }
 
   const url = getApiUrl() +
     "?action=dashboard" +
-    "&userId=" + encodeURIComponent(userId);
+    "&userId=" + encodeURIComponent(userId) +
+    "&session=" + encodeURIComponent(session);
 
   fetch(url)
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res && res.success && res.data) {
         renderDashboard(res.data);
-      } else {
+      } else if (res && (res.message === "Authentication required" || res.message === "Invalid or expired session" || res.message === "Invalid session")) {
         renderGuestDashboard();
+      } else {
+        var container = document.getElementById("dashboardContent");
+        if (container) {
+          container.innerHTML =
+            '<div class="card" style="text-align:center;padding:40px 20px;">' +
+            '<h3 style="margin-bottom:10px;">Unable to load dashboard</h3>' +
+            '<p style="color:#666;margin-bottom:20px;">' + ((res && res.message) ? res.message : "Unable to retrieve dashboard data. Please check your connection and try again.") + '</p>' +
+            '<button onclick="loadDashboard()">Retry</button>' +
+            '</div>';
+        }
       }
     })
     .catch(function(err) {
       console.log("Dashboard load error:", err);
-      renderGuestDashboard();
+      var container = document.getElementById("dashboardContent");
+      if (container) {
+        container.innerHTML =
+          '<div class="card" style="text-align:center;padding:40px 20px;">' +
+          '<h3 style="margin-bottom:10px;">Connection Issue</h3>' +
+          '<p style="color:#666;margin-bottom:20px;">Unable to connect to the server. Please check your internet connection and try again.</p>' +
+          '<button onclick="loadDashboard()">Retry</button>' +
+          '</div>';
+      }
     });
 }
 
@@ -1882,6 +2029,141 @@ APP START
 ============================================================
 */
 
+function handleInitialDeepLink() {
+  try {
+    const hash = (window.location && window.location.hash) ? window.location.hash : "";
+    const pathname = (window.location && window.location.pathname) ? window.location.pathname : "";
+    const search = (window.location && window.location.search) ? window.location.search : "";
+
+    // If an explicit non-entity hash was navigated to (e.g. #home, #login, #register, #notifications),
+    // do not re-trigger deep linking from pathname.
+    const isRootOrNonEntityHash = /^#(?:home|login|register|notifications|wallet|orders|ads|mycontent)(?:\/|\?|$)/i.test(hash);
+    if (isRootOrNonEntityHash) {
+      return false;
+    }
+
+    // 1. STORE
+    let storeId = "";
+    const storePathMatch = pathname.match(/\/store\/([a-zA-Z0-9_-]+)/i);
+    if (storePathMatch && storePathMatch[1]) {
+      storeId = decodeURIComponent(storePathMatch[1]);
+    }
+    if (!storeId && search) {
+      const sp = new URLSearchParams(search);
+      const qVal = sp.get("store") || sp.get("businessId");
+      if (qVal && /^[a-zA-Z0-9_-]+$/.test(qVal.trim())) {
+        storeId = qVal.trim();
+      }
+    }
+    if (!storeId && hash) {
+      const hashDetailMatch = hash.match(/^#store\/([a-zA-Z0-9_-]+)/i);
+      if (hashDetailMatch && hashDetailMatch[1]) {
+        storeId = decodeURIComponent(hashDetailMatch[1]);
+      } else {
+        const hashQueryMatch = hash.match(/[?&](?:store|businessId)=([a-zA-Z0-9_-]+)/i);
+        if (hashQueryMatch && hashQueryMatch[1]) {
+          storeId = decodeURIComponent(hashQueryMatch[1]);
+        }
+      }
+    }
+    if (storeId && typeof openStore === "function") {
+      openStore(storeId);
+      return true;
+    }
+
+    // 2. PRODUCT
+    let productId = "";
+    const productPathMatch = pathname.match(/\/(?:product|products)\/([a-zA-Z0-9_-]+)/i);
+    if (productPathMatch && productPathMatch[1]) {
+      productId = decodeURIComponent(productPathMatch[1]);
+    }
+    if (!productId && search) {
+      const sp = new URLSearchParams(search);
+      const qVal = sp.get("product") || sp.get("productId");
+      if (qVal && /^[a-zA-Z0-9_-]+$/.test(qVal.trim())) {
+        productId = qVal.trim();
+      }
+    }
+    if (!productId && hash) {
+      const hashMatch = hash.match(/^#(?:product|products)\/([a-zA-Z0-9_-]+)/i);
+      if (hashMatch && hashMatch[1]) {
+        productId = decodeURIComponent(hashMatch[1]);
+      } else {
+        const hashQueryMatch = hash.match(/[?&](?:product|productId)=([a-zA-Z0-9_-]+)/i);
+        if (hashQueryMatch && hashQueryMatch[1]) {
+          productId = decodeURIComponent(hashQueryMatch[1]);
+        }
+      }
+    }
+    if (productId && typeof showProductDetailsById === "function") {
+      showProductDetailsById(productId);
+      return true;
+    }
+
+    // 3. PROPERTY
+    let propertyId = "";
+    const propertyPathMatch = pathname.match(/\/(?:property|properties)\/([a-zA-Z0-9_-]+)/i);
+    if (propertyPathMatch && propertyPathMatch[1]) {
+      propertyId = decodeURIComponent(propertyPathMatch[1]);
+    }
+    if (!propertyId && search) {
+      const sp = new URLSearchParams(search);
+      const qVal = sp.get("property") || sp.get("propertyId");
+      if (qVal && /^[a-zA-Z0-9_-]+$/.test(qVal.trim())) {
+        propertyId = qVal.trim();
+      }
+    }
+    if (!propertyId && hash) {
+      const hashMatch = hash.match(/^#(?:property|properties)\/([a-zA-Z0-9_-]+)/i);
+      if (hashMatch && hashMatch[1]) {
+        propertyId = decodeURIComponent(hashMatch[1]);
+      } else {
+        const hashQueryMatch = hash.match(/[?&](?:property|propertyId)=([a-zA-Z0-9_-]+)/i);
+        if (hashQueryMatch && hashQueryMatch[1]) {
+          propertyId = decodeURIComponent(hashQueryMatch[1]);
+        }
+      }
+    }
+    if (propertyId && typeof showPropertyDetailsById === "function") {
+      showPropertyDetailsById(propertyId);
+      return true;
+    }
+
+    // 4. NEWS
+    let newsId = "";
+    const newsPathMatch = pathname.match(/\/(?:news|article)\/([a-zA-Z0-9_-]+)/i);
+    if (newsPathMatch && newsPathMatch[1]) {
+      newsId = decodeURIComponent(newsPathMatch[1]);
+    }
+    if (!newsId && search) {
+      const sp = new URLSearchParams(search);
+      const qVal = sp.get("news") || sp.get("newsId") || sp.get("article") || sp.get("articleId");
+      if (qVal && /^[a-zA-Z0-9_-]+$/.test(qVal.trim())) {
+        newsId = qVal.trim();
+      }
+    }
+    if (!newsId && hash) {
+      const hashMatch = hash.match(/^#(?:news|article)\/([a-zA-Z0-9_-]+)/i);
+      if (hashMatch && hashMatch[1]) {
+        newsId = decodeURIComponent(hashMatch[1]);
+      } else {
+        const hashQueryMatch = hash.match(/[?&](?:news|newsId|article|articleId)=([a-zA-Z0-9_-]+)/i);
+        if (hashQueryMatch && hashQueryMatch[1]) {
+          newsId = decodeURIComponent(hashQueryMatch[1]);
+        }
+      }
+    }
+    if (newsId && typeof showNewsDetailsById === "function") {
+      showNewsDetailsById(newsId);
+      return true;
+    }
+
+  } catch (err) {
+    console.warn("handleInitialDeepLink error:", err);
+  }
+  return false;
+}
+
 window.addEventListener(
   "load",
   () => {
@@ -1903,8 +2185,14 @@ window.addEventListener(
       handledPendingPush = window.EkkaPush.consumePendingAction();
     }
 
-    // Only default to "home" if no notification click action was pending
+    // Check for deep links / direct URLs (e.g. /store/:id, #store/:id, #store?store=:id, ?store=:id)
+    let handledDeepLink = false;
     if (!handledPendingPush) {
+      handledDeepLink = handleInitialDeepLink();
+    }
+
+    // Only default to "home" if neither notification nor deep link was handled
+    if (!handledPendingPush && !handledDeepLink) {
       openPage("home");
     }
 
