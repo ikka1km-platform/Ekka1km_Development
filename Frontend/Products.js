@@ -401,14 +401,23 @@ PRODUCT DETAILS — Stage 4HIJ Redesign
 */
 
 function showProductDetailsById(productId) {
+  if (!productId) return;
   // Find product in loaded data first
-  const product = CURRENT_PRODUCTS && CURRENT_PRODUCTS.length > 0 
+  const product = (typeof CURRENT_PRODUCTS !== "undefined" && CURRENT_PRODUCTS && CURRENT_PRODUCTS.length > 0)
     ? CURRENT_PRODUCTS.find(p => String(p.ProductID || p.productId) === String(productId))
     : null;
   
   if (product) {
     showProductDetails(product);
   } else {
+    const container = document.getElementById("productList");
+    if (container && (!container.children || container.children.length === 0 || !container.querySelector(".hij-detail"))) {
+      container.innerHTML = '<div class="card" style="text-align:center;padding:30px;"><div style="font-size:16px;color:#666;">Loading product...</div></div>';
+    }
+    if (typeof switchPage === "function") {
+      switchPage("products");
+    }
+
     // Fetch from server
     fetch(`${getApiUrl()}?action=product&id=${encodeURIComponent(productId)}`)
       .then(r => r.json())
@@ -416,12 +425,20 @@ function showProductDetailsById(productId) {
         if (res && res.success && res.data) {
           showProductDetails(res.data);
         } else {
-          alert("Product not found.");
+          if (container) {
+            container.innerHTML = '<div class="card" style="text-align:center;padding:30px;"><p>Product not found.</p><button onclick="goBack()" class="hij-backBtn">Go Back</button></div>';
+          } else {
+            alert("Product not found.");
+          }
         }
       })
       .catch(err => {
         console.log("Product fetch error:", err);
-        alert("Unable to load product details.");
+        if (container) {
+          container.innerHTML = '<div class="card" style="text-align:center;padding:30px;"><p>Unable to load product details.</p><button onclick="goBack()" class="hij-backBtn">Go Back</button></div>';
+        } else {
+          alert("Unable to load product details.");
+        }
       });
   }
 }
@@ -661,14 +678,90 @@ function getProductDirections() {
   window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, "_blank");
 }
 
+function getProductShareUrl(product) {
+  const p = product || (typeof CURRENT_PRODUCT !== "undefined" ? CURRENT_PRODUCT : null);
+  if (!p) return window.location.href;
+  const id = p.ProductID || p.productId || "";
+  const origin = window.location.origin || (window.location.protocol + "//" + window.location.host);
+  return id ? `${origin}/product/${encodeURIComponent(id)}` : window.location.href;
+}
+
 function shareProduct() {
   if (!CURRENT_PRODUCT) return;
-  const text = `${CURRENT_PRODUCT.Title || ""}\n₹ ${(CURRENT_PRODUCT.Price || 0).toLocaleString()}\n${CURRENT_PRODUCT.Description || ""}\n${CURRENT_PRODUCT.City || ""}`;
-  if (navigator.share) {
-    navigator.share({ title: CURRENT_PRODUCT.Title, text });
+  const productId = CURRENT_PRODUCT.ProductID || CURRENT_PRODUCT.productId || "";
+  const canonicalUrl = getProductShareUrl(CURRENT_PRODUCT);
+  const title = CURRENT_PRODUCT.Title ? `${CURRENT_PRODUCT.Title} — Ekka1km` : "Ekka1km Product";
+
+  const priceStr = CURRENT_PRODUCT.Price ? `₹ ${Number(CURRENT_PRODUCT.Price).toLocaleString('en-IN')}` : "";
+  const cityStr = CURRENT_PRODUCT.City ? `in ${CURRENT_PRODUCT.City}` : "";
+  const summaryParts = [CURRENT_PRODUCT.Title, priceStr, cityStr].filter(Boolean);
+  const shareText = summaryParts.length > 0
+    ? `${summaryParts.join(" • ")} — Available on Ekka1km\n${canonicalUrl}`
+    : `Check out this product on Ekka1km:\n${canonicalUrl}`;
+
+  const shareData = {
+    title: title,
+    text: shareText,
+    url: canonicalUrl
+  };
+
+  const shareFn = (typeof ekkaNativeShare === "function") ? ekkaNativeShare : (navigator.share ? navigator.share.bind(navigator) : null);
+
+  if (shareFn) {
+    shareFn(shareData)
+      .then(function(res) {
+        if (res && res.canceled) return;
+        trackProductShare(productId);
+      })
+      .catch(function(err) {
+        if (err && (err.name === "AbortError" || String(err).indexOf("AbortError") !== -1 || String(err).toLowerCase().includes("cancel"))) {
+          return;
+        }
+        copyProductUrlToClipboard(canonicalUrl, productId);
+      });
   } else {
-    navigator.clipboard.writeText(text);
-    alert("Product details copied.");
+    copyProductUrlToClipboard(canonicalUrl, productId);
+  }
+}
+
+function copyProductUrlToClipboard(url, productId) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    navigator.clipboard.writeText(url)
+      .then(function() {
+        alert("Product link copied to clipboard!");
+        trackProductShare(productId);
+      })
+      .catch(function() {
+        fallbackExecCommandProductCopy(url, productId);
+      });
+  } else {
+    fallbackExecCommandProductCopy(url, productId);
+  }
+}
+
+function fallbackExecCommandProductCopy(url, productId) {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = url;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    alert("Product link copied to clipboard!");
+    trackProductShare(productId);
+  } catch (e) {
+    alert("Product link: " + url);
+  }
+}
+
+function trackProductShare(productId) {
+  if (!productId) return;
+  const userId = (typeof getUserId === "function" ? getUserId() : "") || "";
+  if (typeof getApiUrl === "function") {
+    fetch(`${getApiUrl()}?action=trackevent&eventType=ProductShare&entityType=Product&entityId=${encodeURIComponent(productId)}&userId=${encodeURIComponent(userId)}`).catch(function() {});
   }
 }
 

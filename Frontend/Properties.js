@@ -497,14 +497,92 @@ SHARE PROPERTY (Preserved)
 ============================================================
 */
 
+function getPropertyShareUrl(property) {
+  const p = property || (typeof CURRENT_PROPERTY !== "undefined" ? CURRENT_PROPERTY : null);
+  if (!p) return window.location.href;
+  const id = p.PropertyID || p.propertyId || "";
+  const origin = window.location.origin || (window.location.protocol + "//" + window.location.host);
+  return id ? `${origin}/property/${encodeURIComponent(id)}` : window.location.href;
+}
+
 function shareProperty() {
   if (!CURRENT_PROPERTY) return;
-  const text = `${CURRENT_PROPERTY.Title || ""}\n₹ ${(CURRENT_PROPERTY.Price || 0).toLocaleString()}\n${CURRENT_PROPERTY.Description || ""}\n${CURRENT_PROPERTY.City || ""}`;
-  if (navigator.share) {
-    navigator.share({ title: CURRENT_PROPERTY.Title, text });
+  const propertyId = CURRENT_PROPERTY.PropertyID || CURRENT_PROPERTY.propertyId || "";
+  const canonicalUrl = getPropertyShareUrl(CURRENT_PROPERTY);
+  const title = CURRENT_PROPERTY.Title ? `${CURRENT_PROPERTY.Title} — Ekka1km` : "Ekka1km Property";
+
+  const purposeStr = CURRENT_PROPERTY.Purpose === "Rent" ? "For Rent" : "For Sale";
+  const priceStr = CURRENT_PROPERTY.Price ? `₹ ${Number(CURRENT_PROPERTY.Price).toLocaleString('en-IN')}` : "";
+  const typeStr = CURRENT_PROPERTY.Type || CURRENT_PROPERTY.PropertyType || "";
+  const cityStr = CURRENT_PROPERTY.City || CURRENT_PROPERTY.District ? `in ${CURRENT_PROPERTY.City || CURRENT_PROPERTY.District}` : "";
+  const summaryParts = [CURRENT_PROPERTY.Title, purposeStr, priceStr, typeStr, cityStr].filter(Boolean);
+  const shareText = summaryParts.length > 0
+    ? `${summaryParts.join(" • ")} — Available on Ekka1km\n${canonicalUrl}`
+    : `Check out this property on Ekka1km:\n${canonicalUrl}`;
+
+  const shareData = {
+    title: title,
+    text: shareText,
+    url: canonicalUrl
+  };
+
+  const shareFn = (typeof ekkaNativeShare === "function") ? ekkaNativeShare : (navigator.share ? navigator.share.bind(navigator) : null);
+
+  if (shareFn) {
+    shareFn(shareData)
+      .then(function(res) {
+        if (res && res.canceled) return;
+        trackPropertyShare(propertyId);
+      })
+      .catch(function(err) {
+        if (err && (err.name === "AbortError" || String(err).indexOf("AbortError") !== -1 || String(err).toLowerCase().includes("cancel"))) {
+          return;
+        }
+        copyPropertyUrlToClipboard(canonicalUrl, propertyId);
+      });
   } else {
-    navigator.clipboard.writeText(text);
-    alert("Property details copied.");
+    copyPropertyUrlToClipboard(canonicalUrl, propertyId);
+  }
+}
+
+function copyPropertyUrlToClipboard(url, propertyId) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    navigator.clipboard.writeText(url)
+      .then(function() {
+        alert("Property link copied to clipboard!");
+        trackPropertyShare(propertyId);
+      })
+      .catch(function() {
+        fallbackExecCommandPropertyCopy(url, propertyId);
+      });
+  } else {
+    fallbackExecCommandPropertyCopy(url, propertyId);
+  }
+}
+
+function fallbackExecCommandPropertyCopy(url, propertyId) {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = url;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    alert("Property link copied to clipboard!");
+    trackPropertyShare(propertyId);
+  } catch (e) {
+    alert("Property link: " + url);
+  }
+}
+
+function trackPropertyShare(propertyId) {
+  if (!propertyId) return;
+  const userId = (typeof getUserId === "function" ? getUserId() : "") || "";
+  if (typeof getApiUrl === "function") {
+    fetch(`${getApiUrl()}?action=trackevent&eventType=PropertyShare&entityType=Property&entityId=${encodeURIComponent(propertyId)}&userId=${encodeURIComponent(userId)}`).catch(function() {});
   }
 }
 

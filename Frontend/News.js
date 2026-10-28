@@ -518,52 +518,104 @@ async function loadRelatedNews(newsId) {
 SHARE SYSTEM (Preserved)
 */
 
+function getNewsShareUrl(item) {
+  const n = item || (typeof CURRENT_NEWS !== "undefined" ? CURRENT_NEWS : null);
+  if (!n) return window.location.href;
+  const id = n.NewsID || n.newsId || n.id || "";
+  const origin = window.location.origin || (window.location.protocol + "//" + window.location.host);
+  return id ? `${origin}/news/${encodeURIComponent(id)}` : window.location.href;
+}
+
 function getShareText() {
   if (!CURRENT_NEWS) return "";
-  return `${CURRENT_NEWS.Title || ""}\n\n${(CURRENT_NEWS.Description || "").substring(0, 100)}...\n\nShared from Ekka1km`;
+  const url = getNewsShareUrl(CURRENT_NEWS);
+  const title = CURRENT_NEWS.Title || "";
+  const desc = (CURRENT_NEWS.Description || "").substring(0, 100);
+  return `${title}\n\n${desc ? desc + "...\n\n" : ""}${url}`;
 }
 
 function shareNewsWhatsApp() {
+  if (!CURRENT_NEWS) return;
   const text = encodeURIComponent(getShareText());
   window.open(`https://wa.me/?text=${text}`, "_blank");
   trackShare();
 }
 
 function shareNewsFacebook() {
-  const url = encodeURIComponent(window.location.href);
+  if (!CURRENT_NEWS) return;
+  const url = encodeURIComponent(getNewsShareUrl(CURRENT_NEWS));
   window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, "_blank");
   trackShare();
 }
 
 function shareNewsTwitter() {
-  const text = encodeURIComponent((CURRENT_NEWS.Title || "") + " - Shared from Ekka1km");
-  window.open(`https://twitter.com/intent/tweet?text=${text}`, "_blank");
+  if (!CURRENT_NEWS) return;
+  const url = encodeURIComponent(getNewsShareUrl(CURRENT_NEWS));
+  const text = encodeURIComponent((CURRENT_NEWS.Title || "Ekka1km News") + " — Read on Ekka1km");
+  window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, "_blank");
   trackShare();
 }
 
 function shareNewsCopyLink() {
-  const text = getShareText();
-  navigator.clipboard.writeText(text).then(() => {
-    alert("News copied to clipboard!");
-  }).catch(() => {
+  if (!CURRENT_NEWS) return;
+  const url = getNewsShareUrl(CURRENT_NEWS);
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    navigator.clipboard.writeText(url).then(() => {
+      alert("News link copied to clipboard!");
+      trackShare();
+    }).catch(() => {
+      fallbackExecCommandNewsCopy(url);
+    });
+  } else {
+    fallbackExecCommandNewsCopy(url);
+  }
+}
+
+function fallbackExecCommandNewsCopy(url) {
+  try {
     const textarea = document.createElement("textarea");
-    textarea.value = text;
+    textarea.value = url;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
     document.body.appendChild(textarea);
+    textarea.focus();
     textarea.select();
     document.execCommand("copy");
     document.body.removeChild(textarea);
-    alert("News copied to clipboard!");
-  });
-  trackShare();
+    alert("News link copied to clipboard!");
+    trackShare();
+  } catch (_) {
+    alert("News link: " + url);
+  }
 }
 
 function shareNewsNative() {
-  if (navigator.share) {
-    navigator.share({
-      title: CURRENT_NEWS.Title || "",
-      text: getShareText()
-    });
-    trackShare();
+  if (!CURRENT_NEWS) return;
+  const url = getNewsShareUrl(CURRENT_NEWS);
+  const title = CURRENT_NEWS.Title ? `${CURRENT_NEWS.Title} — Ekka1km News` : "Ekka1km News";
+  const desc = CURRENT_NEWS.Description ? `${CURRENT_NEWS.Description.substring(0, 120)}...` : "";
+  const text = desc ? `${desc}\n${url}` : url;
+
+  const shareData = {
+    title: title,
+    text: text,
+    url: url
+  };
+
+  const shareFn = (typeof ekkaNativeShare === "function") ? ekkaNativeShare : (navigator.share ? navigator.share.bind(navigator) : null);
+
+  if (shareFn) {
+    shareFn(shareData)
+      .then((res) => {
+        if (res && res.canceled) return;
+        trackShare();
+      })
+      .catch((err) => {
+        if (err && (err.name === "AbortError" || String(err).indexOf("AbortError") !== -1 || String(err).toLowerCase().includes("cancel"))) {
+          return;
+        }
+        shareNewsCopyLink();
+      });
   } else {
     shareNewsCopyLink();
   }

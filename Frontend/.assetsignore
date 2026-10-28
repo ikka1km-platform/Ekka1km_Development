@@ -4,3 +4,5 @@ android/
 .git/
 google-services.json
 **/google-services.json
+_worker.js
+wrangler.toml

@@ -8,6 +8,8 @@ Preserves: openStore, follow/unfollow, share, store products
 ============================================================
 */
 
+var CURRENT_STORE = null;
+
 /*
 ============================================================
 ALIAS FUNCTION — called from Businesses.js
@@ -31,7 +33,11 @@ OPEN STORE — Stage 4HIJ Redesign
 */
 
 function openStore(businessId) {
-  openPage("store");
+  if (typeof enterDetailView === "function") {
+    enterDetailView("store", businessId);
+  } else {
+    openPage("store");
+  }
 
   var container = document.getElementById("storeContent");
   if (!container) return;
@@ -51,9 +57,12 @@ function openStore(businessId) {
   fetch(url)
     .then(function(r) { return r.json(); })
     .then(function(res) {
-      if (res && res.success) {
+      if (res && res.success && res.data) {
+        CURRENT_STORE = res.data;
+        CURRENT_STORE.businessId = businessId;
         renderStore(res.data, businessId);
       } else {
+        CURRENT_STORE = null;
         container.innerHTML =
           '<div class="hij-empty"><i class="material-icons">store</i><p>Store not found</p></div>' +
           '<button class="hij-backBtn" onclick="goBack()"><i class="material-icons">arrow_back</i> Back</button>';
@@ -61,6 +70,7 @@ function openStore(businessId) {
     })
     .catch(function(err) {
       console.log("Store error:", err);
+      CURRENT_STORE = null;
       container.innerHTML =
         '<div class="hij-error"><i class="material-icons">error_outline</i><p>Error loading store</p></div>' +
         '<button class="hij-backBtn" onclick="goBack()"><i class="material-icons">arrow_back</i> Back</button>';
@@ -333,32 +343,123 @@ SHARE STORE (Preserved)
 */
 
 function shareStore(businessId) {
-  var shareUrl = window.location.href + "?store=" + businessId;
+  if (!businessId) return;
 
-  if (navigator.share) {
-    navigator.share({
-      title: "Check out this store",
-      url: shareUrl
-    }).catch(function() {});
+  var baseUrl = (window.location && window.location.origin) ? window.location.origin : "https://ekka1km.ikka1-km.workers.dev";
+  var canonicalUrl = baseUrl + "/store/" + encodeURIComponent(businessId);
+
+  var biz = (CURRENT_STORE && CURRENT_STORE.business) ? CURRENT_STORE.business : (CURRENT_STORE || {});
+  var storeName = String(biz.Title || biz.BusinessName || "Store").trim();
+  var category = String(biz.Category || "").trim();
+  var city = String(biz.City || "").trim();
+
+  var shareTitle = (storeName !== "Store" ? storeName : "Ekka1km Store") + " — Ekka1km";
+  var shareText = "Check out " + storeName + " on Ekka1km.";
+  if (category && city) {
+    shareText = storeName + " (" + category + ") in " + city + " — on Ekka1km.";
+  } else if (category) {
+    shareText = storeName + " (" + category + ") — on Ekka1km.";
+  } else if (city) {
+    shareText = storeName + " in " + city + " — on Ekka1km.";
+  }
+
+  var shareData = {
+    title: shareTitle,
+    text: shareText,
+    url: canonicalUrl
+  };
+
+  var shareFn = (typeof ekkaNativeShare === "function") ? ekkaNativeShare : (navigator.share ? navigator.share.bind(navigator) : null);
+
+  if (shareFn) {
+    shareFn(shareData)
+      .then(function(res) {
+        if (res && res.canceled) return;
+        trackStoreShare(businessId);
+      })
+      .catch(function(err) {
+        if (err && (err.name === "AbortError" || String(err).indexOf("AbortError") !== -1 || String(err).toLowerCase().includes("cancel"))) {
+          return;
+        }
+        copyStoreUrlToClipboard(canonicalUrl, businessId);
+      });
   } else {
-    var tempInput = document.createElement("input");
-    tempInput.value = shareUrl;
-    document.body.appendChild(tempInput);
-    tempInput.select();
-    document.execCommand("copy");
-    document.body.removeChild(tempInput);
-    alert("Store link copied to clipboard!");
+    copyStoreUrlToClipboard(canonicalUrl, businessId);
   }
+}
 
-  // Track share
-  var userId = getUserId();
-  var url2 = getApiUrl() +
-    "?action=sharestore" +
-    "&businessId=" + encodeURIComponent(businessId);
-
-  if (userId) {
-    url2 += "&userId=" + encodeURIComponent(userId);
+function copyStoreUrlToClipboard(url, businessId) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    navigator.clipboard.writeText(url)
+      .then(function() {
+        showStoreShareToast("Store link copied to clipboard!");
+        trackStoreShare(businessId);
+      })
+      .catch(function() {
+        fallbackExecCommandStoreCopy(url, businessId);
+      });
+  } else {
+    fallbackExecCommandStoreCopy(url, businessId);
   }
+}
 
-  fetch(url2).catch(function() {});
+function fallbackExecCommandStoreCopy(url, businessId) {
+  try {
+    var temp = document.createElement("input");
+    temp.style.position = "fixed";
+    temp.style.top = "-9999px";
+    temp.style.opacity = "0";
+    temp.value = url;
+    document.body.appendChild(temp);
+    temp.focus();
+    temp.select();
+    var success = document.execCommand("copy");
+    document.body.removeChild(temp);
+    if (success) {
+      showStoreShareToast("Store link copied to clipboard!");
+      trackStoreShare(businessId);
+    } else {
+      showStoreShareToast("Unable to copy store link");
+    }
+  } catch (e) {
+    showStoreShareToast("Unable to copy store link");
+  }
+}
+
+function showStoreShareToast(msg) {
+  if (typeof showToast === "function") {
+    showToast(msg);
+    return;
+  }
+  var existing = document.getElementById("storeShareToast");
+  if (existing && existing.parentNode) {
+    existing.parentNode.removeChild(existing);
+  }
+  var toast = document.createElement("div");
+  toast.id = "storeShareToast";
+  toast.style.cssText = "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1f2937;color:#ffffff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:500;z-index:999999;box-shadow:0 4px 14px rgba(0,0,0,0.25);max-width:90%;text-align:center;pointer-events:none;transition:opacity 0.25s ease;";
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(function() {
+    toast.style.opacity = "0";
+    setTimeout(function() {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 250);
+  }, 2500);
+}
+
+function trackStoreShare(businessId) {
+  if (!businessId) return;
+  try {
+    var userId = typeof getUserId === "function" ? getUserId() : "";
+    var url2 = (typeof getApiUrl === "function" ? getApiUrl() : "") +
+      "?action=sharestore" +
+      "&businessId=" + encodeURIComponent(businessId);
+
+    if (userId) {
+      url2 += "&userId=" + encodeURIComponent(userId);
+    }
+
+    fetch(url2).catch(function() {});
+  } catch (e) {}
 }
