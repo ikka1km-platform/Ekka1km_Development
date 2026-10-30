@@ -240,7 +240,8 @@ const CONFIG = {
 
   MAX_LOGIN_ATTEMPTS: 5,
 
-  SESSION_EXPIRY_HOURS: 24,
+  // Persistent user session policy: sessions remain valid indefinitely until explicit logout.
+  // Automatic time-based expiration (SESSION_EXPIRY_HOURS) is retired.
 
   //============================================================
   // SEARCH

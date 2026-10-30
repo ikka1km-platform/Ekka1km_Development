@@ -125,6 +125,9 @@ function doGet(e) {
       case "login":
         return loginUser(e);
 
+      case "logout":
+        return logoutUser(e);
+
       case "register":
         return registerUser(e);
 

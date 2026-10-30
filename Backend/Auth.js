@@ -253,7 +253,7 @@ function loginByMobile(e) {
 }
 
 function logoutUser(e) {
-  const token = (e && e.parameter && e.parameter.session) || "";
+  const token = String((e && e.parameter && e.parameter.session) || "").trim();
   try {
     if (token && typeof unsubscribePushForSession === "function") {
       unsubscribePushForSession(e);
@@ -261,19 +261,22 @@ function logoutUser(e) {
   } catch (err) {
     Logger.log("Push logout cleanup failed: " + err);
   }
-  if (token) PropertiesService.getScriptProperties().deleteProperty("user_session_" + token);
+  if (!token) {
+    return error("Session token required for logout");
+  }
+  PropertiesService.getScriptProperties().deleteProperty("user_session_" + token);
   return success(
-    {},
+    { revoked: true },
     "Logout Successful"
   );
 }
 
-/** User sessions are server-held; client userId is never an authority. */
+/** User sessions are server-held; client userId is never an authority. Persistent until explicit logout. */
 function createUserSession(userId) {
   const token = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
   PropertiesService.getScriptProperties().setProperty("user_session_" + token, JSON.stringify({
     userId: String(userId),
-    expiresAt: Date.now() + (CONFIG.SESSION_EXPIRY_HOURS || 24) * 60 * 60 * 1000
+    createdAt: Date.now()
   }));
   return token;
 }
@@ -286,9 +289,9 @@ function requireUserSession(e) {
   if (!raw) return { valid: false, response: error("Invalid or expired session") };
   try {
     const session = JSON.parse(raw);
-    if (!session.userId || Date.now() > Number(session.expiresAt || 0)) {
+    if (!session || !session.userId) {
       PropertiesService.getScriptProperties().deleteProperty(key);
-      return { valid: false, response: error("Invalid or expired session") };
+      return { valid: false, response: error("Invalid session") };
     }
     return { valid: true, userId: String(session.userId) };
   } catch (err) { return { valid: false, response: error("Invalid session") }; }

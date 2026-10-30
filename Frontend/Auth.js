@@ -796,7 +796,12 @@ Clears ALL auth keys:
 ============================================================
 */
 
-function logoutUser() {
+let _isLoggingOut = false;
+
+async function logoutUser() {
+  if (_isLoggingOut) {
+    return;
+  }
 
   if (
     !confirm(
@@ -806,52 +811,109 @@ function logoutUser() {
     return;
   }
 
-  console.log("LOGOUT: clearing all session keys");
+  _isLoggingOut = true;
 
-  // Best-effort device cleanup while the authenticated session is still held.
-  if (window.EkkaPush && typeof window.EkkaPush.unsubscribeOnLogout === "function") {
-    window.EkkaPush.unsubscribeOnLogout();
+  try {
+    console.log("LOGOUT: clearing all session keys");
+
+    const currentToken = typeof getSessionToken === "function" ? getSessionToken() : "";
+    let serverRevocationStatus = "skipped"; // "success" | "server_error" | "network_error" | "skipped"
+
+    // 1. Request server-side session revocation for this device session
+    if (currentToken && typeof getApiUrl === "function") {
+      try {
+        const logoutUrl = getApiUrl() + "?action=logout&session=" + encodeURIComponent(currentToken);
+        let fetchPromise;
+        let timeoutId = null;
+
+        if (typeof AbortController !== "undefined") {
+          const controller = new AbortController();
+          timeoutId = setTimeout(function() { controller.abort(); }, 3500);
+          fetchPromise = fetch(logoutUrl, { signal: controller.signal });
+        } else {
+          fetchPromise = fetch(logoutUrl);
+        }
+
+        const response = await fetchPromise;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+
+        if (response && response.ok) {
+          const resData = await response.json().catch(function() { return null; });
+          if (resData && (resData.success === true || (resData.data && resData.data.revoked === true))) {
+            serverRevocationStatus = "success";
+            console.log("LOGOUT: server-side session revoked successfully");
+          } else {
+            serverRevocationStatus = "server_error";
+            console.warn("LOGOUT: backend returned rejection or error payload:", resData);
+          }
+        } else {
+          serverRevocationStatus = "server_error";
+          console.warn("LOGOUT: backend returned HTTP status:", response ? response.status : "unknown");
+        }
+      } catch (netErr) {
+        serverRevocationStatus = "network_error";
+        console.warn("LOGOUT: server revocation request failed (offline / network error):", netErr);
+      }
+    }
+
+    // 2. Best-effort device push cleanup while the authenticated session is still held
+    if (window.EkkaPush && typeof window.EkkaPush.unsubscribeOnLogout === "function") {
+      try {
+        window.EkkaPush.unsubscribeOnLogout();
+      } catch (pushErr) {
+        console.warn("Push unsubscribe failed during logout:", pushErr);
+      }
+    }
+
+    // 3. Guaranteed immediate local cleanup across all storage keys
+    clearSessionUser();
+
+    // Legacy keys (backward compat cleanup)
+    localStorage.removeItem(
+      CONFIG.STORAGE_KEYS.USER
+    );
+
+    localStorage.removeItem(
+      CONFIG.STORAGE_KEYS.TOKEN
+    );
+
+    // Legacy ekka_* keys
+    localStorage.removeItem("ekka_user");
+    localStorage.removeItem("ekka_token");
+    localStorage.removeItem("ekka_session");
+
+    // Keep last mobile for auto-fill
+    // Do NOT clear ekka1km_last_mobile
+
+    console.log(
+      "LOGOUT: session after clear -",
+      "ekka1km_session:",
+      localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION),
+      "ekka1km_user:",
+      localStorage.getItem(CONFIG.STORAGE_KEYS.USER_NEW),
+      "ekka_user:",
+      localStorage.getItem(CONFIG.STORAGE_KEYS.USER)
+    );
+
+    refreshLoginUI();
+
+    // 4. User notification reflecting actual revocation state
+    if (serverRevocationStatus === "network_error") {
+      alert("Logged out on this device (offline/network unavailable).");
+    } else if (serverRevocationStatus === "server_error") {
+      alert("Logged out on this device (server could not confirm revocation).");
+    } else {
+      alert("Logged Out Successfully");
+    }
+
+    openPage("home");
+
+    loadLocation();
+  } finally {
+    _isLoggingOut = false;
   }
-
-  // New session keys (primary)
-  clearSessionUser();
-
-  // Legacy keys (backward compat cleanup)
-  localStorage.removeItem(
-    CONFIG.STORAGE_KEYS.USER
-  );
-
-  localStorage.removeItem(
-    CONFIG.STORAGE_KEYS.TOKEN
-  );
-
-  // Legacy ekka_* keys
-  localStorage.removeItem("ekka_user");
-  localStorage.removeItem("ekka_token");
-  localStorage.removeItem("ekka_session");
-
-  // Keep last mobile for auto-fill
-  // Do NOT clear ekka1km_last_mobile
-
-  console.log(
-    "LOGOUT: session after clear -",
-    "ekka1km_session:",
-    localStorage.getItem(CONFIG.STORAGE_KEYS.SESSION),
-    "ekka1km_user:",
-    localStorage.getItem(CONFIG.STORAGE_KEYS.USER_NEW),
-    "ekka_user:",
-    localStorage.getItem(CONFIG.STORAGE_KEYS.USER)
-  );
-
-  refreshLoginUI();
-
-  alert(
-    "Logged Out Successfully"
-  );
-
-  openPage("home");
-
-  loadLocation();
 }
 
 
