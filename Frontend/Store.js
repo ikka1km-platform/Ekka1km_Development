@@ -202,9 +202,20 @@ function renderStore(data, businessId) {
 
 /*
 ============================================================
-LOAD STORE PRODUCTS (Preserved)
+LOAD STORE PRODUCTS — Visual Card Presentation
 ============================================================
 */
+
+function escapeStoreHtml(str) {
+  if (typeof escapeHtml === "function") return escapeHtml(str);
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 function loadStoreProducts(businessId) {
   var url = getApiUrl() +
@@ -218,14 +229,62 @@ function loadStoreProducts(businessId) {
       if (!list) return;
 
       if (res && res.success && res.data && res.data.data && res.data.data.length > 0) {
-        var html = "";
-        res.data.data.forEach(function(p) {
-          html += '<div class="store-hij-productItem">' +
-            '<span class="store-hij-productName">' + (p.Title || "Product") + '</span>' +
-            '<span class="store-hij-productPrice">₹' + (p.Price || "0") + '</span>' +
-            '</div>';
+        var products = res.data.data;
+
+        // Safely merge store products into CURRENT_PRODUCTS so detail resolver finds them immediately
+        if (typeof CURRENT_PRODUCTS !== "undefined" && Array.isArray(CURRENT_PRODUCTS)) {
+          products.forEach(function(sp) {
+            if (!sp) return;
+            var spId = String(sp.ProductID || sp.productId || "");
+            if (!spId) return;
+            var exists = CURRENT_PRODUCTS.some(function(cp) {
+              return String((cp && (cp.ProductID || cp.productId)) || "") === spId;
+            });
+            if (!exists) {
+              CURRENT_PRODUCTS.push(sp);
+            }
+          });
+        }
+
+        var html = '<div class="homePreviewGrid">';
+
+        products.forEach(function(product) {
+          var images = (typeof getProductImages === "function") ? getProductImages(product) : [];
+          if (images.length === 0 && product.ImageURL && (product.ImageURL.startsWith("http://") || product.ImageURL.startsWith("https://"))) {
+            images = [product.ImageURL];
+          }
+          var firstImage = images.length > 0 ? images[0] : "";
+          var productId = product.ProductID || product.productId || "";
+          var rawTitle = product.Title || product.title || "-";
+          var safeTitle = escapeStoreHtml(rawTitle);
+          var price = (Number(product.Price) || 0).toLocaleString();
+          var distance = product.DistanceKm ? (product.DistanceKm + " KM away") : "";
+          var isFeatured = product.Featured === "Yes";
+
+          html += `
+            <div class="homePreviewCard" onclick='showProductDetailsById("${productId}")'>
+              ${firstImage
+                ? `<div class="homePreviewCard-img"><img src="${firstImage}" alt="${safeTitle}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\'homePreviewCard-img homePreviewCard-imgPlaceholder\'><span class=\'material-icons\'>shopping_bag</span></div>'"></div>`
+                : `<div class="homePreviewCard-img homePreviewCard-imgPlaceholder"><span class="material-icons">shopping_bag</span></div>`
+              }
+              ${isFeatured ? `<div class="homePreviewCard-featured">Featured</div>` : ""}
+              <div class="homePreviewCard-wishlist" data-interest-type="Product" data-interest-id="${productId}" onclick='event.stopPropagation(); toggleInterest(this, "${productId}", "Product")'>
+                <i class="material-icons">favorite_border</i>
+              </div>
+              <div class="homePreviewCard-body">
+                <div class="homePreviewCard-title">${safeTitle}</div>
+                <div class="homePreviewCard-price">₹ ${price}</div>
+                ${distance ? `<div class="homePreviewCard-meta">${distance}</div>` : ""}
+              </div>
+            </div>`;
         });
+
+        html += '</div>';
         list.innerHTML = html;
+
+        if (typeof refreshInterestHearts === "function") {
+          refreshInterestHearts();
+        }
       } else {
         list.innerHTML = '<p style="text-align:center;color:#888;font-size:13px;">No products yet</p>';
       }
