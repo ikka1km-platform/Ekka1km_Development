@@ -548,26 +548,19 @@ function showProductDetails(product) {
 
   if (isLogin) {
     if (isOwner) {
+      const prodId = product.ProductID || product.productId || "";
       html += `
         <div style="padding:12px;background:#e8f5e9;border:1px solid #c8e6c9;border-radius:10px;color:#2e7d32;text-align:center;font-weight:600;font-size:14px;">
           <i class="material-icons" style="font-size:18px;vertical-align:middle;">check_circle</i> This is your product
         </div>
       `;
 
-      if (phone) {
-        html += `<button onclick="callSeller('${phone}')" style="background:#25D366;">
-          <i class="material-icons" style="font-size:18px;vertical-align:middle;">call</i> Call Seller
-        </button>`;
-      }
+      html += `<button onclick="updateProductForm('${prodId}')" style="background:#1976d2;color:#fff;">
+        <i class="material-icons" style="font-size:18px;vertical-align:middle;">edit</i> Edit Product
+      </button>`;
 
-      if (whatsapp) {
-        html += `<button onclick="whatsappSeller('${whatsapp}')" style="background:#25D366;">
-          <i class="material-icons" style="font-size:18px;vertical-align:middle;">chat</i> WhatsApp
-        </button>`;
-      }
-
-      html += `<button onclick="getProductDirections()">
-        <i class="material-icons" style="font-size:18px;vertical-align:middle;">directions</i> Get Directions
+      html += `<button class="btn-danger" onclick="deleteProductConfirm('${prodId}')" style="background:#d32f2f;color:#fff;">
+        <i class="material-icons" style="font-size:18px;vertical-align:middle;">delete</i> Delete Product
       </button>`;
     } else {
       html += `<button onclick="sendInterest()">
@@ -617,10 +610,12 @@ function showProductDetails(product) {
     <i class="material-icons" style="font-size:18px;vertical-align:middle;">share</i> Share
   </button>`;
 
-  // Report
-  html += `<button onclick="reportProduct()" class="btn-danger" style="background:var(--danger);">
-    <i class="material-icons" style="font-size:18px;vertical-align:middle;">flag</i> Report Listing
-  </button>`;
+  // Report (for buyers / non-owners only)
+  if (!isOwner) {
+    html += `<button onclick="reportProduct()" class="btn-danger" style="background:var(--danger);">
+      <i class="material-icons" style="font-size:18px;vertical-align:middle;">flag</i> Report Listing
+    </button>`;
+  }
 
   html += '</div>'; // actions
   html += '</div>'; // hij-detail

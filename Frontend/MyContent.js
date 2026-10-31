@@ -469,7 +469,13 @@ function deleteMyContentItem(type, id) {
   let url = "";
 
   if (type === "product") {
-    url = `${getApiUrl()}?action=deleteproduct&productId=${encodeURIComponent(id)}`;
+    const sessionToken = (typeof getSessionToken === "function") ? getSessionToken() : "";
+    if (!sessionToken) {
+      alert("Authentication required. Please login again.");
+      if (typeof requireLogin === "function") requireLogin();
+      return;
+    }
+    url = `${getApiUrl()}?action=deleteproduct&productId=${encodeURIComponent(id)}&session=${encodeURIComponent(sessionToken)}`;
   } else if (type === "business") {
     url = `${getApiUrl()}?action=deletebusiness&businessId=${encodeURIComponent(id)}`;
   } else if (type === "property") {

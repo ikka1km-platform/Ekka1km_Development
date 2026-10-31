@@ -87,8 +87,11 @@ function createProduct(e) {
       return error(limitCheck.reason);
     }
 
-    // Business ownership verification
+    // Business ownership verification & coordinate inheritance
     var businessId = (p.businessId || "").trim();
+    var latitude = "";
+    var longitude = "";
+
     if (businessId) {
       var business = getRowById("Businesses", "BusinessID", businessId);
       if (!business) return error("Business not found");
@@ -96,6 +99,29 @@ function createProduct(e) {
       if (bizOwner !== String(userId).trim()) {
         return error("Not authorized to post products for this business");
       }
+
+      // Authoritative store coordinate inheritance: ignore frontend coordinates
+      var rawBizLat = (business.Latitude !== undefined && business.Latitude !== null && String(business.Latitude).trim() !== "")
+        ? String(business.Latitude).trim()
+        : ((business.latitude !== undefined && business.latitude !== null) ? String(business.latitude).trim() : "");
+      var rawBizLng = (business.Longitude !== undefined && business.Longitude !== null && String(business.Longitude).trim() !== "")
+        ? String(business.Longitude).trim()
+        : ((business.longitude !== undefined && business.longitude !== null) ? String(business.longitude).trim() : "");
+
+      var bLatNum = Number(rawBizLat);
+      var bLngNum = Number(rawBizLng);
+      var isValidBizCoords = (rawBizLat !== "" && rawBizLng !== "" && !isNaN(bLatNum) && !isNaN(bLngNum) && bLatNum >= -90 && bLatNum <= 90 && bLngNum >= -180 && bLngNum <= 180 && !(bLatNum === 0 && bLngNum === 0));
+
+      if (!isValidBizCoords) {
+        return error("Registered store coordinates are missing or invalid. Please update the store location in business settings before adding products.");
+      }
+
+      latitude = rawBizLat;
+      longitude = rawBizLng;
+    } else {
+      // Independent product listings continue using submitted coordinates
+      latitude = p.latitude || p.lat || "";
+      longitude = p.longitude || p.lng || "";
     }
 
     const sheet = getSheet("Products");
@@ -105,9 +131,6 @@ function createProduct(e) {
     if (status !== "Draft" && status !== "Pending" && status !== "Published" && status !== "Inactive" && status !== "Sold" && status !== "Expired" && status !== "Deleted") {
       status = "Pending";
     }
-
-    var latitude = p.latitude || p.lat || "";
-    var longitude = p.longitude || p.lng || "";
 
     sheet.appendRow([
       productId,

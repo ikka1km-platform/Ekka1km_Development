@@ -63,6 +63,18 @@ function clearProductForm() {
   // Remove any business posting banner if present
   var banner = document.getElementById("prodBusinessPostingBanner");
   if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
+
+  // Clear any business inheritance & edit attributes
+  var container = document.getElementById("postProduct");
+  if (container) {
+    container.removeAttribute("data-product-id");
+    container.removeAttribute("data-business-id");
+    container.removeAttribute("data-business-lat");
+    container.removeAttribute("data-business-lng");
+    container.removeAttribute("data-edit-lat");
+    container.removeAttribute("data-edit-lng");
+    container.removeAttribute("data-edit-business-id");
+  }
 }
 
 /*
@@ -137,6 +149,20 @@ function openAddProductForBusinessWithData(business) {
     setPublishAsChoice("product", bizId, bizName, "Posting under business profile.");
   }
 
+  // Preserve registered store coordinates on postProduct container
+  var postProductPage = document.getElementById("postProduct");
+  if (postProductPage) {
+    if (bizId) postProductPage.setAttribute("data-business-id", bizId);
+    var bizLat = (business.Latitude !== undefined && business.Latitude !== null)
+      ? String(business.Latitude).trim()
+      : ((business.Lat !== undefined && business.Lat !== null) ? String(business.Lat).trim() : "");
+    var bizLng = (business.Longitude !== undefined && business.Longitude !== null)
+      ? String(business.Longitude).trim()
+      : ((business.Lng !== undefined && business.Lng !== null) ? String(business.Lng).trim() : "");
+    if (bizLat) postProductPage.setAttribute("data-business-lat", bizLat);
+    if (bizLng) postProductPage.setAttribute("data-business-lng", bizLng);
+  }
+
   // Use existing init from Post.js
   if (typeof initProductImageUploads === "function") {
     initProductImageUploads();
@@ -189,9 +215,98 @@ function submitProduct() {
   var existingId = container ? container.getAttribute("data-product-id") : null;
   var isEdit = !!existingId;
 
+  var businessId = "";
+  var prodLat = "";
+  var prodLng = "";
+
+  if (isEdit) {
+    // ==========================================
+    // C. EDITING AN EXISTING PRODUCT
+    // ==========================================
+    // 1. Preserve original BusinessID (do not convert store product to independent or vice-versa)
+    var editBizId = container ? (container.getAttribute("data-edit-business-id") || "") : "";
+    businessId = editBizId;
+
+    // 2. Preserve original product coordinates (never substitute owner's current GPS/manual location)
+    var editLat = container ? (container.getAttribute("data-edit-lat") || "") : "";
+    var editLng = container ? (container.getAttribute("data-edit-lng") || "") : "";
+
+    if (editLat && editLng) {
+      prodLat = editLat;
+      prodLng = editLng;
+    } else if (editBizId) {
+      // If original product record had missing coordinates, resolve from registered store
+      var cBizLat = container ? container.getAttribute("data-business-lat") : "";
+      var cBizLng = container ? container.getAttribute("data-business-lng") : "";
+      if (cBizLat && cBizLng) {
+        prodLat = cBizLat;
+        prodLng = cBizLng;
+      } else {
+        var bizObj = (typeof CURRENT_BUSINESS !== "undefined" && CURRENT_BUSINESS && String(CURRENT_BUSINESS.BusinessID || CURRENT_BUSINESS.businessId) === String(editBizId))
+          ? CURRENT_BUSINESS
+          : ((typeof CURRENT_BUSINESSES !== "undefined" && Array.isArray(CURRENT_BUSINESSES)) ? CURRENT_BUSINESSES.find(function(b) {
+              return String(b.BusinessID || b.businessId) === String(editBizId);
+            }) : null);
+
+        if (bizObj) {
+          prodLat = (bizObj.Latitude !== undefined && bizObj.Latitude !== null)
+            ? String(bizObj.Latitude).trim()
+            : ((bizObj.Lat !== undefined && bizObj.Lat !== null) ? String(bizObj.Lat).trim() : "");
+          prodLng = (bizObj.Longitude !== undefined && bizObj.Longitude !== null)
+            ? String(bizObj.Longitude).trim()
+            : ((bizObj.Lng !== undefined && bizObj.Lng !== null) ? String(bizObj.Lng).trim() : "");
+        }
+      }
+    }
+
+    // Never substitute owner's current GPS location during edit.
+    if (!prodLat || !prodLng) {
+      console.warn("Product coordinates missing during edit; preserving existing database location.");
+    }
+  } else {
+    // ==========================================
+    // NEW PRODUCT POSTING
+    // ==========================================
+    businessId = (typeof getPublishAsBusinessId === "function") ? getPublishAsBusinessId("product") : "";
+    if (!businessId && container) {
+      businessId = container.getAttribute("data-business-id") || "";
+    }
+
+    if (businessId) {
+      // A. NEW STORE-BASED PRODUCT: inherit registered store coordinates
+      var cBizId = container ? container.getAttribute("data-business-id") : "";
+      var cLat = container ? container.getAttribute("data-business-lat") : "";
+      var cLng = container ? container.getAttribute("data-business-lng") : "";
+
+      if (cBizId && String(cBizId) === String(businessId) && cLat && cLng) {
+        prodLat = cLat;
+        prodLng = cLng;
+      } else {
+        var bizObjNew = (typeof CURRENT_BUSINESS !== "undefined" && CURRENT_BUSINESS && String(CURRENT_BUSINESS.BusinessID || CURRENT_BUSINESS.businessId) === String(businessId))
+          ? CURRENT_BUSINESS
+          : ((typeof CURRENT_BUSINESSES !== "undefined" && Array.isArray(CURRENT_BUSINESSES)) ? CURRENT_BUSINESSES.find(function(b) {
+              return String(b.BusinessID || b.businessId) === String(businessId);
+            }) : null);
+
+        if (bizObjNew) {
+          prodLat = (bizObjNew.Latitude !== undefined && bizObjNew.Latitude !== null)
+            ? String(bizObjNew.Latitude).trim()
+            : ((bizObjNew.Lat !== undefined && bizObjNew.Lat !== null) ? String(bizObjNew.Lat).trim() : "");
+          prodLng = (bizObjNew.Longitude !== undefined && bizObjNew.Longitude !== null)
+            ? String(bizObjNew.Longitude).trim()
+            : ((bizObjNew.Lng !== undefined && bizObjNew.Lng !== null) ? String(bizObjNew.Lng).trim() : "");
+        }
+      }
+    } else {
+      // B. NEW INDEPENDENT PRODUCT: use current GPS / manual center location
+      prodLat = getCenterLat();
+      prodLng = getCenterLng();
+    }
+  }
+
   var formData = {
     userId: userId,
-    businessId: (typeof getPublishAsBusinessId === "function" && !isEdit) ? getPublishAsBusinessId("product") : "",
+    businessId: businessId,
     title: title,
     description: document.getElementById("prodDesc").value.trim(),
     price: price,
@@ -205,8 +320,8 @@ function submitProduct() {
     city: document.getElementById("prodCity").value.trim(),
     state: document.getElementById("prodState").value.trim(),
     pincode: document.getElementById("prodPincode").value.trim(),
-    latitude: getCenterLat(),
-    longitude: getCenterLng(),
+    latitude: prodLat,
+    longitude: prodLng,
     phone: document.getElementById("prodPhone").value.trim(),
     whatsapp: document.getElementById("prodWhatsapp").value.trim(),
     delivery: document.getElementById("prodDelivery").value,
@@ -232,8 +347,16 @@ function submitProduct() {
     .then(function(res) {
       if (res && res.success) {
         alert(isEdit ? "Product updated successfully!" : "Product posted successfully!");
-        // Clear edit state
-        if (container) container.removeAttribute("data-product-id");
+        // Clear edit state and business inheritance attributes
+        if (container) {
+          container.removeAttribute("data-product-id");
+          container.removeAttribute("data-business-id");
+          container.removeAttribute("data-business-lat");
+          container.removeAttribute("data-business-lng");
+          container.removeAttribute("data-edit-lat");
+          container.removeAttribute("data-edit-lng");
+          container.removeAttribute("data-edit-business-id");
+        }
         openPage("products");
       } else {
         alert(res.message || (isEdit ? "Failed to update product" : "Failed to post product"));
@@ -267,18 +390,19 @@ function updateProductForm(productId) {
       if (res && res.success && res.data) {
         var product = res.data;
         openPage("postProduct");
+        clearProductForm();
         if (typeof initProductImageUploads === "function") {
           initProductImageUploads();
         }
 
-      document.getElementById("prodTitle").value = product.Title || "";
-      document.getElementById("prodDesc").value = product.Description || "";
-      document.getElementById("prodPrice").value = product.Price || "";
-      document.getElementById("prodCategory").value = product.Category || "";
-      document.getElementById("prodCondition").value = product.Condition || "New";
-      document.getElementById("prodBrand").value = product.Brand || "";
-      document.getElementById("prodModel").value = product.Model || "";
-      document.getElementById("prodImage").value = product.ImageURL || "";
+        document.getElementById("prodTitle").value = product.Title || "";
+        document.getElementById("prodDesc").value = product.Description || "";
+        document.getElementById("prodPrice").value = product.Price || "";
+        document.getElementById("prodCategory").value = product.Category || "";
+        document.getElementById("prodCondition").value = product.Condition || "New";
+        document.getElementById("prodBrand").value = product.Brand || "";
+        document.getElementById("prodModel").value = product.Model || "";
+        document.getElementById("prodImage").value = product.ImageURL || "";
         document.getElementById("prodImage2").value = product.Image2 || "";
         document.getElementById("prodImage3").value = product.Image3 || "";
         document.getElementById("prodCity").value = product.City || "";
@@ -290,10 +414,30 @@ function updateProductForm(productId) {
         document.getElementById("prodCOD").value = product.COD || "No";
         document.getElementById("prodNegotiable").value = product.Negotiable || "No";
 
-        // Ensure product ID is set for edit mode
+        // Extract original location and business ownership info
+        var origLat = (product.Latitude !== undefined && product.Latitude !== null && String(product.Latitude).trim() !== "")
+          ? String(product.Latitude).trim()
+          : ((product.latitude !== undefined && product.latitude !== null && String(product.latitude).trim() !== "")
+            ? String(product.latitude).trim()
+            : ((product.Lat !== undefined && product.Lat !== null && String(product.Lat).trim() !== "") ? String(product.Lat).trim() : ""));
+
+        var origLng = (product.Longitude !== undefined && product.Longitude !== null && String(product.Longitude).trim() !== "")
+          ? String(product.Longitude).trim()
+          : ((product.longitude !== undefined && product.longitude !== null && String(product.longitude).trim() !== "")
+            ? String(product.longitude).trim()
+            : ((product.Lng !== undefined && product.Lng !== null && String(product.Lng).trim() !== "") ? String(product.Lng).trim() : ""));
+
+        var origBizId = (product.BusinessID !== undefined && product.BusinessID !== null && String(product.BusinessID).trim() !== "")
+          ? String(product.BusinessID).trim()
+          : ((product.businessId !== undefined && product.businessId !== null && String(product.businessId).trim() !== "") ? String(product.businessId).trim() : "");
+
+        // Set edit state and preserve original product coordinates and business association
         var container = document.getElementById("postProduct");
         if (container) {
           container.setAttribute("data-product-id", productId);
+          if (origLat) container.setAttribute("data-edit-lat", origLat);
+          if (origLng) container.setAttribute("data-edit-lng", origLng);
+          if (origBizId) container.setAttribute("data-edit-business-id", origBizId);
         }
       } else {
         alert("Product not found");
@@ -315,21 +459,49 @@ function deleteProductConfirm(productId) {
     return;
   }
 
-  var userId = getUserId();
-  var url = getApiUrl() + "?action=deleteproduct&productId=" + encodeURIComponent(productId);
+  var sessionToken = (typeof getSessionToken === "function") ? getSessionToken() : "";
+  if (!sessionToken) {
+    alert("Authentication required. Please login again.");
+    if (typeof requireLogin === "function") requireLogin();
+    return;
+  }
+
+  var url = getApiUrl() + "?action=deleteproduct&productId=" + encodeURIComponent(productId) + "&session=" + encodeURIComponent(sessionToken);
 
   fetch(url)
     .then(function(r) { return r.json(); })
     .then(function(res) {
       if (res && res.success) {
         alert("Product deleted successfully");
-        loadMyProducts();
+        if (typeof loadMyProducts === "function") {
+          loadMyProducts();
+        }
+        if (typeof MY_CONTENT_DATA !== "undefined" && MY_CONTENT_DATA && Array.isArray(MY_CONTENT_DATA.products)) {
+          MY_CONTENT_DATA.products = MY_CONTENT_DATA.products.filter(function(p) {
+            return String(p.ProductID || p.productId || "") !== String(productId);
+          });
+          if (typeof renderMyContent === "function") {
+            renderMyContent();
+          }
+        }
+        if (typeof CURRENT_PRODUCT !== "undefined" && CURRENT_PRODUCT && String(CURRENT_PRODUCT.ProductID || CURRENT_PRODUCT.productId || "") === String(productId)) {
+          CURRENT_PRODUCT = null;
+          if (typeof goBack === "function") {
+            goBack();
+          } else if (typeof openPage === "function") {
+            openPage("products");
+          }
+        }
+        if (typeof loadProducts === "function") {
+          loadProducts();
+        }
       } else {
         alert(res.message || "Failed to delete product");
       }
     })
     .catch(function(err) {
       console.log("Delete product error:", err);
+      alert("Error deleting product");
     });
 }
 
