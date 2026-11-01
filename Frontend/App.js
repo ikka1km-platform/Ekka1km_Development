@@ -204,6 +204,9 @@ function refreshLoginUI() {
   if (typeof checkBroadcasterAllocation === "function") {
     checkBroadcasterAllocation();
   }
+  if (typeof refreshDrawerIdentity === "function") {
+    refreshDrawerIdentity();
+  }
 }
 
 
@@ -227,6 +230,9 @@ function openSideDrawer() {
   updateDrawerNotificationBadge();
   if (typeof checkBroadcasterAllocation === "function") {
     checkBroadcasterAllocation();
+  }
+  if (typeof refreshDrawerIdentity === "function") {
+    refreshDrawerIdentity();
   }
 }
 
@@ -405,19 +411,14 @@ function refreshDrawerIdentity() {
     }
   }
 
-  // Official Announcer Drawer Item Visibility (restricted exclusively to approved/active announcers)
+  // Official Announcer Drawer Item Visibility (accessible to all logged-in users)
   const announcerDrawerEl = document.getElementById("drawerAnnouncerItem");
   if (announcerDrawerEl) {
     var uid = user ? (user.UserID || user.userId || user.id || "") : "";
     if (!uid) {
       announcerDrawerEl.style.display = "none";
     } else {
-      var cachedActive = localStorage.getItem("ekka_active_announcer_" + uid);
-      if (cachedActive === "true") {
-        announcerDrawerEl.style.display = "flex";
-      } else {
-        announcerDrawerEl.style.display = "none";
-      }
+      announcerDrawerEl.style.display = "flex";
 
       if (typeof getApiUrl === "function") {
         fetch(getApiUrl() + "?action=myannouncerstatus&userId=" + encodeURIComponent(uid))
@@ -432,9 +433,6 @@ function refreshDrawerIdentity() {
               }
             }
             localStorage.setItem("ekka_active_announcer_" + uid, hasActive ? "true" : "false");
-            if (announcerDrawerEl) {
-              announcerDrawerEl.style.display = hasActive ? "flex" : "none";
-            }
           })
           .catch(function() { /* silent */ });
       }
@@ -983,7 +981,7 @@ function updateBottomNavActiveState(pageId) {
 
   // Map pageId to bottom nav tab
   let activeTab = null;
-  
+
   if (pageId === "home") {
     activeTab = "home";
   } else if (["products", "businesses", "properties"].includes(pageId)) {

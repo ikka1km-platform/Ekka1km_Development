@@ -414,6 +414,18 @@ case "notification_sent":
       case "admintoggleautopublish":
         return adminToggleAutoPublish(e);
 
+      case "admincreateannouncer":
+        return adminCreateAnnouncer(e);
+
+      case "adminupdateannouncer":
+        return adminUpdateAnnouncer(e);
+
+      case "adminrejectannouncer":
+        return adminRejectAnnouncer(e);
+
+      case "admindeleteannouncer":
+        return adminDeleteAnnouncer(e);
+
       case "adminannouncementstatus":
         return setAnnouncementStatus(e);
 
@@ -593,7 +605,7 @@ case "notification_sent":
 
       case "liveanalytics":
         return getLiveAnalytics(e);
-      
+
         case "subscribelive":
   return subscribeLive(e);
 
